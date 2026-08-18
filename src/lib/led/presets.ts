@@ -182,7 +182,10 @@ export function screenFromPreset(
 export function defaultScreen(index: number): LedScreen {
   return screenFromPreset(
     {
-      ...SCREEN_PRESETS[0],
+      key: "default",
+      label: "LED Screen",
+      description: "1920 × 1080 · 10 × 4 m",
+      type: "flat",
       physicalWidth: 10,
       physicalHeight: 4,
       pixelWidth: 1920,
