@@ -88,8 +88,7 @@ export default function Viewport() {
   }, [selectedId, project]);
 
   const editable = mode !== "preview";
-  const gizmoActive =
-    editable && !!selectedObject && !!selectedScreen && !selectedScreen.locked;
+  const gizmoActive = editable && !!selectedObject && !!selectedScreen && !selectedScreen.locked;
 
   if (!project) return null;
 
@@ -166,29 +165,35 @@ export default function Viewport() {
           size={0.85}
           onMouseDown={() => {
             if (controls.current) controls.current.enabled = false;
+            // snapshot once per drag so undo steps back a whole gesture
+            updateScreen(selectedScreen.id, {}, { history: true });
           }}
           onMouseUp={() => {
             if (controls.current) controls.current.enabled = true;
           }}
           onObjectChange={() => {
             const o = selectedObject;
-            updateScreen(selectedScreen.id, {
-              position: {
-                x: +o.position.x.toFixed(3),
-                y: +o.position.y.toFixed(3),
-                z: +o.position.z.toFixed(3),
+            updateScreen(
+              selectedScreen.id,
+              {
+                position: {
+                  x: +o.position.x.toFixed(3),
+                  y: +o.position.y.toFixed(3),
+                  z: +o.position.z.toFixed(3),
+                },
+                rotation: {
+                  x: +(o.rotation.x / DEG).toFixed(2),
+                  y: +(o.rotation.y / DEG).toFixed(2),
+                  z: +(o.rotation.z / DEG).toFixed(2),
+                },
+                scale: {
+                  x: +o.scale.x.toFixed(3),
+                  y: +o.scale.y.toFixed(3),
+                  z: +o.scale.z.toFixed(3),
+                },
               },
-              rotation: {
-                x: +(o.rotation.x / DEG).toFixed(2),
-                y: +(o.rotation.y / DEG).toFixed(2),
-                z: +(o.rotation.z / DEG).toFixed(2),
-              },
-              scale: {
-                x: +o.scale.x.toFixed(3),
-                y: +o.scale.y.toFixed(3),
-                z: +o.scale.z.toFixed(3),
-              },
-            });
+              { history: false },
+            );
           }}
         />
       )}
