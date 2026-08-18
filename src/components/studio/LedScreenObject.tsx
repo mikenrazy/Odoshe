@@ -113,8 +113,8 @@ export function LedScreenObject({
     >
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial
-          map={texture ?? undefined}
-          emissiveMap={texture ?? undefined}
+          map={texture}
+          emissiveMap={texture}
           color="#0a0d14"
           emissive={new THREE.Color(screen.color)}
           emissiveIntensity={screen.brightness}
