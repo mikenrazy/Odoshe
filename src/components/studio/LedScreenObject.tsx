@@ -92,8 +92,8 @@ export function LedScreenObject({
     [screen],
   );
 
-  const repeatX = Math.max(2, Math.round(screen.physicalWidth * 6));
-  const repeatY = Math.max(2, Math.round(screen.physicalHeight * 6));
+  const repeatX = Math.max(4, Math.round(screen.physicalWidth * 10));
+  const repeatY = Math.max(4, Math.round(screen.physicalHeight * 10));
   if (texture) texture.repeat.set(repeatX, repeatY);
 
   if (!screen.visible) return null;
@@ -111,13 +111,30 @@ export function LedScreenObject({
         onSelect(screen.id);
       }}
     >
+      {!screen.curvature.enabled && (
+        <mesh
+          position={[0, 0, -Math.max(screen.physicalDepth, 0.02) / 2]}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry
+            args={[
+              screen.physicalWidth + 0.08,
+              screen.physicalHeight + 0.08,
+              Math.max(screen.physicalDepth, 0.02),
+            ]}
+          />
+          <meshStandardMaterial color="#0a0c11" roughness={0.7} metalness={0.4} />
+        </mesh>
+      )}
+
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial
           map={texture}
           emissiveMap={texture}
           color="#0a0d14"
           emissive={new THREE.Color(screen.color)}
-          emissiveIntensity={screen.brightness}
+          emissiveIntensity={screen.brightness * 0.8}
           metalness={0.25}
           roughness={0.45}
           side={THREE.DoubleSide}
