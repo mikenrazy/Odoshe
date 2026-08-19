@@ -190,6 +190,7 @@ export function normalizeProject(project: Project): Project {
     return {
       ...s,
       processorId: s.processorId ?? processors[0]!.id,
+      gridOrder: s.gridOrder ?? index + 1,
       panelConfiguration: {
         ...panel,
         panelWidth,
