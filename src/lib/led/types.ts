@@ -101,6 +101,8 @@ export interface LedScreen {
   processorId: string;
   visible: boolean;
   locked: boolean;
+  /** stable ordering within its processor's continuous grid numbering */
+  gridOrder?: number;
 }
 
 export interface StageConfig {
