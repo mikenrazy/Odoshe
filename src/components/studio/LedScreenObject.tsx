@@ -68,8 +68,42 @@ function panelLines(screen: LedScreen): Array<[number, number, number][]> {
   return segments;
 }
 
+function cabinetCenters(screen: LedScreen) {
+  const cols = Math.max(1, Math.round(screen.panelConfiguration.cols));
+  const rows = Math.max(1, Math.round(screen.panelConfiguration.rows));
+  const w = screen.physicalWidth;
+  const h = screen.physicalHeight;
+  const curved = screen.curvature.enabled && screen.curvature.angle > 0.5;
+  const theta = Math.min(screen.curvature.angle, 180) * DEG;
+  const radius = curved ? w / theta : 0;
+  const concave = screen.curvature.concave;
+  const front = curved ? 0 : Math.max(screen.physicalDepth, 0.02) / 2 + 0.01;
+
+  const cells: Array<{ index: number; position: [number, number, number]; rotY: number }> = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const u = (c + 0.5) / cols;
+      const y = h / 2 - ((r + 0.5) / rows) * h;
+      if (curved) {
+        const a = (concave ? Math.PI - theta / 2 : -theta / 2) + u * theta;
+        const rr = radius + 0.02;
+        cells.push({
+          index: r * cols + c,
+          position: [Math.sin(a) * rr, y, Math.cos(a) * rr + (concave ? radius : -radius)],
+          rotY: concave ? a + Math.PI : a,
+        });
+      } else {
+        cells.push({ index: r * cols + c, position: [(u - 0.5) * w, y, front], rotY: 0 });
+      }
+    }
+  }
+  return { cells, cellWidth: w / cols, cellHeight: h / rows };
+}
+
 interface Props {
   screen: LedScreen;
+  gridStart?: number;
+  processorLabel?: string;
   selected: boolean;
   showMeasurements: boolean;
   interactive: boolean;
@@ -79,6 +113,8 @@ interface Props {
 
 export function LedScreenObject({
   screen,
+  gridStart = 1,
+  processorLabel,
   selected,
   showMeasurements,
   interactive,
@@ -89,6 +125,10 @@ export function LedScreenObject({
   const texture = useMemo(() => createLedTexture(screen.color), [screen.color]);
   const grid = useMemo(
     () => (screen.panelConfiguration.show ? panelLines(screen) : []),
+    [screen],
+  );
+  const cabinets = useMemo(
+    () => (screen.panelConfiguration.show ? cabinetCenters(screen) : null),
     [screen],
   );
 
@@ -145,6 +185,25 @@ export function LedScreenObject({
       {grid.map((points, i) => (
         <Line key={i} points={points} color="#0b1220" lineWidth={1.2} transparent opacity={0.85} />
       ))}
+
+      {cabinets &&
+        cabinets.cells.map((cell) => (
+          <Text
+            key={cell.index}
+            position={cell.position}
+            rotation={[0, cell.rotY, 0]}
+            fontSize={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.24}
+            color="#ffd8a6"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.004}
+            outlineColor="#05070b"
+          >
+            {processorLabel
+              ? `${processorLabel} – Grid ${gridStart + cell.index}`
+              : `Grid ${gridStart + cell.index}`}
+          </Text>
+        ))}
 
       {selected && (
         <mesh geometry={geometry} scale={1.008}>
