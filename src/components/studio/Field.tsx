@@ -141,6 +141,31 @@ export function ToggleField({
   );
 }
 
+export function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2 py-[3px]">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground">{value.toUpperCase()}</span>
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-6 w-[86px] border border-border bg-input"
+        />
+      </span>
+    </label>
+  );
+}
+
 export function Section({
   title,
   children,
