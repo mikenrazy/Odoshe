@@ -102,8 +102,8 @@ function cabinetCenters(screen: LedScreen) {
 
 interface Props {
   screen: LedScreen;
-  gridStart?: number;
-  processorLabel?: string;
+  gridStart?: number | undefined;
+  processorLabel?: string | undefined;
   selected: boolean;
   showMeasurements: boolean;
   interactive: boolean;
