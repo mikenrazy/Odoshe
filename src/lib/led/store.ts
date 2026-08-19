@@ -2,8 +2,10 @@ import { create } from "zustand";
 import {
   createProject,
   defaultStage,
+  normalizeProject,
   SCHEMA_VERSION,
   uid,
+  type ProcessorModel,
   type LedScreen,
   type Project,
   type StageConfig,
@@ -39,7 +41,7 @@ export function loadProjects(): Project[] {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Project[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeProject) : [];
   } catch {
     return [];
   }
@@ -102,6 +104,8 @@ interface EditorState {
   addScreen: (presetKey?: string) => void;
   updateScreen: (id: string, patch: Partial<LedScreen>, options?: { history?: boolean }) => void;
   applyPreset: (id: string, presetKey: string) => void;
+  addProcessor: (processor: Omit<ProcessorModel, "id">) => void;
+  removeProcessor: (id: string) => void;
   deleteScreen: (id: string) => void;
   duplicateScreen: (id: string) => void;
   select: (id: string | null) => void;
@@ -173,7 +177,7 @@ export const useEditor = create<EditorState>((set, get) => {
     openProject: (id) => {
       const project = get().projects.find((p) => p.id === id) ?? null;
       set({
-        project: project ? { ...project, schemaVersion: SCHEMA_VERSION } : null,
+        project: project ? { ...normalizeProject(project), schemaVersion: SCHEMA_VERSION } : null,
         selectedId: null,
         past: [],
         future: [],
@@ -288,6 +292,23 @@ export const useEditor = create<EditorState>((set, get) => {
         ),
       }));
       set({ status: `Applied preset “${preset.label}”` });
+    },
+
+    addProcessor: (processor) => {
+      const id = uid("proc");
+      mutate((p) => ({ ...p, processors: [...p.processors, { ...processor, id }] }));
+      set({ status: `Added processor “${processor.label}”` });
+    },
+
+    removeProcessor: (id) => {
+      mutate((p) => ({
+        ...p,
+        processors: p.processors.filter((proc) => proc.id !== id || proc.builtIn),
+        screens: p.screens.map((s) =>
+          s.processorId === id ? { ...s, processorId: p.processors[0]!.id } : s,
+        ),
+      }));
+      set({ status: "Processor removed" });
     },
 
     deleteScreen: (id) => {

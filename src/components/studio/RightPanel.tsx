@@ -1,7 +1,20 @@
 import { useEditor } from "@/lib/led/store";
 import { SCREEN_PRESETS } from "@/lib/led/presets";
-import { SCREEN_TYPE_LABELS, type ScreenType } from "@/lib/led/types";
-import { NumberField, Section, SelectField, TextField, ToggleField } from "./Field";
+import {
+  PANEL_SIZE_PRESETS,
+  SCREEN_TYPE_LABELS,
+  type PanelSizeKey,
+  type ScreenType,
+} from "@/lib/led/types";
+import {
+  ColorField,
+  NumberField,
+  Section,
+  SelectField,
+  TextField,
+  ToggleField,
+} from "./Field";
+import { ProcessorSection } from "./ProcessorSection";
 
 const TYPE_OPTIONS = (Object.keys(SCREEN_TYPE_LABELS) as ScreenType[]).map((value) => ({
   value,
@@ -73,6 +86,33 @@ export function RightPanel() {
               label="Audience Area"
               value={project.stage.audience}
               onChange={(audience) => setStage({ audience })}
+            />
+          </Section>
+          <Section title="Element Colours">
+            <ColorField
+              label="Stage Deck"
+              value={project.stage.stageColor}
+              onChange={(stageColor) => setStage({ stageColor })}
+            />
+            <ColorField
+              label="Back Wall"
+              value={project.stage.backWallColor}
+              onChange={(backWallColor) => setStage({ backWallColor })}
+            />
+            <ColorField
+              label="Stairs"
+              value={project.stage.stairsColor}
+              onChange={(stairsColor) => setStage({ stairsColor })}
+            />
+            <ColorField
+              label="Podium"
+              value={project.stage.podiumColor}
+              onChange={(podiumColor) => setStage({ podiumColor })}
+            />
+            <ColorField
+              label="Venue Floor"
+              value={project.stage.floorColor}
+              onChange={(floorColor) => setStage({ floorColor })}
             />
           </Section>
           <div className="p-4 text-[11px] leading-relaxed text-muted-foreground">
@@ -338,6 +378,62 @@ export function RightPanel() {
                 })
               }
             />
+            <SelectField
+              label="Cabinet Size"
+              value={screen.panelConfiguration.sizeKey}
+              options={PANEL_SIZE_PRESETS.map((p) => ({ value: p.key, label: p.label }))}
+              onChange={(key) => {
+                const preset = PANEL_SIZE_PRESETS.find((p) => p.key === key)!;
+                const panelWidth =
+                  key === "custom" ? screen.panelConfiguration.panelWidth : preset.width;
+                const panelHeight =
+                  key === "custom" ? screen.panelConfiguration.panelHeight : preset.height;
+                updateScreen(screen.id, {
+                  panelConfiguration: {
+                    ...screen.panelConfiguration,
+                    sizeKey: key as PanelSizeKey,
+                    panelWidth,
+                    panelHeight,
+                    cols: Math.max(1, Math.round(screen.physicalWidth / panelWidth)),
+                    rows: Math.max(1, Math.round(screen.physicalHeight / panelHeight)),
+                  },
+                });
+              }}
+            />
+            <NumberField
+              label="Cabinet W"
+              suffix="m"
+              step={0.05}
+              min={0.05}
+              value={screen.panelConfiguration.panelWidth}
+              onChange={(panelWidth) =>
+                updateScreen(screen.id, {
+                  panelConfiguration: {
+                    ...screen.panelConfiguration,
+                    sizeKey: "custom",
+                    panelWidth,
+                    cols: Math.max(1, Math.round(screen.physicalWidth / panelWidth)),
+                  },
+                })
+              }
+            />
+            <NumberField
+              label="Cabinet H"
+              suffix="m"
+              step={0.05}
+              min={0.05}
+              value={screen.panelConfiguration.panelHeight}
+              onChange={(panelHeight) =>
+                updateScreen(screen.id, {
+                  panelConfiguration: {
+                    ...screen.panelConfiguration,
+                    sizeKey: "custom",
+                    panelHeight,
+                    rows: Math.max(1, Math.round(screen.physicalHeight / panelHeight)),
+                  },
+                })
+              }
+            />
             <NumberField
               label="Panels Across"
               step={1}
@@ -348,7 +444,9 @@ export function RightPanel() {
                 updateScreen(screen.id, {
                   panelConfiguration: {
                     ...screen.panelConfiguration,
+                    sizeKey: "custom",
                     cols: Math.max(1, Math.round(cols)),
+                    panelWidth: +(screen.physicalWidth / Math.max(1, Math.round(cols))).toFixed(3),
                   },
                 })
               }
@@ -363,7 +461,11 @@ export function RightPanel() {
                 updateScreen(screen.id, {
                   panelConfiguration: {
                     ...screen.panelConfiguration,
+                    sizeKey: "custom",
                     rows: Math.max(1, Math.round(rows)),
+                    panelHeight: +(
+                      screen.physicalHeight / Math.max(1, Math.round(rows))
+                    ).toFixed(3),
                   },
                 })
               }
@@ -384,6 +486,8 @@ export function RightPanel() {
               </span>
             </div>
           </Section>
+
+          <ProcessorSection screen={screen} />
 
           <Section title="Appearance">
             <NumberField

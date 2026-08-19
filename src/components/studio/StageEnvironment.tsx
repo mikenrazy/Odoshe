@@ -16,25 +16,25 @@ export function StageEnvironment({ stage, showMeasurements }: Props) {
       {/* venue floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
         <planeGeometry args={[width * 4, depth * 8]} />
-        <meshStandardMaterial color="#080a10" roughness={0.35} metalness={0.6} />
+        <meshStandardMaterial color={stage.floorColor} roughness={0.35} metalness={0.6} />
       </mesh>
 
       {/* stage platform */}
       <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[width, height, depth]} />
-        <meshStandardMaterial color="#14181f" roughness={0.28} metalness={0.55} />
+        <meshStandardMaterial color={stage.stageColor} roughness={0.28} metalness={0.55} />
       </mesh>
 
       {/* platform edge trim */}
       <mesh position={[0, height + 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial color="#1b2029" roughness={0.22} metalness={0.7} />
+        <meshStandardMaterial color={stage.stageColor} roughness={0.18} metalness={0.75} />
       </mesh>
 
       {stage.backWall && (
         <mesh position={[0, stage.backWallHeight / 2, -halfD - 0.15]} receiveShadow castShadow>
           <boxGeometry args={[width + 2, stage.backWallHeight, 0.3]} />
-          <meshStandardMaterial color="#0c0f15" roughness={0.9} metalness={0.05} />
+          <meshStandardMaterial color={stage.backWallColor} roughness={0.85} metalness={0.1} />
         </mesh>
       )}
 
@@ -42,12 +42,18 @@ export function StageEnvironment({ stage, showMeasurements }: Props) {
         [0, 1, 2].map((i) => (
           <mesh
             key={i}
-            position={[0, (height / 3) * (i + 0.5), halfD + 0.35 + i * 0.35]}
+            position={[0, (height * (3 - i)) / 6, halfD + 0.35 + i * 0.7]}
             castShadow
             receiveShadow
           >
-            <boxGeometry args={[3, height / 3, 0.7]} />
-            <meshStandardMaterial color="#12161d" roughness={0.5} metalness={0.3} />
+            <boxGeometry args={[3, (height / 3) * (3 - i), 0.7]} />
+            <meshStandardMaterial
+              color={stage.stairsColor}
+              emissive={stage.stairsColor}
+              emissiveIntensity={0.12}
+              roughness={0.45}
+              metalness={0.25}
+            />
           </mesh>
         ))}
 
@@ -55,7 +61,7 @@ export function StageEnvironment({ stage, showMeasurements }: Props) {
         <group position={[halfW - 2, height, halfD - 1.4]}>
           <mesh position={[0, 0.6, 0]} castShadow>
             <boxGeometry args={[0.8, 1.2, 0.55]} />
-            <meshStandardMaterial color="#1a1f28" roughness={0.4} metalness={0.4} />
+            <meshStandardMaterial color={stage.podiumColor} roughness={0.4} metalness={0.4} />
           </mesh>
         </group>
       )}
