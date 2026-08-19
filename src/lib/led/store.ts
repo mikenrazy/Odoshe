@@ -108,6 +108,7 @@ interface EditorState {
   removeProcessor: (id: string) => void;
   deleteScreen: (id: string) => void;
   duplicateScreen: (id: string) => void;
+  renumberGrids: () => void;
   select: (id: string | null) => void;
 
   setMode: (mode: ViewportMode) => void;
@@ -243,6 +244,8 @@ export const useEditor = create<EditorState>((set, get) => {
       const preset = SCREEN_PRESETS.find((p) => p.key === presetKey);
       const screen = preset ? screenFromPreset(preset, index) : defaultScreen(index);
       screen.position = { ...screen.position, x: index === 0 ? 0 : (index % 2 ? -1 : 1) * 6 };
+      screen.gridOrder =
+        Math.max(0, ...project.screens.map((s) => s.gridOrder ?? 0)) + 1;
       mutate((p) => ({ ...p, screens: [...p.screens, screen] }));
       set({ selectedId: screen.id, status: `Added ${screen.name}` });
     },
@@ -332,10 +335,25 @@ export const useEditor = create<EditorState>((set, get) => {
         ...structuredClone(source),
         id: uid("led"),
         name: `${source.name} copy`,
+        gridOrder: Math.max(0, ...(project?.screens ?? []).map((s) => s.gridOrder ?? 0)) + 1,
         position: { ...source.position, x: source.position.x + 1 },
       };
       mutate((p) => ({ ...p, screens: [...p.screens, copy] }));
       set({ selectedId: copy.id });
+    },
+
+    renumberGrids: () => {
+      mutate((p) => ({
+        ...p,
+        screens: [...p.screens]
+          .sort((a, b) => a.position.x - b.position.x || b.position.y - a.position.y)
+          .map((s, i) => ({ ...s, gridOrder: i + 1 }))
+          .reduce<typeof p.screens>((acc, s) => {
+            acc.push(s);
+            return acc;
+          }, []),
+      }));
+      set({ status: "Grid numbering reset" });
     },
 
     select: (id) => set({ selectedId: id }),
