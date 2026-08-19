@@ -42,7 +42,7 @@ export function StageEnvironment({ stage, showMeasurements }: Props) {
         [0, 1, 2].map((i) => (
           <mesh
             key={i}
-            position={[0, (height / 3) * (2.5 - i) - height / 6, halfD + 0.35 + i * 0.7]}
+            position={[0, (height * (3 - i)) / 6, halfD + 0.35 + i * 0.7]}
             castShadow
             receiveShadow
           >
