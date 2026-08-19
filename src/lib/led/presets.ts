@@ -1,4 +1,4 @@
-import { uid, type LedScreen, type ScreenType } from "./types";
+import { DEFAULT_PROCESSORS, uid, type LedScreen, type ScreenType } from "./types";
 
 export interface ScreenPreset {
   key: string;
@@ -169,9 +169,13 @@ export function screenFromPreset(
       cols: preset.panelCols,
       rows: preset.panelRows,
       show: false,
+      panelWidth: +(preset.physicalWidth / preset.panelCols).toFixed(3),
+      panelHeight: +(preset.physicalHeight / preset.panelRows).toFixed(3),
+      sizeKey: "custom",
     },
     brightness: 1.1,
     color: "#7fd4ff",
+    processorId: DEFAULT_PROCESSORS[0]!.id,
     visible: true,
     locked: false,
   };
