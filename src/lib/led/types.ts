@@ -182,7 +182,7 @@ export function normalizeProject(project: Project): Project {
     project.processors && project.processors.length > 0
       ? project.processors
       : DEFAULT_PROCESSORS.map((p) => ({ ...p }));
-  const screens = (project.screens ?? []).map((s) => {
+  const screens = (project.screens ?? []).map((s, index) => {
     const panel = s.panelConfiguration ?? { cols: 1, rows: 1, show: false };
     const panelWidth = panel.panelWidth ?? +(s.physicalWidth / Math.max(1, panel.cols)).toFixed(3);
     const panelHeight =
