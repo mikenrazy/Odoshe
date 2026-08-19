@@ -6,6 +6,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useEditor } from "@/lib/led/store";
 import { StageEnvironment } from "./StageEnvironment";
 import { LedScreenObject } from "./LedScreenObject";
+import { computeGridNumbers } from "@/lib/led/grid-numbering";
 
 const DEG = Math.PI / 180;
 
@@ -78,6 +79,8 @@ export default function Viewport() {
   const objects = useRef(new Map<string, THREE.Object3D>());
   const [selectedObject, setSelectedObject] = useState<THREE.Object3D | null>(null);
 
+  const gridNumbers = useMemo(() => computeGridNumbers(project), [project]);
+
   const selectedScreen = useMemo(
     () => project?.screens.find((s) => s.id === selectedId) ?? null,
     [project, selectedId],
@@ -147,6 +150,8 @@ export default function Viewport() {
         <LedScreenObject
           key={screen.id}
           screen={screen}
+          gridStart={gridNumbers.get(screen.id)?.start ?? 1}
+          processorLabel={gridNumbers.get(screen.id)?.processorLabel}
           selected={screen.id === selectedId && editable}
           showMeasurements={showMeasurements && editable}
           interactive={editable && !screen.locked}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
 import type { LedScreen } from "@/lib/led/types";
+import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { NumberField, Section, SelectField, TextField } from "./Field";
 
 interface Props {
@@ -13,6 +14,7 @@ export function ProcessorSection({ screen }: Props) {
   const updateScreen = useEditor((s) => s.updateScreen);
   const addProcessor = useEditor((s) => s.addProcessor);
   const removeProcessor = useEditor((s) => s.removeProcessor);
+  const renumberGrids = useEditor((s) => s.renumberGrids);
   const [open, setOpen] = useState(false);
   const [brand, setBrand] = useState("NovaStar");
   const [label, setLabel] = useState("");
@@ -24,6 +26,8 @@ export function ProcessorSection({ screen }: Props) {
   const pixels = screen.pixelWidth * screen.pixelHeight;
   const load = active.maxPixels > 0 ? (pixels / active.maxPixels) * 100 : 0;
   const unitsNeeded = active.maxPixels > 0 ? Math.ceil(pixels / active.maxPixels) : 1;
+  const grids = computeGridNumbers(project);
+  const assignment = grids.get(screen.id);
 
   return (
     <Section
@@ -58,7 +62,23 @@ export function ProcessorSection({ screen }: Props) {
         </span>
         <span>UNITS NEEDED</span>
         <span className="text-right text-foreground/80">{unitsNeeded}</span>
+        <span>GRID RANGE</span>
+        <span className="text-right text-primary">
+          {assignment
+            ? `${active.label} – Grid ${assignment.start}${
+                assignment.count > 1 ? `–${assignment.start + assignment.count - 1}` : ""
+              }`
+            : "—"}
+        </span>
       </div>
+
+      <button
+        type="button"
+        onClick={renumberGrids}
+        className="mt-2 w-full border border-border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+      >
+        Renumber grids (left → right)
+      </button>
 
       {!active.builtIn && (
         <button
