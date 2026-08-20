@@ -192,17 +192,16 @@ export function LedScreenObject({
             key={cell.index}
             position={cell.position}
             rotation={[0, cell.rotY, 0]}
-            fontSize={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.24}
-            color="#ffd8a6"
+            fontSize={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.55}
+            color="#ffffff"
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.004}
+            outlineWidth={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.045}
             outlineColor="#05070b"
           >
-            {processorLabel
-              ? `${processorLabel} – Grid ${gridStart + cell.index}`
-              : `Grid ${gridStart + cell.index}`}
+            {`${gridStart + cell.index}`}
           </Text>
+
         ))}
 
       {selected && (
