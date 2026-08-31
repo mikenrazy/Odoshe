@@ -315,6 +315,11 @@ interface EditorState {
   setMeta: (patch: Partial<ProjectMeta>) => void;
   setCanvas: (patch: Partial<CanvasConfig>) => void;
   setStage: (patch: Partial<StageConfig>) => void;
+  applyStagePreset: (key: string) => void;
+  addRiser: (patch?: Partial<StageRiser>) => void;
+  updateRiser: (id: string, patch: Partial<StageRiser>) => void;
+  removeRiser: (id: string) => void;
+
 
   addScreen: (presetKey?: string) => void;
   updateScreen: (id: string, patch: Partial<LedScreen>, options?: { history?: boolean }) => void;
