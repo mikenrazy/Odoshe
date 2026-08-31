@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Layers, Square, Trash2, Type, Video } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
 import { newAssetId, putAsset } from "@/lib/led/asset-store";
