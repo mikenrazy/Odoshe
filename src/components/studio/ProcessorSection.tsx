@@ -1,4 +1,4 @@
-import { useEditor } from "@/lib/led/store";
+import { useEditor, groupResolution } from "@/lib/led/store";
 import type { LedScreen } from "@/lib/led/types";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { processorName } from "@/lib/led/types";
