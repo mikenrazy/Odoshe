@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { Canvas, useThree } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
+import { SafeCanvas } from "./SafeCanvas";
 import { Grid, OrbitControls, TransformControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useEditor } from "@/lib/led/store";
@@ -112,7 +113,7 @@ export default function Viewport() {
   const layers = project.layers;
 
   return (
-    <Canvas
+    <SafeCanvas
       shadows
       dpr={[1, 2]}
       camera={{ position: [13, 9, 17], fov: 45, near: 0.1, far: 500 }}
@@ -270,6 +271,6 @@ export default function Viewport() {
         target={[0, 3, 0]}
       />
       <CameraRig controls={controls} />
-    </Canvas>
+    </SafeCanvas>
   );
 }
