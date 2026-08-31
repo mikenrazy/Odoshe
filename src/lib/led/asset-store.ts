@@ -59,3 +59,25 @@ export async function getAssets(ids: string[]): Promise<Record<string, string>> 
   }
   return out;
 }
+
+const PROJECTS_KEY = "__projects_backup__";
+
+/**
+ * Durable backup of the project list in IndexedDB.
+ * localStorage can silently fail (quota, private mode), which used to make a
+ * freshly created project vanish on reload — this is the fallback copy.
+ */
+export async function backupProjects(json: string): Promise<void> {
+  await putAsset(PROJECTS_KEY, json);
+}
+
+export async function restoreProjects(): Promise<unknown[]> {
+  const raw = await getAsset(PROJECTS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
