@@ -687,6 +687,8 @@ export function defaultStage(): StageConfig {
     floorColor: "#080a10",
     fasciaColor: "#12161f",
     trussColor: "#8b93a7",
+    elements: defaultStageElements(),
+
   };
 }
 
