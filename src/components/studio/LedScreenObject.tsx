@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { Line, Text } from "@react-three/drei";
 import type { LedScreen } from "@/lib/led/types";
 import { createLedTexture } from "./led-texture";
-import { useCanvasComposite } from "@/lib/led/media";
+import { cropRegionCanvas, useCanvasComposite } from "@/lib/led/media";
 
 const DEG = Math.PI / 180;
 
