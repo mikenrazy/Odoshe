@@ -296,7 +296,10 @@ export interface LedScreen {
   locked: boolean;
   /** stable ordering within its processor's continuous grid numbering */
   gridOrder?: number;
+  /** id of the ScreenGroup this section belongs to (one logical screen/output) */
+  groupId?: string | undefined;
 }
+
 
 /* -------------------------------------------------------------- equipment */
 
