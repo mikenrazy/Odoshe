@@ -277,6 +277,7 @@ interface EditorState {
   duplicateScreen: (id: string) => void;
   alignScreens: (axis: "left" | "centerX" | "right" | "top" | "middleY" | "bottom") => void;
   spaceScreens: (gap: number, direction: "horizontal" | "vertical") => void;
+  setGapBetween: (aId: string, bId: string, gap: number) => void;
   renumberGrids: () => void;
   select: (id: string | null) => void;
 
