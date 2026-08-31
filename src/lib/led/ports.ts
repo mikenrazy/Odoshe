@@ -4,9 +4,11 @@ import type { LedScreen, ProcessorModel, Project } from "./types";
 /**
  * Processor → Output Ports → LED Sections → LED Cabinets.
  *
- * A processor is never treated as one unrestricted output: each physical RJ45
- * port carries its own pixel budget and width/height ceiling, and the sum of
- * every port must still fit inside the processor's total pixel capacity.
+ * A physical RJ45 port is a daisy-chain: it can carry MANY cabinets as long as
+ * the summed pixel load stays inside the port budget. Ports are therefore
+ * allocated by balancing the cabinet count across the processor's existing
+ * outputs — extra ports are only ever requested when the pixel maths, not the
+ * number of mapping sections, makes the configuration impossible.
  */
 
 export type PortStatus = "free" | "ok" | "warn" | "over";
@@ -48,6 +50,8 @@ export interface PortInfo {
   port: number;
   sections: PortSection[];
   cabinets: number;
+  /** how many cabinets this port could still carry at the current pitch */
+  maxCabinets: number;
   /** bounding resolution carried by this port */
   width: number;
   height: number;
@@ -68,8 +72,14 @@ export interface ProcessorPortMap {
   totalPixels: number;
   maxPixels: number;
   loadPct: number;
-  /** ports required if the load were distributed optimally */
+  /** ports genuinely required by the pixel load (never inflated by sections) */
   portsRequired: number;
+  /** cabinets patched to this processor */
+  panelsAssigned: number;
+  /** cabinets the processor can still take at the current pitch */
+  panelCapacity: number;
+  /** derived cabinets-per-port ceiling at the current cabinet spec */
+  maxPanelsPerPort: number;
   status: PortStatus;
   issues: string[];
   recommendations: string[];
@@ -79,80 +89,134 @@ export function portMaxPixels(processor: ProcessorModel) {
   return Math.max(1, processor.portMaxPixels ?? 650_000);
 }
 
-/**
- * Best 2D cabinet tiling for one screen: how many cabinet columns and rows a
- * single port can carry, respecting the port pixel budget AND the port's
- * maximum width/height. The combination that needs the fewest ports wins.
- */
-export function portTiling(screen: LedScreen, processor: ProcessorModel) {
+/** Pixels carried by one cabinet of this screen. */
+export function cabinetPixels(screen: LedScreen) {
   const d = derivedResolution(screen);
-  const cabW = Math.max(1, d.cabinetPixelWidth);
-  const cabH = Math.max(1, d.cabinetPixelHeight);
-  const budget = portMaxPixels(processor);
-  const maxRows = Math.max(1, Math.min(d.rows, Math.floor(processor.outputHeight / cabH) || 1));
-  const maxCols = Math.max(1, Math.min(d.cols, Math.floor(processor.outputWidth / cabW) || 1));
-
-  let best = { cols: 1, rows: 1, ports: Number.MAX_SAFE_INTEGER };
-  for (let rows = 1; rows <= maxRows; rows++) {
-    const cols = Math.max(
-      1,
-      Math.min(maxCols, Math.floor(budget / (cabW * cabH * rows)) || 1),
-    );
-    const ports = Math.ceil(d.cols / cols) * Math.ceil(d.rows / rows);
-    if (ports < best.ports) best = { cols, rows, ports };
-  }
-  return { ...best, derived: d, cabW, cabH };
+  return Math.max(1, d.cabinetPixelWidth * d.cabinetPixelHeight);
 }
 
-/** Cabinet columns a single port can carry for a given screen. */
-export function colsPerPort(screen: LedScreen, processor: ProcessorModel) {
-  return portTiling(screen, processor).cols;
+/**
+ * Dynamic cabinets-per-port ceiling: port pixel budget ÷ pixels per cabinet,
+ * rounded DOWN. Never hard-coded.
+ */
+export function maxPanelsPerPort(screen: LedScreen, processor: ProcessorModel) {
+  return Math.max(1, Math.floor(portMaxPixels(processor) / cabinetPixels(screen)));
+}
+
+/** Balanced split of `total` cabinets into `parts` chains (8,8,…,7,7). */
+function balancedChunks(total: number, parts: number) {
+  const n = Math.max(1, parts);
+  const base = Math.floor(total / n);
+  const extra = total % n;
+  return Array.from({ length: n }, (_, i) => base + (i < extra ? 1 : 0)).filter((c) => c > 0);
+}
+
+export interface ScreenAllocation {
+  screen: LedScreen;
+  cabinets: number;
+  maxPerPort: number;
+  minPorts: number;
+  ports: number;
+  chunks: number[];
+}
+
+/**
+ * Allocate the processor's physical ports across its screens: every screen
+ * gets at least the ports its pixel load demands, then any spare ports are
+ * handed to the busiest chains so the panels end up evenly spread (e.g. 78
+ * panels over 10 ports → 8×8 + 2×7).
+ */
+export function allocateScreenPorts(
+  project: Project,
+  processor: ProcessorModel,
+): { allocations: ScreenAllocation[]; portsRequired: number; fits: boolean } {
+  const screens = [...project.screens.filter((s) => s.processorId === processor.id)].sort(
+    (a, b) => (a.gridOrder ?? 0) - (b.gridOrder ?? 0),
+  );
+  const outputs = Math.max(1, processor.outputs);
+
+  const allocations: ScreenAllocation[] = screens.map((screen) => {
+    const d = derivedResolution(screen);
+    const cabinets = Math.max(1, d.cols * d.rows);
+    const maxPer = maxPanelsPerPort(screen, processor);
+    const minPorts = Math.max(1, Math.ceil(cabinets / maxPer));
+    return { screen, cabinets, maxPerPort: maxPer, minPorts, ports: minPorts, chunks: [] };
+  });
+
+  const portsRequired = allocations.reduce((s, a) => s + a.minPorts, 0);
+  let spare = outputs - portsRequired;
+
+  // Spread spare ports so the busiest chain is relieved first.
+  while (spare > 0) {
+    const target = allocations
+      .filter((a) => a.ports < a.cabinets)
+      .sort((a, b) => b.cabinets / b.ports - a.cabinets / a.ports)[0];
+    if (!target) break;
+    target.ports += 1;
+    spare -= 1;
+  }
+
+  for (const a of allocations) a.chunks = balancedChunks(a.cabinets, a.ports);
+
+  return { allocations, portsRequired, fits: portsRequired <= outputs };
 }
 
 /** How many consecutive ports a screen needs at the current cabinet layout. */
 export function portsNeeded(screen: LedScreen, processor: ProcessorModel) {
-  return portTiling(screen, processor).ports;
+  const d = derivedResolution(screen);
+  return Math.max(1, Math.ceil((d.cols * d.rows) / maxPanelsPerPort(screen, processor)));
 }
 
-/** Split a screen into per-port cabinet tiles (row bands × column slices). */
-export function screenSlices(screen: LedScreen, processor: ProcessorModel): PortSection[] {
-  const t = portTiling(screen, processor);
-  const d = t.derived;
-  const slices: PortSection[] = [];
-  const rowBands = Math.ceil(d.rows / t.rows);
-  const colBands = Math.ceil(d.cols / t.cols);
-  const total = rowBands * colBands;
-  let index = 0;
-  for (let r = 0; r < rowBands; r++) {
-    const rows = Math.min(t.rows, d.rows - r * t.rows);
-    for (let c = 0; c < colBands; c++) {
-      const cols = Math.min(t.cols, d.cols - c * t.cols);
-      index += 1;
-      const width = cols * t.cabW;
-      const height = rows * t.cabH;
-      slices.push({
-        screenId: screen.id,
-        screenName: total > 1 ? `${screen.name} · slice ${index}/${total}` : screen.name,
-        cabinetCols: cols,
-        cabinetRows: rows,
-        cabinets: cols * rows,
-        width,
-        height,
-        pixels: width * height,
-      });
-    }
-  }
-  return slices;
+/** Cabinet columns a single port can carry for a given screen. */
+export function colsPerPort(screen: LedScreen, processor: ProcessorModel) {
+  const d = derivedResolution(screen);
+  const rows = Math.max(1, d.rows);
+  return Math.max(1, Math.floor(maxPanelsPerPort(screen, processor) / rows));
+}
+
+/** Split a screen into per-port cabinet chains (balanced cabinet counts). */
+export function screenSlices(
+  screen: LedScreen,
+  processor: ProcessorModel,
+  ports?: number,
+): PortSection[] {
+  const d = derivedResolution(screen);
+  const cabW = Math.max(1, d.cabinetPixelWidth);
+  const cabH = Math.max(1, d.cabinetPixelHeight);
+  const cabinets = Math.max(1, d.cols * d.rows);
+  const span = Math.max(1, ports ?? portsNeeded(screen, processor));
+  const chunks = balancedChunks(cabinets, span);
+  const total = chunks.length;
+
+  return chunks.map((count, i) => {
+    // Prefer whole-column chains so the slice maps to a real wall region.
+    const rows = Math.max(1, Math.min(d.rows, count));
+    const cols = count % rows === 0 ? count / rows : count;
+    const usedRows = count % rows === 0 ? rows : 1;
+    return {
+      screenId: screen.id,
+      screenName: total > 1 ? `${screen.name} · chain ${i + 1}/${total}` : screen.name,
+      cabinetCols: cols,
+      cabinetRows: usedRows,
+      cabinets: count,
+      width: cols * cabW,
+      height: usedRows * cabH,
+      pixels: count * cabW * cabH,
+    };
+  });
 }
 
 /** Full port map for one processor. */
 export function processorPortMap(project: Project, processor: ProcessorModel): ProcessorPortMap {
-  const screens = project.screens.filter((s) => s.processorId === processor.id);
   const maxPP = portMaxPixels(processor);
-  const ports: PortInfo[] = Array.from({ length: Math.max(1, processor.outputs) }, (_, i) => ({
+  const outputs = Math.max(1, processor.outputs);
+  const { allocations, portsRequired, fits } = allocateScreenPorts(project, processor);
+
+  const ports: PortInfo[] = Array.from({ length: outputs }, (_, i) => ({
     port: i + 1,
     sections: [],
     cabinets: 0,
+    maxCabinets: 0,
     width: 0,
     height: 0,
     pixels: 0,
@@ -168,24 +232,33 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
   const issues: string[] = [];
   const overflow: PortSection[] = [];
 
-  for (const screen of [...screens].sort((a, b) => (a.gridOrder ?? 0) - (b.gridOrder ?? 0))) {
-    const slices = screenSlices(screen, processor);
+  let cursor = 1;
+  for (const alloc of allocations) {
+    const slices = screenSlices(alloc.screen, processor, alloc.ports);
+    // Honour the patched start port when it still leaves room for the chain.
+    const patched = Math.max(1, Math.round(alloc.screen.rj45Port || cursor));
+    let start = patched;
+    if (fits) {
+      if (patched < cursor || patched + slices.length - 1 > outputs) start = cursor;
+    }
     slices.forEach((slice, i) => {
-      const portNumber = screen.rj45Port + i;
+      const portNumber = start + i;
       const port = ports[portNumber - 1];
       if (!port) {
         overflow.push(slice);
         issues.push(
-          `${slice.screenName} is patched to RJ45 Port ${portNumber}, but ${processor.label} only has ${processor.outputs} ports.`,
+          `${slice.screenName} needs RJ45 Port ${portNumber}, but ${processor.label} only has ${outputs} ports.`,
         );
         return;
       }
       port.sections.push(slice);
       port.cabinets += slice.cabinets;
+      port.maxCabinets = Math.max(port.maxCabinets, alloc.maxPerPort);
       port.width = Math.max(port.width, slice.width);
       port.height = Math.max(port.height, slice.height);
       port.pixels += slice.pixels;
     });
+    cursor = Math.max(cursor, start + slices.length);
   }
 
   for (const port of ports) {
@@ -203,14 +276,9 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
       port.notes.push(
         `${port.pixels.toLocaleString()} px exceeds the ${port.maxPixels.toLocaleString()} px port limit.`,
       );
-    } else if (port.width > port.maxWidth || port.height > port.maxHeight) {
-      port.status = "over";
-      port.notes.push(
-        `${port.width} × ${port.height} px exceeds the port ceiling of ${port.maxWidth} × ${port.maxHeight} px.`,
-      );
-    } else if (port.loadPct >= 85) {
+    } else if (port.loadPct >= 90) {
       port.status = "warn";
-      port.notes.push("Above 85% of this port's pixel budget — leave headroom for redundancy.");
+      port.notes.push("Above 90% of this port's pixel budget — leave headroom for redundancy.");
     } else {
       port.status = "ok";
     }
@@ -221,37 +289,41 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
   const maxPixels = Math.max(1, processor.maxPixels);
   const loadPct = (totalPixels / maxPixels) * 100;
   const portsUsed = ports.filter((p) => p.sections.length > 0).length;
-  const portsRequired = screens.reduce((sum, s) => sum + portsNeeded(s, processor), 0);
+  const panelsAssigned = allocations.reduce((s, a) => s + a.cabinets, 0);
+  const perPortCeiling = allocations.length
+    ? Math.min(...allocations.map((a) => a.maxPerPort))
+    : Math.floor(maxPP / 40_000);
+  const panelCapacity = perPortCeiling * outputs;
 
   let status: PortStatus = portsUsed === 0 ? "free" : "ok";
   if (ports.some((p) => p.status === "over") || overflow.length > 0) status = "over";
-  else if (ports.some((p) => p.status === "warn") || loadPct >= 85) status = "warn";
+  else if (ports.some((p) => p.status === "warn") || loadPct >= 90) status = "warn";
 
   const recommendations: string[] = [];
 
   if (totalPixels > maxPixels) {
     status = "over";
     issues.push(
-      `Total LED load ${totalPixels.toLocaleString()} px exceeds the ${processor.label} processing capacity of ${maxPixels.toLocaleString()} px — every section fits its port, but the processor as a whole does not.`,
+      `Total LED load ${totalPixels.toLocaleString()} px exceeds the ${processor.label} processing capacity of ${maxPixels.toLocaleString()} px.`,
     );
     recommendations.push(
       `Add a second processor and move ${Math.ceil((totalPixels - maxPixels) / maxPP)} port(s) of LED onto it.`,
     );
+  } else if (loadPct >= 90 && portsUsed > 0) {
     recommendations.push(
-      `Or reduce the LED canvas by ${(totalPixels - maxPixels).toLocaleString()} px (fewer cabinets or a coarser pitch).`,
-    );
-  } else if (loadPct >= 85 && portsUsed > 0) {
-    recommendations.push(
-      `Processor is at ${loadPct.toFixed(1)}% of capacity — keep spare headroom for redundancy or a backup loop.`,
+      `Processor is at ${loadPct.toFixed(1)}% of capacity — keep spare headroom for redundancy.`,
     );
   }
 
-  if (portsRequired > processor.outputs) {
+  // Extra ports are only requested when the PIXEL load cannot fit the outputs.
+  if (portsRequired > outputs) {
     status = "over";
     issues.push(
-      `The load needs at least ${portsRequired} ports at ${maxPP.toLocaleString()} px each, but ${processor.label} only offers ${processor.outputs}.`,
+      `The pixel load needs at least ${portsRequired} ports at ${maxPP.toLocaleString()} px each, but ${processor.label} only offers ${outputs}.`,
     );
-    recommendations.push("Split the wall across an additional processor.");
+    recommendations.push(
+      `Add ${portsRequired - outputs} more output(s) — a second ${processor.label} or a larger processor.`,
+    );
   }
 
   for (const port of ports) {
@@ -273,6 +345,9 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
     maxPixels,
     loadPct,
     portsRequired,
+    panelsAssigned,
+    panelCapacity,
+    maxPanelsPerPort: perPortCeiling,
     status,
     issues,
     recommendations: [...new Set(recommendations)],
@@ -286,24 +361,24 @@ export interface PortPlanEntry {
 }
 
 /**
- * Most efficient distribution of every section across the available ports:
- * screens keep their grid order, oversized walls are split by cabinet columns
- * onto consecutive ports.
+ * Most efficient distribution of every section across the EXISTING ports:
+ * panels are balanced over the processor's outputs, never spilling into
+ * virtual ports unless the pixel budget genuinely demands more.
  */
 export function planPortDistribution(
   project: Project,
   processor: ProcessorModel,
 ): { plan: PortPlanEntry[]; portsNeeded: number; fits: boolean } {
-  const screens = [...project.screens.filter((s) => s.processorId === processor.id)].sort(
-    (a, b) => (a.gridOrder ?? 0) - (b.gridOrder ?? 0),
-  );
+  const { allocations, portsRequired, fits } = allocateScreenPorts(project, processor);
   const plan: PortPlanEntry[] = [];
   let cursor = 1;
-  for (const screen of screens) {
-    const span = portsNeeded(screen, processor);
-    plan.push({ screenId: screen.id, rj45Port: cursor, portSpan: span });
-    cursor += span;
+  for (const alloc of allocations) {
+    plan.push({ screenId: alloc.screen.id, rj45Port: cursor, portSpan: alloc.ports });
+    cursor += alloc.ports;
   }
-  const needed = cursor - 1;
-  return { plan, portsNeeded: needed, fits: needed <= processor.outputs };
+  return {
+    plan,
+    portsNeeded: fits ? Math.min(cursor - 1, Math.max(1, processor.outputs)) : portsRequired,
+    fits,
+  };
 }
