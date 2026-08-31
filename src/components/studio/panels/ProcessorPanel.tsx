@@ -110,9 +110,13 @@ export function ProcessorPanel() {
                 options={sourceOptions(proc)}
                 onChange={(v) => {
                   const [w, h] = v.split("x").map(Number);
-                  updateProcessor(proc.id, { inputWidth: w, inputHeight: h });
+                  updateProcessor(proc.id, {
+                    inputWidth: w ?? inW,
+                    inputHeight: h ?? inH,
+                  });
                   if (project.canvas.sourceProcessorId === proc.id) applySource(proc.id);
                 }}
+
               />
               <div className="grid grid-cols-2 gap-x-2">
                 <NumberField
