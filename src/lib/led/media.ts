@@ -58,7 +58,7 @@ function drawFitted(
     return;
   }
 
-  const ratio = img.width / img.height;
+  const ratio = iw / ih;
   const frame = dw / dh;
   const cover = item.fit === "cover";
   let w = dw;
