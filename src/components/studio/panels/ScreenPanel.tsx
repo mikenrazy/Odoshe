@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AlignCenterHorizontal, AlignStartVertical, AlignEndVertical } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
 import { SCREEN_PRESETS } from "@/lib/led/presets";
@@ -23,7 +24,9 @@ export function ScreenPanel() {
   const updateScreen = useEditor((s) => s.updateScreen);
   const applyPreset = useEditor((s) => s.applyPreset);
   const alignScreens = useEditor((s) => s.alignScreens);
+  const spaceScreens = useEditor((s) => s.spaceScreens);
   const addScreen = useEditor((s) => s.addScreen);
+  const [gap, setGap] = useState(0.5);
 
   if (!project) return null;
   const screen = project.screens.find((s) => s.id === selectedId) ?? null;
@@ -364,6 +367,37 @@ export function ScreenPanel() {
             Y
           </button>
         </div>
+      </Section>
+
+      <Section title="Screen Spacing">
+        <NumberField
+          label="Gap Between Screens"
+          suffix="m"
+          step={0.05}
+          min={0}
+          value={gap}
+          onChange={(v) => setGap(Math.max(0, v))}
+        />
+        <div className="mt-1 flex gap-px bg-border/60 p-px">
+          <button
+            type="button"
+            onClick={() => spaceScreens(gap, "horizontal")}
+            className="flex-1 bg-card px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+          >
+            Space ↔ Horizontal
+          </button>
+          <button
+            type="button"
+            onClick={() => spaceScreens(gap, "vertical")}
+            className="flex-1 bg-card px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+          >
+            Space ↕ Vertical
+          </button>
+        </div>
+        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+          Arranges all screens edge-to-edge with the chosen gap, starting from the leftmost (or
+          bottom-most) screen. For exact placement, keep using each screen's X/Y/Z position.
+        </p>
       </Section>
 
       <Section title="Rotation">
