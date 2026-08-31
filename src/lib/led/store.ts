@@ -21,8 +21,12 @@ import {
   type Project,
   type ProjectMeta,
   type StageConfig,
+  type StageRiser,
+
 } from "./types";
 import { createEquipment, EQUIPMENT_LIBRARY } from "./equipment";
+import { createRiser, STAGE_PRESETS } from "./stage-shapes";
+
 import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
 
 const STORAGE_KEY = "dx5ve.led-designer.projects.v1";
@@ -315,6 +319,11 @@ interface EditorState {
   setMeta: (patch: Partial<ProjectMeta>) => void;
   setCanvas: (patch: Partial<CanvasConfig>) => void;
   setStage: (patch: Partial<StageConfig>) => void;
+  applyStagePreset: (key: string) => void;
+  addRiser: (patch?: Partial<StageRiser>) => void;
+  updateRiser: (id: string, patch: Partial<StageRiser>) => void;
+  removeRiser: (id: string) => void;
+
 
   addScreen: (presetKey?: string) => void;
   updateScreen: (id: string, patch: Partial<LedScreen>, options?: { history?: boolean }) => void;
@@ -585,6 +594,41 @@ export const useEditor = create<EditorState>((set, get) => {
     setMeta: (patch) => mutate((p) => ({ ...p, meta: { ...p.meta, ...patch } })),
     setCanvas: (patch) => mutate((p) => ({ ...p, canvas: { ...p.canvas, ...patch } })),
     setStage: (patch) => mutate((p) => ({ ...p, stage: { ...p.stage, ...patch } })),
+
+    applyStagePreset: (key) => {
+      const preset = STAGE_PRESETS.find((s) => s.key === key);
+      if (!preset) return;
+      mutate((p) => ({ ...p, stage: { ...p.stage, ...preset.apply } }));
+      set({ status: `Applied ${preset.label} stage preset` });
+    },
+
+    addRiser: (patch) =>
+      mutate((p) => ({
+        ...p,
+        stage: {
+          ...p.stage,
+          risers: [
+            ...(p.stage.risers ?? []),
+            createRiser({ name: `Riser ${(p.stage.risers?.length ?? 0) + 1}`, ...patch }),
+          ],
+        },
+      })),
+
+    updateRiser: (id, patch) =>
+      mutate((p) => ({
+        ...p,
+        stage: {
+          ...p.stage,
+          risers: (p.stage.risers ?? []).map((r) => (r.id === id ? { ...r, ...patch } : r)),
+        },
+      })),
+
+    removeRiser: (id) =>
+      mutate((p) => ({
+        ...p,
+        stage: { ...p.stage, risers: (p.stage.risers ?? []).filter((r) => r.id !== id) },
+      })),
+
 
     addScreen: (presetKey) => {
       const project = get().project;

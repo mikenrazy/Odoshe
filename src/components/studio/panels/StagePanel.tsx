@@ -1,17 +1,22 @@
 import { useEditor } from "@/lib/led/store";
 import {
+  STAGE_DECK_FINISHES,
   STAGE_ELEMENT_LABELS,
   STAGE_ELEMENT_STYLES,
   STAGE_ORIENTATION_LABELS,
   STAGE_PLACEMENT_LABELS,
+  STAGE_SHAPES,
   defaultStageElements,
+  type StageDeckFinish,
   type StageElementKey,
   type StagePlacement,
   type StageOrientation,
+  type StageShape,
 } from "@/lib/led/types";
 import { elementSetup } from "@/lib/led/stage-elements";
+import { STAGE_PRESETS } from "@/lib/led/stage-shapes";
 import { fromDisplay, toDisplay, unitSuffix } from "@/lib/led/units";
-import { ColorField, NumberField, Section, SelectField, ToggleField } from "../Field";
+import { ColorField, NumberField, Section, SelectField, TextField, ToggleField } from "../Field";
 
 const ELEMENT_KEYS = Object.keys(STAGE_ELEMENT_LABELS) as StageElementKey[];
 const PLACEMENTS = Object.keys(STAGE_PLACEMENT_LABELS) as StagePlacement[];
@@ -19,6 +24,11 @@ const PLACEMENTS = Object.keys(STAGE_PLACEMENT_LABELS) as StagePlacement[];
 export function StagePanel() {
   const project = useEditor((s) => s.project);
   const setStage = useEditor((s) => s.setStage);
+  const applyStagePreset = useEditor((s) => s.applyStagePreset);
+  const addRiser = useEditor((s) => s.addRiser);
+  const updateRiser = useEditor((s) => s.updateRiser);
+  const removeRiser = useEditor((s) => s.removeRiser);
+
 
   if (!project) return null;
   const stage = project.stage;
@@ -48,7 +58,112 @@ export function StagePanel() {
 
   return (
     <>
+      <Section title="Stage Presets">
+        <div className="grid grid-cols-2 gap-1">
+          {STAGE_PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              title={p.description}
+              onClick={() => applyStagePreset(p.key)}
+              className="border border-border px-2 py-1.5 text-left text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Stage Type">
+        <SelectField
+          label="Deck shape"
+          value={stage.shape ?? "rectangle"}
+          options={STAGE_SHAPES}
+          onChange={(shape) => setStage({ shape: shape as StageShape })}
+        />
+        <SelectField
+          label="Deck finish"
+          value={stage.deckFinish ?? "matte"}
+          options={STAGE_DECK_FINISHES}
+          onChange={(deckFinish) => setStage({ deckFinish: deckFinish as StageDeckFinish })}
+        />
+      </Section>
+
+      <Section title="Risers / Levels">
+        <button
+          type="button"
+          onClick={() => addRiser()}
+          className="w-full border border-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          + Add riser
+        </button>
+        {(stage.risers ?? []).length === 0 && (
+          <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            No risers — the deck is a single level.
+          </p>
+        )}
+        {(stage.risers ?? []).map((r) => (
+          <div key={r.id} className="space-y-1 border border-border/70 p-2">
+            <TextField label="Name" value={r.name} onChange={(name) => updateRiser(r.id, { name })} />
+            <NumberField
+              label="Width"
+              suffix={suffix}
+              step={0.1}
+              min={0.2}
+              value={num(r.width)}
+              onChange={(v) => updateRiser(r.id, { width: back(v) })}
+            />
+            <NumberField
+              label="Depth"
+              suffix={suffix}
+              step={0.1}
+              min={0.2}
+              value={num(r.depth)}
+              onChange={(v) => updateRiser(r.id, { depth: back(v) })}
+            />
+            <NumberField
+              label="Height"
+              suffix={suffix}
+              step={0.1}
+              min={0.05}
+              value={num(r.height)}
+              onChange={(v) => updateRiser(r.id, { height: back(v) })}
+            />
+            <NumberField
+              label="Offset X"
+              suffix={suffix}
+              step={0.1}
+              value={num(r.x)}
+              onChange={(v) => updateRiser(r.id, { x: back(v) })}
+            />
+            <NumberField
+              label="Offset Z"
+              suffix={suffix}
+              step={0.1}
+              value={num(r.z)}
+              onChange={(v) => updateRiser(r.id, { z: back(v) })}
+            />
+            <NumberField
+              label="Rotation"
+              suffix="°"
+              step={5}
+              value={r.rotation}
+              onChange={(rotation) => updateRiser(r.id, { rotation })}
+            />
+            <ColorField label="Colour" value={r.color} onChange={(color) => updateRiser(r.id, { color })} />
+            <button
+              type="button"
+              onClick={() => removeRiser(r.id)}
+              className="w-full border border-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-destructive hover:bg-secondary"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+      </Section>
+
       <Section title="Stage Dimensions">
+
         <NumberField
           label="Width"
           suffix={suffix}
