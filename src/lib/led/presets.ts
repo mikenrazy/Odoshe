@@ -190,6 +190,7 @@ export function screenFromPreset(
     color: "#7fd4ff",
     processorId: DEFAULT_PROCESSORS[0]!.id,
     processorOutput: 1,
+    rj45Port: 1,
     content: { x: 0, y: 0, width: preset.pixelWidth, height: preset.pixelHeight },
     visible: true,
     locked: false,

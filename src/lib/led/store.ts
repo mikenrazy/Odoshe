@@ -107,6 +107,7 @@ export function createSampleProject(): Project {
     position: { x: 0, y: 0.6 + 3 / 2, z: -2.7 },
     processorId: "vx1000",
     processorOutput: 1,
+    rj45Port: 10,
     content: { x: 0, y: 0, width: 3328, height: 768 },
     panelConfiguration: {
       cols: 26,
