@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getAssets } from "./asset-store";
+import { getAssets, backupProjects, restoreProjects } from "./asset-store";
 import {
   createMediaItem,
   createProject,
@@ -130,10 +130,13 @@ export async function rehydrateAssets(project: Project): Promise<Project> {
 
 export type PersistResult = { ok: boolean; message?: string };
 
-function persist(projects: Project[]): PersistResult {
+function persist(projects: Project[], backup = true): PersistResult {
   if (!isBrowser()) return { ok: true };
+  const light = JSON.stringify(forStorage(projects));
+  // Durable fallback copy — survives localStorage quota failures.
+  if (backup) void backupProjects(light);
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(forStorage(projects)));
+    window.localStorage.setItem(STORAGE_KEY, light);
     return { ok: true };
   } catch {
     // Most likely quota exceeded (uploaded images/videos are stored inline).
@@ -219,12 +222,17 @@ export function createSampleProject(): Project {
   return project;
 }
 
+const SEED_PROJECT_ID = "prj_seed_sample";
+
 /** Seed example project on first run so the app is never empty. */
 export function ensureSeed(): Project[] {
   const existing = loadProjects();
   if (existing.length > 0) return existing;
-  const project = createSampleProject();
-  persist([project]);
+  // Stable id so a re-seed after a storage wipe merges with (not duplicates)
+  // the recovered copy from IndexedDB.
+  const project = { ...createSampleProject(), id: SEED_PROJECT_ID, updatedAt: 0 };
+  // Seeding must not clobber the IndexedDB backup: hydrate() restores from it.
+  persist([project], false);
   return [project];
 }
 
@@ -436,6 +444,17 @@ export const useEditor = create<EditorState>((set, get) => {
       const current = get().project;
       const memory = current ? [current, ...get().projects] : get().projects;
       set({ projects: mergeProjects(stored, memory) });
+
+      // Recover anything localStorage lost (quota errors, private mode, cleanup).
+      void restoreProjects().then((backup) => {
+        if (!Array.isArray(backup) || backup.length === 0) return;
+        const recovered = (backup as Project[]).map(normalizeProject);
+        const merged = mergeProjects(recovered, get().projects);
+        if (merged.length !== get().projects.length) {
+          persist(merged);
+          set({ projects: merged });
+        }
+      });
     },
 
 
@@ -465,8 +484,11 @@ export const useEditor = create<EditorState>((set, get) => {
         };
       }
       const projects = mergeProjects(loadProjects(), [project, ...get().projects]);
-      persist(projects);
-      set({ projects, status: `Created “${project.name}”` });
+      const result = persist(projects);
+      set({
+        projects,
+        status: result.ok ? `Created “${project.name}”` : (result.message ?? "Save failed"),
+      });
       return project;
     },
 
