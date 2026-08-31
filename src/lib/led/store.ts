@@ -777,21 +777,32 @@ export const useEditor = create<EditorState>((set, get) => {
       if (!proc) return;
       const width = proc.inputWidth ?? 1920;
       const height = proc.inputHeight ?? 1080;
-      mutate((p) => ({
-        ...p,
-        canvas: {
-          ...p.canvas,
-          width,
-          height,
-          sourceProcessorId: processorId,
-          aspectPreset:
-            Math.abs(width / height - 16 / 9) < 0.01
-              ? "16:9"
-              : Math.abs(width / height - 32 / 9) < 0.01
-                ? "32:9"
-                : "custom",
-        },
-      }));
+      mutate((p) => {
+        const next: Project = {
+          ...p,
+          canvas: {
+            ...p.canvas,
+            width,
+            height,
+            sourceProcessorId: processorId,
+            aspectPreset:
+              Math.abs(width / height - 16 / 9) < 0.01
+                ? "16:9"
+                : Math.abs(width / height - 32 / 9) < 0.01
+                  ? "32:9"
+                  : "custom",
+          },
+        };
+        const groupIds = [
+          ...new Set(
+            next.screens
+              .filter((s) => s.processorId === processorId && s.groupId)
+              .map((s) => s.groupId as string),
+          ),
+        ];
+        return groupIds.reduce((acc, gid) => splitGroupInProject(acc, gid), next);
+      });
+
       set({ status: `Canvas set to ${width} × ${height} from ${proc.name ?? proc.label}` });
     },
 
