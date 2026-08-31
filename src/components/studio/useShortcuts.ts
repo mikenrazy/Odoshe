@@ -32,6 +32,9 @@ export function useShortcuts() {
           if (s.selectedId) {
             e.preventDefault();
             s.deleteScreen(s.selectedId);
+          } else if (s.selectedEquipmentId) {
+            e.preventDefault();
+            s.deleteEquipment(s.selectedEquipmentId);
           }
           break;
         case "g":
