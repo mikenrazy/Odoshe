@@ -322,6 +322,7 @@ export function PlanView() {
           const h = Math.max(p.hgt * scale, 5);
           const cx = H(p.cx);
           const cv = V(p.cv);
+          const img = it.kind === "screen" ? screenImages[it.id] : undefined;
           return (
             <g
               key={it.id}
@@ -339,6 +340,16 @@ export function PlanView() {
                 stroke={it.selected ? "#ff9d2e" : "none"}
                 strokeWidth={it.selected ? 1.5 : 0}
               />
+              {img && (
+                <image
+                  href={img}
+                  x={cx - w / 2}
+                  y={cv - h / 2}
+                  width={w}
+                  height={h}
+                  preserveAspectRatio="none"
+                />
+              )}
               <text
                 x={cx}
                 y={cv - h / 2 - 4}
@@ -352,6 +363,7 @@ export function PlanView() {
             </g>
           );
         })}
+
 
         {/* measurements */}
         {layers.measurements.visible &&
