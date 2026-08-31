@@ -79,7 +79,32 @@ export function ContentCanvasEditor() {
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     selectMedia(item.id);
-    dragRef.current = { id: item.id, mode, startX: e.clientX, startY: e.clientY, origin: item };
+    dragRef.current = {
+      id: item.id,
+      target: "media",
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: { x: item.x, y: item.y, width: item.width, height: item.height },
+    };
+  };
+
+  const onScreenPointerDown = (
+    e: React.PointerEvent,
+    screen: LedScreen,
+    mode: "move" | "resize",
+  ) => {
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    select(screen.id);
+    dragRef.current = {
+      id: screen.id,
+      target: "screen",
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: { ...screen.content },
+    };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -87,23 +112,24 @@ export function ContentCanvasEditor() {
     if (!drag) return;
     const dx = (e.clientX - drag.startX) / scale;
     const dy = (e.clientY - drag.startY) / scale;
-    if (drag.mode === "move") {
-      updateMedia(
-        drag.id,
-        { x: Math.round(drag.origin.x + dx), y: Math.round(drag.origin.y + dy) },
-        { history: false },
-      );
+    const patch =
+      drag.mode === "move"
+        ? { x: Math.round(drag.origin.x + dx), y: Math.round(drag.origin.y + dy) }
+        : {
+            width: Math.max(16, Math.round(drag.origin.width + dx)),
+            height: Math.max(16, Math.round(drag.origin.height + dy)),
+          };
+
+    if (drag.target === "media") {
+      updateMedia(drag.id, patch, { history: false });
     } else {
-      updateMedia(
-        drag.id,
-        {
-          width: Math.max(16, Math.round(drag.origin.width + dx)),
-          height: Math.max(16, Math.round(drag.origin.height + dy)),
-        },
-        { history: false },
-      );
+      const screen = project?.screens.find((s) => s.id === drag.id);
+      if (screen) {
+        updateScreen(drag.id, { content: { ...screen.content, ...patch } }, { history: false });
+      }
     }
   };
+
 
   const endDrag = () => {
     dragRef.current = null;
