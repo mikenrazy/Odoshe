@@ -118,12 +118,19 @@ export function PortMap({ project, processor, readOnly }: Props) {
           </span>
         </div>
         <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">PANELS ASSIGNED</span>
+          <span className="text-foreground">
+            {map.panelsAssigned} / {map.panelCapacity} · {Math.max(0, map.panelCapacity - map.panelsAssigned)} remaining
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
           <span className="text-muted-foreground">PORTS USED</span>
           <span className="text-foreground">
-            {map.portsUsed} / {processor.outputs} · minimum required {map.portsRequired}
+            {map.portsUsed} / {processor.outputs} · minimum required {Math.min(map.portsRequired, processor.outputs)}
           </span>
         </div>
       </div>
+
 
       {(map.issues.length > 0 || map.recommendations.length > 0) && (
         <ul className="mt-2 space-y-1 text-[10px] leading-relaxed">
