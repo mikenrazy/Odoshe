@@ -85,7 +85,9 @@ export function validateMapping(project: Project): MappingIssue[] {
 
     const key = `${proc.id}:${screen.rj45Port}`;
     const clash = seenPorts.get(key);
-    if (clash) {
+    // Sections in the same group are one logical screen and legitimately share a port.
+    const sameGroup = clash && screen.groupId && clash.groupId === screen.groupId;
+    if (clash && !sameGroup) {
       issues.push({
         id: `${screen.id}-dupport`,
         level: "error",
@@ -93,7 +95,7 @@ export function validateMapping(project: Project): MappingIssue[] {
         detail: `${clash.name} and ${screen.name} are both patched to ${proc.label} RJ45 Port ${screen.rj45Port}.`,
         screenId: screen.id,
       });
-    } else {
+    } else if (!clash) {
       seenPorts.set(key, screen);
     }
 
@@ -183,6 +185,49 @@ export function validateMapping(project: Project): MappingIssue[] {
         level: "error",
         title: `${proc.brand} ${proc.label} over capacity`,
         detail: `${load.toLocaleString()} px patched against a ${proc.maxPixels.toLocaleString()} px limit.`,
+      });
+    }
+  }
+
+  for (const proc of project.processors) {
+    const used = project.screens.filter((s) => s.processorId === proc.id);
+    if (used.length === 0) continue;
+    const inW = proc.inputWidth ?? 1920;
+    const inH = proc.inputHeight ?? 1080;
+    const maxW = proc.maxInputWidth ?? 1920;
+    const maxH = proc.maxInputHeight ?? 1080;
+    if (inW > maxW || inH > maxH) {
+      issues.push({
+        id: `${proc.id}-source`,
+        level: "error",
+        title: `${proc.name ?? proc.label}: source resolution out of range`,
+        detail: `${inW} × ${inH} px exceeds the supported maximum of ${maxW} × ${maxH} px.`,
+      });
+    }
+    if (
+      project.canvas.sourceProcessorId === proc.id &&
+      (project.canvas.width !== inW || project.canvas.height !== inH)
+    ) {
+      issues.push({
+        id: `${proc.id}-canvas-mismatch`,
+        level: "warning",
+        title: `Canvas ≠ ${proc.name ?? proc.label} source resolution`,
+        detail: `Content canvas is ${project.canvas.width} × ${project.canvas.height} px but the laptop/Mac feed is set to ${inW} × ${inH} px.`,
+      });
+    }
+  }
+
+  for (const group of project.groups ?? []) {
+    const members = project.screens.filter((s) => s.groupId === group.id);
+    if (members.length < 2) continue;
+    const procIds = new Set(members.map((m) => m.processorId));
+    if (procIds.size > 1) {
+      issues.push({
+        id: `${group.id}-split`,
+        level: "error",
+        title: `${group.name} is split across processors`,
+        detail: "A continuous LED group must be driven by a single processor.",
+        screenId: members[0]!.id,
       });
     }
   }

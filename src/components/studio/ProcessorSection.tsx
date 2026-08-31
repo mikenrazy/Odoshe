@@ -1,6 +1,7 @@
 import { useEditor } from "@/lib/led/store";
 import type { LedScreen } from "@/lib/led/types";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
+import { processorName } from "@/lib/led/types";
 import { Readout, Section, SelectField } from "./Field";
 
 interface Props {
@@ -24,7 +25,7 @@ export function ProcessorSection({ screen }: Props) {
       <SelectField
         label="Processor"
         value={active.id}
-        options={processors.map((p) => ({ value: p.id, label: `${p.brand} ${p.label}` }))}
+        options={processors.map((p) => ({ value: p.id, label: processorName(p) }))}
         onChange={(processorId) => updateScreen(screen.id, { processorId })}
       />
       <SelectField
@@ -48,6 +49,7 @@ export function ProcessorSection({ screen }: Props) {
 
       <Readout
         rows={[
+          ["SOURCE IN", `${active.inputWidth ?? 1920} × ${active.inputHeight ?? 1080} px`],
           ["CAPACITY", `${active.maxPixels.toLocaleString()} px`],
           ["SCREEN LOAD", `${load.toFixed(1)}%`, load > 100 ? "text-destructive" : undefined],
           ["PHYSICAL PORT", `RJ45 Port ${screen.rj45Port}`, "text-right text-[#7fd4ff]"],

@@ -35,9 +35,26 @@ export function computeGridNumbers(project: Project | null): Map<string, GridAss
 
   byProcessor.forEach((screens, processorId) => {
     const processor = project.processors.find((p) => p.id === processorId);
-    const processorName = processor ? `${processor.brand} ${processor.label}` : "Unassigned";
+    const processorName = processor
+      ? processor.name?.trim() || `${processor.brand} ${processor.label}`
+      : "Unassigned";
     const processorLabel = processor?.label ?? "N/A";
-    const ordered = [...screens].sort((a, b) => (a.gridOrder ?? 0) - (b.gridOrder ?? 0));
+
+    // Grouped sections are one continuous screen: they are numbered back-to-back,
+    // anchored at the lowest gridOrder in the group.
+    const groupAnchor = new Map<string, number>();
+    screens.forEach((s) => {
+      if (!s.groupId) return;
+      const order = s.gridOrder ?? 0;
+      const current = groupAnchor.get(s.groupId);
+      if (current === undefined || order < current) groupAnchor.set(s.groupId, order);
+    });
+    const rank = (s: LedScreen) =>
+      s.groupId ? (groupAnchor.get(s.groupId) ?? (s.gridOrder ?? 0)) : (s.gridOrder ?? 0);
+
+    const ordered = [...screens].sort(
+      (a, b) => rank(a) - rank(b) || (a.gridOrder ?? 0) - (b.gridOrder ?? 0),
+    );
     let next = 1;
     ordered.forEach((screen) => {
       const count = cabinetCount(screen);
@@ -45,6 +62,7 @@ export function computeGridNumbers(project: Project | null): Map<string, GridAss
       next += count;
     });
   });
+
 
   return map;
 }

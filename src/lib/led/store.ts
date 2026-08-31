@@ -15,6 +15,9 @@ import {
   type Measurement,
   type MediaItem,
   type ProcessorModel,
+  type ScreenGroup,
+  PROCESSOR_CATALOG,
+  processorFromCatalog,
   type Project,
   type ProjectMeta,
   type StageConfig,
@@ -261,8 +264,15 @@ interface EditorState {
   updateScreen: (id: string, patch: Partial<LedScreen>, options?: { history?: boolean }) => void;
   applyPreset: (id: string, presetKey: string) => void;
   addProcessor: (processor: Omit<ProcessorModel, "id">) => void;
+  addProcessorInstance: (modelKey: string) => void;
   updateProcessor: (id: string, patch: Partial<ProcessorModel>) => void;
   removeProcessor: (id: string) => void;
+  addGroup: (name: string, screenIds?: string[]) => void;
+  updateGroup: (id: string, patch: Partial<ScreenGroup>) => void;
+  removeGroup: (id: string) => void;
+  setScreenGroup: (screenId: string, groupId: string | null) => void;
+  applyProcessorSourceToCanvas: (processorId: string) => void;
+
   deleteScreen: (id: string) => void;
   duplicateScreen: (id: string) => void;
   alignScreens: (axis: "left" | "centerX" | "right" | "top" | "middleY" | "bottom") => void;
@@ -517,37 +527,63 @@ export const useEditor = create<EditorState>((set, get) => {
 
     updateScreen: (id, patch, options) =>
       mutate(
-        (p) => ({
-          ...p,
-          screens: p.screens.map((s) => {
-            if (s.id !== id) return s;
-            const next = { ...s, ...patch };
-            // Single source of truth: the canvas region follows the LED resolution
-            // unless the caller is explicitly editing the region itself.
-            if (
-              !patch.content &&
-              (patch.pixelWidth !== undefined || patch.pixelHeight !== undefined)
-            ) {
-              next.content = {
-                ...next.content,
-                width: next.pixelWidth,
-                height: next.pixelHeight,
-              };
-            }
-            // Ports/outputs must stay inside the assigned processor's real port count.
-            const proc = p.processors.find((pr) => pr.id === next.processorId);
-            if (proc) {
-              next.rj45Port = Math.min(Math.max(1, Math.round(next.rj45Port)), proc.outputs);
-              next.processorOutput = Math.min(
-                Math.max(1, Math.round(next.processorOutput)),
+        (p) => {
+          const target = p.screens.find((s) => s.id === id);
+          const groupId = patch.groupId !== undefined ? patch.groupId : target?.groupId;
+          const routingPatch =
+            patch.processorId !== undefined ||
+            patch.rj45Port !== undefined ||
+            patch.processorOutput !== undefined;
+
+          const clamp = (screen: LedScreen) => {
+            const proc = p.processors.find((pr) => pr.id === screen.processorId);
+            if (!proc) return screen;
+            return {
+              ...screen,
+              rj45Port: Math.min(Math.max(1, Math.round(screen.rj45Port)), proc.outputs),
+              processorOutput: Math.min(
+                Math.max(1, Math.round(screen.processorOutput)),
                 proc.outputs,
-              );
-            }
-            return next;
-          }),
-        }),
+              ),
+            };
+          };
+
+          return {
+            ...p,
+            screens: p.screens.map((s) => {
+              if (s.id !== id) {
+                // Grouped sections are one logical screen: they always share the
+                // processor and the physical port of the section being edited.
+                if (routingPatch && groupId && s.groupId === groupId) {
+                  return clamp({
+                    ...s,
+                    processorId: patch.processorId ?? s.processorId,
+                    rj45Port: patch.rj45Port ?? s.rj45Port,
+                    processorOutput: patch.processorOutput ?? s.processorOutput,
+                  });
+                }
+                return s;
+              }
+              const next = { ...s, ...patch };
+              // Single source of truth: the canvas region follows the LED resolution
+              // unless the caller is explicitly editing the region itself.
+              if (
+                !patch.content &&
+                (patch.pixelWidth !== undefined || patch.pixelHeight !== undefined)
+              ) {
+                next.content = {
+                  ...next.content,
+                  width: next.pixelWidth,
+                  height: next.pixelHeight,
+                };
+              }
+              return clamp(next);
+            }),
+          };
+        },
         options?.history !== false,
       ),
+
 
 
     applyPreset: (id, presetKey) => {
@@ -594,6 +630,105 @@ export const useEditor = create<EditorState>((set, get) => {
       const id = uid("proc");
       mutate((p) => ({ ...p, processors: [...p.processors, { ...processor, id }] }));
       set({ status: `Added processor “${processor.label}”` });
+    },
+
+    addProcessorInstance: (modelKey) => {
+      const entry = PROCESSOR_CATALOG.find((c) => c.key === modelKey);
+      if (!entry) return;
+      const project = get().project;
+      if (!project) return;
+      const count = project.processors.filter((p) => (p.modelKey ?? p.id) === entry.key).length;
+      const id = uid("proc");
+      const instance = processorFromCatalog(
+        entry,
+        id,
+        `${entry.brand} ${entry.label} #${count + 1}`,
+      );
+      mutate((p) => ({ ...p, processors: [...p.processors, instance] }));
+      set({ status: `Added ${instance.name}` });
+    },
+
+    addGroup: (name, screenIds) => {
+      const id = uid("grp");
+      mutate((p) => {
+        const ids = screenIds ?? [];
+        const lead = p.screens.find((s) => ids.includes(s.id));
+        return {
+          ...p,
+          groups: [...(p.groups ?? []), { id, name: name || `LED Group ${(p.groups?.length ?? 0) + 1}`, continuous: true }],
+          screens: p.screens.map((s) =>
+            ids.includes(s.id)
+              ? {
+                  ...s,
+                  groupId: id,
+                  processorId: lead?.processorId ?? s.processorId,
+                  rj45Port: lead?.rj45Port ?? s.rj45Port,
+                  processorOutput: lead?.processorOutput ?? s.processorOutput,
+                }
+              : s,
+          ),
+        };
+      });
+      set({ status: "LED group created" });
+    },
+
+    updateGroup: (id, patch) =>
+      mutate((p) => ({
+        ...p,
+        groups: (p.groups ?? []).map((g) => (g.id === id ? { ...g, ...patch } : g)),
+      })),
+
+    removeGroup: (id) => {
+      mutate((p) => ({
+        ...p,
+        groups: (p.groups ?? []).filter((g) => g.id !== id),
+        screens: p.screens.map((s) => (s.groupId === id ? { ...s, groupId: undefined } : s)),
+      }));
+      set({ status: "LED group removed" });
+    },
+
+    setScreenGroup: (screenId, groupId) => {
+      mutate((p) => {
+        const peer = groupId ? p.screens.find((s) => s.groupId === groupId && s.id !== screenId) : undefined;
+        return {
+          ...p,
+          screens: p.screens.map((s) =>
+            s.id === screenId
+              ? {
+                  ...s,
+                  groupId: groupId ?? undefined,
+                  processorId: peer?.processorId ?? s.processorId,
+                  rj45Port: peer?.rj45Port ?? s.rj45Port,
+                  processorOutput: peer?.processorOutput ?? s.processorOutput,
+                }
+              : s,
+          ),
+        };
+      });
+    },
+
+    applyProcessorSourceToCanvas: (processorId) => {
+      const project = get().project;
+      const proc = project?.processors.find((p) => p.id === processorId);
+      if (!proc) return;
+      const width = proc.inputWidth ?? 1920;
+      const height = proc.inputHeight ?? 1080;
+      mutate((p) => ({
+        ...p,
+        canvas: {
+          ...p.canvas,
+          width,
+          height,
+          sourceProcessorId: processorId,
+          aspectPreset:
+            Math.abs(width / height - 16 / 9) < 0.01
+              ? "16:9"
+              : Math.abs(width / height - 32 / 9) < 0.01
+                ? "32:9"
+                : "custom",
+        },
+      }));
+      set({ status: `Canvas set to ${width} × ${height} from ${proc.name ?? proc.label}` });
     },
 
     updateProcessor: (id, patch) =>
