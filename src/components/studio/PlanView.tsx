@@ -298,15 +298,92 @@ export function PlanView() {
         {/* stage */}
         {layers.stage.visible && (
           <g>
-            <rect
-              x={H(stagePlan.cx - stagePlan.w / 2)}
-              y={V(stagePlan.cv + (view === "top" ? -stagePlan.hgt / 2 : stagePlan.hgt / 2))}
-              width={stagePlan.w * scale}
-              height={stagePlan.hgt * scale}
-              fill="#141a24"
-              stroke="#5d6c86"
-              strokeWidth={1.5}
-            />
+            {view === "top" ? (
+              deckParts(stage).map((part, i) =>
+                part.kind === "rect" ? (
+                  <rect
+                    key={i}
+                    x={H(part.x - part.w / 2)}
+                    y={V(part.z - part.d / 2)}
+                    width={part.w * scale}
+                    height={part.d * scale}
+                    fill="#141a24"
+                    stroke="#5d6c86"
+                    strokeWidth={1.5}
+                  />
+                ) : part.kind === "circle" ? (
+                  <circle
+                    key={i}
+                    cx={H(part.x)}
+                    cy={V(part.z)}
+                    r={(part.w / 2) * scale}
+                    fill="#141a24"
+                    stroke="#5d6c86"
+                    strokeWidth={1.5}
+                  />
+                ) : (
+                  <path
+                    key={i}
+                    d={`M ${H(part.x - part.w / 2)} ${V(part.z)} A ${(part.w / 2) * scale} ${
+                      (part.w / 2) * scale
+                    } 0 0 0 ${H(part.x + part.w / 2)} ${V(part.z)} Z`}
+                    fill="#141a24"
+                    stroke="#5d6c86"
+                    strokeWidth={1.5}
+                  />
+                ),
+              )
+            ) : (
+              <rect
+                x={H(stagePlan.cx - stagePlan.w / 2)}
+                y={V(stagePlan.cv + stagePlan.hgt / 2)}
+                width={stagePlan.w * scale}
+                height={stagePlan.hgt * scale}
+                fill="#141a24"
+                stroke="#5d6c86"
+                strokeWidth={1.5}
+              />
+            )}
+
+            {/* risers */}
+            {stageRisers(stage).map((r) =>
+              view === "top" ? (
+                <g key={r.id}>
+                  <rect
+                    x={H(r.x - r.width / 2)}
+                    y={V(r.z - r.depth / 2)}
+                    width={r.width * scale}
+                    height={r.depth * scale}
+                    transform={`rotate(${r.rotation} ${H(r.x)} ${V(r.z)})`}
+                    fill="#1b2432"
+                    stroke="#7f8ca3"
+                    strokeDasharray="5 3"
+                  />
+                  <text
+                    x={H(r.x)}
+                    y={V(r.z) + 4}
+                    textAnchor="middle"
+                    fill="#7f8ca3"
+                    fontSize={10}
+                    fontFamily="monospace"
+                  >
+                    {r.name.toUpperCase()} +{r.height.toFixed(2)}m
+                  </text>
+                </g>
+              ) : (
+                <rect
+                  key={r.id}
+                  x={H((view === "front" ? r.x : r.z) - (view === "front" ? r.width : r.depth) / 2)}
+                  y={V(stage.height + r.height)}
+                  width={(view === "front" ? r.width : r.depth) * scale}
+                  height={r.height * scale}
+                  fill="#1b2432"
+                  stroke="#7f8ca3"
+                  strokeDasharray="5 3"
+                />
+              ),
+            )}
+
             <text
               x={H(stagePlan.cx)}
               y={V(stagePlan.cv)}
@@ -315,7 +392,8 @@ export function PlanView() {
               fontSize={12}
               fontFamily="monospace"
             >
-              STAGE {stage.width} × {stage.depth} × {stage.height} m
+              STAGE {stage.width} × {stage.depth} × {stage.height} m ·{" "}
+              {(stage.shape ?? "rectangle").toUpperCase()} · {deckFinishLabel(stageFinish(stage)).toUpperCase()}
             </text>
             {view !== "top" && stage.backWall && (
               <rect
@@ -330,6 +408,7 @@ export function PlanView() {
             )}
           </g>
         )}
+
 
         {/* stage elements (style + placement) */}
         {view === "top" &&
