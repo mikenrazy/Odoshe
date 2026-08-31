@@ -214,7 +214,7 @@ export function DateField({
   );
 }
 
-export function Readout({ rows }: { rows: Array<[string, string, string?]> }) {
+export function Readout({ rows }: { rows: Array<[string, string, (string | undefined)?]> }) {
   return (
     <div className="mt-1 grid grid-cols-2 gap-2 border-t border-border pt-2 font-mono text-[10px] text-muted-foreground">
       {rows.map(([label, value, tone]) => (
