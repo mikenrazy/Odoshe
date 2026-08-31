@@ -277,6 +277,7 @@ interface EditorState {
   duplicateScreen: (id: string) => void;
   alignScreens: (axis: "left" | "centerX" | "right" | "top" | "middleY" | "bottom") => void;
   spaceScreens: (gap: number, direction: "horizontal" | "vertical") => void;
+  setGapBetween: (aId: string, bId: string, gap: number) => void;
   renumberGrids: () => void;
   select: (id: string | null) => void;
 
@@ -863,6 +864,41 @@ export const useEditor = create<EditorState>((set, get) => {
         };
       });
       set({ status: `Spaced screens with ${g.toFixed(2)} m gap (${direction})` });
+    },
+
+    setGapBetween: (aId, bId, gap) => {
+      const project = get().project;
+      if (!project) return;
+      const a = project.screens.find((s) => s.id === aId);
+      const b = project.screens.find((s) => s.id === bId);
+      if (!a || !b || a.id === b.id) return;
+      const g = Math.max(0, gap);
+      // Move B relative to A (or A if B is locked) along the dominant separation axis.
+      const moveA = b.locked && !a.locked;
+      const anchor = moveA ? b : a;
+      const moving = moveA ? a : b;
+      const sign = moveA ? -1 : 1;
+      const dx = b.position.x - a.position.x;
+      const dy = b.position.y - a.position.y;
+      const horizontal = Math.abs(dx) >= Math.abs(dy);
+      const dir = horizontal ? Math.sign(dx || 1) * sign : Math.sign(dy || 1) * sign;
+      const next = { ...moving.position };
+      if (horizontal) {
+        next.x =
+          anchor.position.x +
+          dir * (anchor.physicalWidth / 2 + g + moving.physicalWidth / 2);
+      } else {
+        next.y =
+          anchor.position.y +
+          dir * (anchor.physicalHeight / 2 + g + moving.physicalHeight / 2);
+      }
+      mutate((p) => ({
+        ...p,
+        screens: p.screens.map((s) => (s.id === moving.id ? { ...s, position: next } : s)),
+      }));
+      set({
+        status: `Gap "${a.name}" ↔ "${b.name}" set to ${g.toFixed(2)} m (${horizontal ? "horizontal" : "vertical"})`,
+      });
     },
 
     renumberGrids: () => {
