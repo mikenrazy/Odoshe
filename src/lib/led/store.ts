@@ -527,37 +527,63 @@ export const useEditor = create<EditorState>((set, get) => {
 
     updateScreen: (id, patch, options) =>
       mutate(
-        (p) => ({
-          ...p,
-          screens: p.screens.map((s) => {
-            if (s.id !== id) return s;
-            const next = { ...s, ...patch };
-            // Single source of truth: the canvas region follows the LED resolution
-            // unless the caller is explicitly editing the region itself.
-            if (
-              !patch.content &&
-              (patch.pixelWidth !== undefined || patch.pixelHeight !== undefined)
-            ) {
-              next.content = {
-                ...next.content,
-                width: next.pixelWidth,
-                height: next.pixelHeight,
-              };
-            }
-            // Ports/outputs must stay inside the assigned processor's real port count.
-            const proc = p.processors.find((pr) => pr.id === next.processorId);
-            if (proc) {
-              next.rj45Port = Math.min(Math.max(1, Math.round(next.rj45Port)), proc.outputs);
-              next.processorOutput = Math.min(
-                Math.max(1, Math.round(next.processorOutput)),
+        (p) => {
+          const target = p.screens.find((s) => s.id === id);
+          const groupId = patch.groupId !== undefined ? patch.groupId : target?.groupId;
+          const routingPatch =
+            patch.processorId !== undefined ||
+            patch.rj45Port !== undefined ||
+            patch.processorOutput !== undefined;
+
+          const clamp = (screen: LedScreen) => {
+            const proc = p.processors.find((pr) => pr.id === screen.processorId);
+            if (!proc) return screen;
+            return {
+              ...screen,
+              rj45Port: Math.min(Math.max(1, Math.round(screen.rj45Port)), proc.outputs),
+              processorOutput: Math.min(
+                Math.max(1, Math.round(screen.processorOutput)),
                 proc.outputs,
-              );
-            }
-            return next;
-          }),
-        }),
+              ),
+            };
+          };
+
+          return {
+            ...p,
+            screens: p.screens.map((s) => {
+              if (s.id !== id) {
+                // Grouped sections are one logical screen: they always share the
+                // processor and the physical port of the section being edited.
+                if (routingPatch && groupId && s.groupId === groupId) {
+                  return clamp({
+                    ...s,
+                    processorId: patch.processorId ?? s.processorId,
+                    rj45Port: patch.rj45Port ?? s.rj45Port,
+                    processorOutput: patch.processorOutput ?? s.processorOutput,
+                  });
+                }
+                return s;
+              }
+              const next = { ...s, ...patch };
+              // Single source of truth: the canvas region follows the LED resolution
+              // unless the caller is explicitly editing the region itself.
+              if (
+                !patch.content &&
+                (patch.pixelWidth !== undefined || patch.pixelHeight !== undefined)
+              ) {
+                next.content = {
+                  ...next.content,
+                  width: next.pixelWidth,
+                  height: next.pixelHeight,
+                };
+              }
+              return clamp(next);
+            }),
+          };
+        },
         options?.history !== false,
       ),
+
 
 
     applyPreset: (id, presetKey) => {
