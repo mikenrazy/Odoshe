@@ -276,6 +276,7 @@ interface EditorState {
   deleteScreen: (id: string) => void;
   duplicateScreen: (id: string) => void;
   alignScreens: (axis: "left" | "centerX" | "right" | "top" | "middleY" | "bottom") => void;
+  spaceScreens: (gap: number, direction: "horizontal" | "vertical") => void;
   renumberGrids: () => void;
   select: (id: string | null) => void;
 
