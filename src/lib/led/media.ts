@@ -110,6 +110,13 @@ export async function renderComposite(
         (item.x + item.width / 2) * scale,
         (item.y + item.height / 2) * scale,
       );
+    } else if (item.kind === "video" && item.src) {
+      const video = loadVideo(item.src);
+      if (video && video.readyState >= 2) drawFitted(ctx, video, item, scale);
+      else {
+        ctx.fillStyle = "#11151d";
+        ctx.fillRect(item.x * scale, item.y * scale, item.width * scale, item.height * scale);
+      }
     } else if (item.src) {
       const img = await loadImage(item.src);
       if (img) drawFitted(ctx, img, item, scale);
