@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Layers, Square, Trash2, Type, Video } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
 import { newAssetId, putAsset } from "@/lib/led/asset-store";
@@ -43,6 +43,51 @@ type DragState = {
   startY: number;
   origin: { x: number; y: number; width: number; height: number };
 };
+
+/** Native pixel size of the media behind a layer (image or video). */
+function useNaturalSize(src: string | undefined, kind: MediaItem["kind"]) {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    setSize(null);
+    if (!src || (kind !== "image" && kind !== "video")) return;
+    let live = true;
+    if (kind === "video") {
+      const el = document.createElement("video");
+      el.preload = "metadata";
+      el.muted = true;
+      el.onloadedmetadata = () =>
+        live && setSize({ width: el.videoWidth, height: el.videoHeight });
+      el.src = src;
+      return () => {
+        live = false;
+      };
+    }
+    const img = new Image();
+    img.onload = () => live && setSize({ width: img.naturalWidth, height: img.naturalHeight });
+    img.src = src;
+    return () => {
+      live = false;
+    };
+  }, [src, kind]);
+  return size;
+}
+
+/** How many pixels of the layer frame the media actually paints. */
+function renderedSize(
+  natural: { width: number; height: number } | null,
+  item: MediaItem,
+): { width: number; height: number } | null {
+  if (!natural || !natural.width || !natural.height) return null;
+  if (item.fit === "stretch") return { width: item.width, height: item.height };
+  const ratio = natural.width / natural.height;
+  const frame = item.width / item.height;
+  const cover = item.fit === "cover";
+  if (cover ? ratio > frame : ratio < frame) {
+    return { width: Math.round(item.height * ratio), height: item.height };
+  }
+  return { width: item.width, height: Math.round(item.width / ratio) };
+}
+
 
 
 /**
@@ -169,6 +214,16 @@ export function ContentCanvasEditor() {
   };
 
   const selected = ordered.find((m) => m.id === selectedMediaId) ?? null;
+  const natural = useNaturalSize(selected?.src, selected?.kind ?? "image");
+  const painted = selected ? renderedSize(natural, selected) : null;
+  /** contain-fitted media leaves black bars — the previews then look "smaller" */
+  const letterboxed =
+    !!selected &&
+    !!painted &&
+    selected.fit === "contain" &&
+    (painted.width < selected.width - 2 || painted.height < selected.height - 2);
+
+
 
   /** true when the layer sticks out of the canvas — that part is never mapped */
   const overflows =
@@ -581,6 +636,41 @@ export function ContentCanvasEditor() {
                 <option value="stretch">Stretch</option>
               </select>
             </label>
+            {natural && (
+              <div className="flex items-center justify-between gap-2 text-[9px] text-muted-foreground">
+                <span>Source</span>
+                <span className="font-mono text-foreground">
+                  {natural.width}×{natural.height}
+                  {painted ? ` → ${painted.width}×${painted.height}` : ""}
+                </span>
+              </div>
+            )}
+            {letterboxed && painted && (
+              <div className="space-y-1 border border-amber-500/60 bg-amber-500/10 p-2 text-[9px] leading-relaxed tracking-normal text-amber-400">
+                <p>
+                  Fit is “Contain”, so the media only paints {painted.width}×{painted.height} of the{" "}
+                  {selected.width}×{selected.height} layer — the rest is black in the 2D/3D previews
+                  and on the LED output.
+                </p>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => updateMedia(selected.id, { fit: "cover" })}
+                    className="border border-amber-500/60 py-1 hover:text-foreground"
+                  >
+                    Cover (crop)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateMedia(selected.id, { fit: "stretch" })}
+                    className="border border-amber-500/60 py-1 hover:text-foreground"
+                  >
+                    Stretch
+                  </button>
+                </div>
+              </div>
+            )}
+
             {(selected.kind === "text" || selected.kind === "shape") && (
               <label className="flex items-center justify-between gap-2">
                 Colour
