@@ -710,6 +710,12 @@ export const useEditor = create<EditorState>((set, get) => {
       });
     },
 
+    splitGroupResolution: (groupId) => {
+      mutate((p) => splitGroupInProject(p, groupId));
+      set({ status: "Group resolution split evenly" });
+    },
+
+
     applyProcessorSourceToCanvas: (processorId) => {
       const project = get().project;
       const proc = project?.processors.find((p) => p.id === processorId);
