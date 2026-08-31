@@ -271,6 +271,7 @@ interface EditorState {
   updateGroup: (id: string, patch: Partial<ScreenGroup>) => void;
   removeGroup: (id: string) => void;
   setScreenGroup: (screenId: string, groupId: string | null) => void;
+  splitGroupResolution: (groupId: string) => void;
   applyProcessorSourceToCanvas: (processorId: string) => void;
 
   deleteScreen: (id: string) => void;
