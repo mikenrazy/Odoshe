@@ -214,6 +214,16 @@ export function ContentCanvasEditor() {
   };
 
   const selected = ordered.find((m) => m.id === selectedMediaId) ?? null;
+  const natural = useNaturalSize(selected?.src, selected?.kind ?? "image");
+  const painted = selected ? renderedSize(natural, selected) : null;
+  /** contain-fitted media leaves black bars — the previews then look "smaller" */
+  const letterboxed =
+    !!selected &&
+    !!painted &&
+    selected.fit === "contain" &&
+    (painted.width < selected.width - 2 || painted.height < selected.height - 2);
+
+
 
   /** true when the layer sticks out of the canvas — that part is never mapped */
   const overflows =
