@@ -158,6 +158,14 @@ export function LedScreenObject({
   }, [composite, canvasWidth, screen.content.x, screen.content.y, screen.content.width, screen.content.height]);
 
   const content = uploaded ?? canvasRegion;
+  const curved = screen.curvature.enabled && screen.curvature.angle > 0.5;
+  /** Content is always drawn on a dedicated surface in FRONT of the LED body. */
+  const contentGeometry = useMemo(() => {
+    if (curved) return null;
+    return new THREE.PlaneGeometry(screen.physicalWidth, screen.physicalHeight);
+  }, [curved, screen.physicalWidth, screen.physicalHeight]);
+  const contentZ = Math.max(screen.physicalDepth, 0.02) / 2 + 0.006;
+
   const grid = useMemo(
     () => (screen.panelConfiguration.show ? panelLines(screen) : []),
     [screen],
@@ -172,6 +180,7 @@ export function LedScreenObject({
   if (texture) texture.repeat.set(repeatX, repeatY);
 
   if (!screen.visible) return null;
+
 
   return (
     <group
