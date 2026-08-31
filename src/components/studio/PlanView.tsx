@@ -318,7 +318,46 @@ export function PlanView() {
           </g>
         )}
 
+        {/* stage elements (style + placement) */}
+        {view === "top" &&
+          layers.stage.visible &&
+          STAGE_ELEMENT_KEYS.filter((k) => stageElementEnabled(stage, k)).map((key) => {
+            const a = resolveAnchor(stage, key, {
+              outside: key === "stairs" || key === "fascia" || key === "backdrop",
+            });
+            const fp = elementFootprint(stage, key, a);
+            const cx = H(a.x);
+            const cv = V(a.z);
+            const w = Math.max(fp.w * scale, 4);
+            const h = Math.max(fp.d * scale, 4);
+            return (
+              <g key={`el-${key}`} transform={`rotate(${a.rotation} ${cx} ${cv})`}>
+                <rect
+                  x={cx - w / 2}
+                  y={cv - h / 2}
+                  width={w}
+                  height={h}
+                  fill="none"
+                  stroke="#c98b3a"
+                  strokeWidth={1.2}
+                  strokeDasharray="5 3"
+                />
+                <text
+                  x={cx}
+                  y={cv - h / 2 - 3}
+                  textAnchor="middle"
+                  fill="#c98b3a"
+                  fontSize={9}
+                  fontFamily="monospace"
+                >
+                  {STAGE_ELEMENT_LABELS[key].toUpperCase()} · {a.style.toUpperCase()}
+                </text>
+              </g>
+            );
+          })}
+
         {/* objects */}
+
         {items.map((it) => {
           const p = project2D(it);
           const w = Math.max(p.w * scale, 5);
