@@ -66,6 +66,7 @@ export function ContentCanvasEditor() {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [showRegions, setShowRegions] = useState(true);
+  const [lockAspect, setLockAspect] = useState(true);
   const [viewWidth, setViewWidth] = useState(1000);
 
   const measure = useCallback((node: HTMLDivElement | null) => {
