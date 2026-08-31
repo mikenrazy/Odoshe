@@ -718,6 +718,54 @@ export const useEditor = create<EditorState>((set, get) => {
 
 
 
+    syncScreenResolution: (id) => {
+      mutate((p) => ({
+        ...p,
+        screens: p.screens.map((s) =>
+          s.id === id ? withDerivedResolution({ ...s, resolutionOverride: false }) : s,
+        ),
+      }));
+      const s = get().project?.screens.find((x) => x.id === id);
+      set({
+        status: s ? `${s.name} resolution synced to ${s.pixelWidth} × ${s.pixelHeight} px` : "",
+      });
+    },
+
+    applyCabinetSpec: (id, cabinetKey) => {
+      const spec = CABINET_CATALOG.find((c) => c.key === cabinetKey);
+      if (!spec) return;
+      mutate((p) => ({
+        ...p,
+        screens: p.screens.map((s) => {
+          if (s.id !== id) return s;
+          const grid = s.panelConfiguration.manual
+            ? { cols: s.panelConfiguration.cols, rows: s.panelConfiguration.rows }
+            : fitCabinets(s.physicalWidth, s.physicalHeight, spec.width, spec.height);
+          const next: LedScreen = {
+            ...s,
+            cabinetKey: spec.key,
+            pixelPitch: spec.pitch,
+            panelConfiguration: {
+              ...s.panelConfiguration,
+              sizeKey: "custom",
+              panelWidth: spec.width,
+              panelHeight: spec.height,
+              ...grid,
+            },
+          };
+          const derived = withDerivedResolution({ ...next, resolutionOverride: false });
+          const d = derivedResolution(derived);
+          return {
+            ...derived,
+            resolutionOverride: false,
+            physicalWidth: d.actualWidth,
+            physicalHeight: d.actualHeight,
+          };
+        }),
+      }));
+      set({ status: `Cabinet spec applied: ${spec.label}` });
+    },
+
     applyPreset: (id, presetKey) => {
       const preset = SCREEN_PRESETS.find((p) => p.key === presetKey);
       if (!preset) return;
