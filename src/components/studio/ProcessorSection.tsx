@@ -19,6 +19,7 @@ export function ProcessorSection({ screen }: Props) {
   const pixels = screen.pixelWidth * screen.pixelHeight;
   const load = active.maxPixels > 0 ? (pixels / active.maxPixels) * 100 : 0;
   const assignment = computeGridNumbers(project).get(screen.id);
+  const group = screen.groupId ? groupResolution(project, screen.groupId) : null;
 
   return (
     <Section title="Video Processor">
