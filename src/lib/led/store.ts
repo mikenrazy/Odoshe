@@ -25,6 +25,7 @@ import {
 
 } from "./types";
 import { createEquipment, EQUIPMENT_LIBRARY } from "./equipment";
+import { withDerivedResolution, derivedResolution, CABINET_CATALOG, fitCabinets } from "./resolution";
 import { createRiser, STAGE_PRESETS } from "./stage-shapes";
 
 import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
