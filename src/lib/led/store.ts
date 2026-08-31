@@ -132,8 +132,11 @@ export type PersistResult = { ok: boolean; message?: string };
 
 function persist(projects: Project[]): PersistResult {
   if (!isBrowser()) return { ok: true };
+  const light = JSON.stringify(forStorage(projects));
+  // Durable fallback copy — survives localStorage quota failures.
+  void backupProjects(light);
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(forStorage(projects)));
+    window.localStorage.setItem(STORAGE_KEY, light);
     return { ok: true };
   } catch {
     // Most likely quota exceeded (uploaded images/videos are stored inline).
