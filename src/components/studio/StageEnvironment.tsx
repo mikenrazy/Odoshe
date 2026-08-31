@@ -1,6 +1,8 @@
 import { Line, Text } from "@react-three/drei";
 import type { Layers, Measurement, StageConfig } from "@/lib/led/types";
 import { resolveAnchor, type ElementAnchor } from "@/lib/led/stage-elements";
+import { deckMaterial, deckParts, stageFinish, stageRisers } from "@/lib/led/stage-shapes";
+
 
 interface Props {
   stage: StageConfig;
