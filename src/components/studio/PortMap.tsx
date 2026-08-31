@@ -72,6 +72,9 @@ export function PortMap({ project, processor, readOnly }: Props) {
                 {p.sections.map((s) => s.screenName).join(", ")} · {p.cabinets} cab ·{" "}
                 {p.width} × {p.height} px ({p.pixels.toLocaleString()} px, {" "}
                 {p.remaining.toLocaleString()} px free)
+                {p.notes.length > 0 && (
+                  <span className={`block ${PORT_TONE[p.status]}`}>{p.notes.join(" ")}</span>
+                )}
               </span>
             </div>
           ))}

@@ -221,7 +221,7 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
   const maxPixels = Math.max(1, processor.maxPixels);
   const loadPct = (totalPixels / maxPixels) * 100;
   const portsUsed = ports.filter((p) => p.sections.length > 0).length;
-  const portsRequired = Math.ceil(totalPixels / maxPP);
+  const portsRequired = screens.reduce((sum, s) => sum + portsNeeded(s, processor), 0);
 
   let status: PortStatus = portsUsed === 0 ? "free" : "ok";
   if (ports.some((p) => p.status === "over") || overflow.length > 0) status = "over";
