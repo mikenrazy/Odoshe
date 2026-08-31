@@ -190,6 +190,8 @@ export interface LedScreen {
   content: ContentRegion;
   /** optional image (data URL) shown as content on the LED surface in 3D */
   contentImage?: string | undefined;
+  /** IndexedDB key holding `contentImage` (kept out of localStorage) */
+  contentAssetId?: string | undefined;
   visible: boolean;
   locked: boolean;
   /** stable ordering within its processor's continuous grid numbering */
