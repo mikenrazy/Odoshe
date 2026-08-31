@@ -681,7 +681,17 @@ export const useEditor = create<EditorState>((set, get) => {
                 }
                 return s;
               }
-              const next = { ...s, ...patch };
+              let next = { ...s, ...patch };
+              // LED resolution is derived from pixel pitch + cabinet grid unless
+              // the operator explicitly pinned an override.
+              const specPatch =
+                patch.pixelPitch !== undefined ||
+                patch.panelConfiguration !== undefined ||
+                patch.cabinetKey !== undefined ||
+                patch.resolutionOverride !== undefined;
+              if (specPatch && patch.pixelWidth === undefined && patch.pixelHeight === undefined) {
+                next = withDerivedResolution(next);
+              }
               // Single source of truth: the canvas region follows the LED resolution
               // unless the caller is explicitly editing the region itself.
               if (
