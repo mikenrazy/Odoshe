@@ -1,17 +1,22 @@
 import { useEditor } from "@/lib/led/store";
 import {
+  STAGE_DECK_FINISHES,
   STAGE_ELEMENT_LABELS,
   STAGE_ELEMENT_STYLES,
   STAGE_ORIENTATION_LABELS,
   STAGE_PLACEMENT_LABELS,
+  STAGE_SHAPES,
   defaultStageElements,
+  type StageDeckFinish,
   type StageElementKey,
   type StagePlacement,
   type StageOrientation,
+  type StageShape,
 } from "@/lib/led/types";
 import { elementSetup } from "@/lib/led/stage-elements";
+import { STAGE_PRESETS } from "@/lib/led/stage-shapes";
 import { fromDisplay, toDisplay, unitSuffix } from "@/lib/led/units";
-import { ColorField, NumberField, Section, SelectField, ToggleField } from "../Field";
+import { ColorField, NumberField, Section, SelectField, TextField, ToggleField } from "../Field";
 
 const ELEMENT_KEYS = Object.keys(STAGE_ELEMENT_LABELS) as StageElementKey[];
 const PLACEMENTS = Object.keys(STAGE_PLACEMENT_LABELS) as StagePlacement[];
@@ -19,6 +24,11 @@ const PLACEMENTS = Object.keys(STAGE_PLACEMENT_LABELS) as StagePlacement[];
 export function StagePanel() {
   const project = useEditor((s) => s.project);
   const setStage = useEditor((s) => s.setStage);
+  const applyStagePreset = useEditor((s) => s.applyStagePreset);
+  const addRiser = useEditor((s) => s.addRiser);
+  const updateRiser = useEditor((s) => s.updateRiser);
+  const removeRiser = useEditor((s) => s.removeRiser);
+
 
   if (!project) return null;
   const stage = project.stage;
