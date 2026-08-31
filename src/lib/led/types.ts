@@ -179,6 +179,8 @@ export interface LedScreen {
   processorOutput: number;
   /** slice of the content canvas shown on this screen */
   content: ContentRegion;
+  /** optional image (data URL) shown as content on the LED surface in 3D */
+  contentImage?: string | undefined;
   visible: boolean;
   locked: boolean;
   /** stable ordering within its processor's continuous grid numbering */
@@ -187,7 +189,14 @@ export interface LedScreen {
 
 /* -------------------------------------------------------------- equipment */
 
-export type EquipmentCategory = "video" | "led" | "lighting" | "structure" | "furniture";
+export type EquipmentCategory =
+  | "video"
+  | "led"
+  | "lighting"
+  | "structure"
+  | "furniture"
+  | "seating"
+  | "people";
 
 export const EQUIPMENT_CATEGORY_LABELS: Record<EquipmentCategory, string> = {
   video: "Video",
@@ -195,6 +204,8 @@ export const EQUIPMENT_CATEGORY_LABELS: Record<EquipmentCategory, string> = {
   lighting: "Lighting",
   structure: "Structure",
   furniture: "Furniture",
+  seating: "Seating",
+  people: "People",
 };
 
 export interface EquipmentItem {
@@ -224,6 +235,8 @@ export type LayerKey =
   | "lighting"
   | "structure"
   | "furniture"
+  | "seating"
+  | "people"
   | "audience"
   | "measurements";
 
@@ -234,6 +247,8 @@ export const LAYER_ORDER: LayerKey[] = [
   "lighting",
   "structure",
   "furniture",
+  "seating",
+  "people",
   "audience",
   "measurements",
 ];
@@ -245,6 +260,8 @@ export const LAYER_LABELS: Record<LayerKey, string> = {
   lighting: "Lighting",
   structure: "Structure",
   furniture: "Furniture",
+  seating: "Seating",
+  people: "People",
   audience: "Audience",
   measurements: "Measurements",
 };

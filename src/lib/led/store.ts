@@ -189,6 +189,15 @@ interface EditorState {
   select: (id: string | null) => void;
 
   addEquipment: (typeKey: string) => void;
+  addSeatingRows: (config: {
+    typeKey: string;
+    rows: number;
+    perRow: number;
+    rowSpacing: number;
+    seatSpacing: number;
+    startZ: number;
+    section: string;
+  }) => void;
   updateEquipment: (
     id: string,
     patch: Partial<EquipmentItem>,
@@ -557,6 +566,31 @@ export const useEditor = create<EditorState>((set, get) => {
       });
       mutate((p) => ({ ...p, equipment: [...p.equipment, item] }));
       set({ selectedEquipmentId: item.id, selectedId: null, status: `Added ${item.name}` });
+    },
+
+    addSeatingRows: ({ typeKey, rows, perRow, rowSpacing, seatSpacing, startZ, section }) => {
+      const def = EQUIPMENT_LIBRARY.find((e) => e.key === typeKey);
+      if (!def) return;
+      const items: EquipmentItem[] = [];
+      const r = Math.max(1, Math.round(rows));
+      const n = Math.max(1, Math.round(perRow));
+      for (let row = 0; row < r; row++) {
+        for (let i = 0; i < n; i++) {
+          items.push(
+            createEquipment(def, {
+              name: `${section} R${row + 1}-${i + 1}`,
+              position: {
+                x: +((i - (n - 1) / 2) * seatSpacing).toFixed(3),
+                y: 0,
+                z: +(startZ + row * rowSpacing).toFixed(3),
+              },
+              rotation: 180,
+            }),
+          );
+        }
+      }
+      mutate((p) => ({ ...p, equipment: [...p.equipment, ...items] }));
+      set({ status: `Added ${items.length} seats (${section})` });
     },
 
     updateEquipment: (id, patch, options) =>
