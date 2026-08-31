@@ -132,21 +132,30 @@ export function useCanvasComposite() {
   const canvas = useEditor((s) => s.project?.canvas);
   const [composite, setComposite] = useState<HTMLCanvasElement | null>(null);
   const signature = JSON.stringify({ canvas, media });
+  const hasVideo = !!media?.some((m) => m.visible && m.kind === "video" && m.src);
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     if (!canvas || !media || media.length === 0) {
       setComposite(null);
       return;
     }
-    void renderComposite(canvas, media).then((el) => {
-      if (!cancelled) setComposite(el);
-    });
+    const draw = () => {
+      void renderComposite(canvas, media).then((el) => {
+        if (cancelled) return;
+        setComposite(el);
+        // video layers need a live refresh so the LED surfaces keep playing
+        if (hasVideo) timer = setTimeout(draw, 125);
+      });
+    };
+    draw();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature]);
+  }, [signature, hasVideo]);
 
   return composite;
 }
