@@ -35,6 +35,7 @@ export function ProcessorPanel() {
   const removeGroup = useEditor((s) => s.removeGroup);
   const updateGroup = useEditor((s) => s.updateGroup);
   const setScreenGroup = useEditor((s) => s.setScreenGroup);
+  const splitGroupResolution = useEditor((s) => s.splitGroupResolution);
   const applySource = useEditor((s) => s.applyProcessorSourceToCanvas);
   const select = useEditor((s) => s.select);
 
