@@ -35,6 +35,7 @@ export function resolveAnchor(
   const insetX = Math.min(halfW * 0.55, 2.2);
   const insetZ = Math.min(halfD * 0.55, 1.6);
   const edgeZ = opts.outside ? halfD : halfD - insetZ;
+  const backZ = opts.outside ? -halfD : -halfD + insetZ;
 
   let x = 0;
   let z = 0;
@@ -49,7 +50,7 @@ export function resolveAnchor(
       z = edgeZ;
       break;
     case "back":
-      z = -halfD + insetZ;
+      z = backZ;
       break;
     case "front-left":
       x = -halfW + insetX;
@@ -61,11 +62,11 @@ export function resolveAnchor(
       break;
     case "back-left":
       x = -halfW + insetX;
-      z = -halfD + insetZ;
+      z = backZ;
       break;
     case "back-right":
       x = halfW - insetX;
-      z = -halfD + insetZ;
+      z = backZ;
       break;
     case "center":
     case "custom":

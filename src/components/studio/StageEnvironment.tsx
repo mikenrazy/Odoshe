@@ -418,7 +418,7 @@ export function StageEnvironment({ stage, layers, measurements, showMeasurements
   const podiumA = resolveAnchor(stage, "podium");
   const furnitureA = resolveAnchor(stage, "furniture");
   const fasciaA = resolveAnchor(stage, "fascia", { outside: true });
-  const backdropA = resolveAnchor(stage, "backdrop");
+  const backdropA = resolveAnchor(stage, "backdrop", { outside: true });
   const trussA = resolveAnchor(stage, "truss");
 
   return (
@@ -465,7 +465,7 @@ export function StageEnvironment({ stage, layers, measurements, showMeasurements
           )}
 
           {stage.backdrop && (
-            <Placed a={{ ...backdropA, z: backdropA.z - halfD - 0.34 + (halfD - Math.min(halfD * 0.55, 1.6)) * 0 }} y={0}>
+            <Placed a={{ ...backdropA, z: backdropA.z - 0.34 }} y={0}>
               <Backdrop stage={stage} a={backdropA} />
             </Placed>
           )}
