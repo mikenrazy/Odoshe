@@ -333,7 +333,13 @@ export const useEditor = create<EditorState>((set, get) => {
     past: [],
     future: [],
 
-    hydrate: () => set({ projects: ensureSeed() }),
+    hydrate: () => {
+      const stored = ensureSeed();
+      const current = get().project;
+      const memory = current ? [current, ...get().projects] : get().projects;
+      set({ projects: mergeProjects(stored, memory) });
+    },
+
 
     newProject: (name, setup) => {
       const project = createProject(name || "Untitled Project");
