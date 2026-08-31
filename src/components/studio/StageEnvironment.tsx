@@ -414,7 +414,12 @@ export function StageEnvironment({ stage, layers, measurements, showMeasurements
   const orientationY =
     stage.orientation === "corner" ? Math.PI / 4 : stage.orientation === "center" ? 0 : 0;
 
+  const parts = deckParts(stage);
+  const deckMat = deckMaterial(stageFinish(stage));
+  const risers = stageRisers(stage);
+
   const stairsA = resolveAnchor(stage, "stairs", { outside: true });
+
   const podiumA = resolveAnchor(stage, "podium");
   const furnitureA = resolveAnchor(stage, "furniture");
   const fasciaA = resolveAnchor(stage, "fascia", { outside: true });
