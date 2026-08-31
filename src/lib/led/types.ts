@@ -720,6 +720,10 @@ export function defaultStage(): StageConfig {
     depth: 6,
     height: 0.6,
     orientation: "end",
+    shape: "rectangle",
+    deckFinish: "matte",
+    risers: [],
+
     backWall: true,
     backWallHeight: 7,
     stairs: true,
