@@ -636,6 +636,41 @@ export function ContentCanvasEditor() {
                 <option value="stretch">Stretch</option>
               </select>
             </label>
+            {natural && (
+              <div className="flex items-center justify-between gap-2 text-[9px] text-muted-foreground">
+                <span>Source</span>
+                <span className="font-mono text-foreground">
+                  {natural.width}×{natural.height}
+                  {painted ? ` → ${painted.width}×${painted.height}` : ""}
+                </span>
+              </div>
+            )}
+            {letterboxed && painted && (
+              <div className="space-y-1 border border-amber-500/60 bg-amber-500/10 p-2 text-[9px] leading-relaxed tracking-normal text-amber-400">
+                <p>
+                  Fit is “Contain”, so the media only paints {painted.width}×{painted.height} of the{" "}
+                  {selected.width}×{selected.height} layer — the rest is black in the 2D/3D previews
+                  and on the LED output.
+                </p>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => updateMedia(selected.id, { fit: "cover" })}
+                    className="border border-amber-500/60 py-1 hover:text-foreground"
+                  >
+                    Cover (crop)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateMedia(selected.id, { fit: "stretch" })}
+                    className="border border-amber-500/60 py-1 hover:text-foreground"
+                  >
+                    Stretch
+                  </button>
+                </div>
+              </div>
+            )}
+
             {(selected.kind === "text" || selected.kind === "shape") && (
               <label className="flex items-center justify-between gap-2">
                 Colour
