@@ -593,6 +593,41 @@ export const useEditor = create<EditorState>((set, get) => {
     setCanvas: (patch) => mutate((p) => ({ ...p, canvas: { ...p.canvas, ...patch } })),
     setStage: (patch) => mutate((p) => ({ ...p, stage: { ...p.stage, ...patch } })),
 
+    applyStagePreset: (key) => {
+      const preset = STAGE_PRESETS.find((s) => s.key === key);
+      if (!preset) return;
+      mutate((p) => ({ ...p, stage: { ...p.stage, ...preset.apply } }));
+      set({ status: `Applied ${preset.label} stage preset` });
+    },
+
+    addRiser: (patch) =>
+      mutate((p) => ({
+        ...p,
+        stage: {
+          ...p.stage,
+          risers: [
+            ...(p.stage.risers ?? []),
+            createRiser({ name: `Riser ${(p.stage.risers?.length ?? 0) + 1}`, ...patch }),
+          ],
+        },
+      })),
+
+    updateRiser: (id, patch) =>
+      mutate((p) => ({
+        ...p,
+        stage: {
+          ...p.stage,
+          risers: (p.stage.risers ?? []).map((r) => (r.id === id ? { ...r, ...patch } : r)),
+        },
+      })),
+
+    removeRiser: (id) =>
+      mutate((p) => ({
+        ...p,
+        stage: { ...p.stage, risers: (p.stage.risers ?? []).filter((r) => r.id !== id) },
+      })),
+
+
     addScreen: (presetKey) => {
       const project = get().project;
       if (!project) return;
