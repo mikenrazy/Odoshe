@@ -6,7 +6,9 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useEditor } from "@/lib/led/store";
 import { StageEnvironment } from "./StageEnvironment";
 import { LedScreenObject } from "./LedScreenObject";
+import { EquipmentObject } from "./EquipmentObject";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
+import { layerForCategory } from "@/lib/led/types";
 
 const DEG = Math.PI / 180;
 
@@ -69,11 +71,15 @@ function CameraRig({ controls }: { controls: React.RefObject<OrbitControlsImpl |
 export default function Viewport() {
   const project = useEditor((s) => s.project);
   const selectedId = useEditor((s) => s.selectedId);
+  const selectedEquipmentId = useEditor((s) => s.selectedEquipmentId);
   const select = useEditor((s) => s.select);
+  const selectEquipment = useEditor((s) => s.selectEquipment);
   const mode = useEditor((s) => s.mode);
   const transformMode = useEditor((s) => s.transformMode);
   const showMeasurements = useEditor((s) => s.showMeasurements);
+  const snapToGrid = useEditor((s) => s.snapToGrid);
   const updateScreen = useEditor((s) => s.updateScreen);
+  const updateEquipment = useEditor((s) => s.updateEquipment);
 
   const controls = useRef<OrbitControlsImpl | null>(null);
   const objects = useRef(new Map<string, THREE.Object3D>());
@@ -81,19 +87,29 @@ export default function Viewport() {
 
   const gridNumbers = useMemo(() => computeGridNumbers(project), [project]);
 
+  const activeId = selectedId ?? selectedEquipmentId;
+
   const selectedScreen = useMemo(
     () => project?.screens.find((s) => s.id === selectedId) ?? null,
     [project, selectedId],
   );
+  const selectedEquipment = useMemo(
+    () => project?.equipment.find((e) => e.id === selectedEquipmentId) ?? null,
+    [project, selectedEquipmentId],
+  );
 
   useEffect(() => {
-    setSelectedObject(selectedId ? (objects.current.get(selectedId) ?? null) : null);
-  }, [selectedId, project]);
+    setSelectedObject(activeId ? (objects.current.get(activeId) ?? null) : null);
+  }, [activeId, project]);
 
   const editable = mode !== "preview";
-  const gizmoActive = editable && !!selectedObject && !!selectedScreen && !selectedScreen.locked;
+  const target = selectedScreen ?? selectedEquipment;
+  const gizmoActive = editable && !!selectedObject && !!target && !target.locked;
+  const snap = snapToGrid ? 0.25 : null;
 
   if (!project) return null;
+
+  const layers = project.layers;
 
   return (
     <Canvas
@@ -131,7 +147,12 @@ export default function Viewport() {
         castShadow
       />
 
-      <StageEnvironment stage={project.stage} showMeasurements={showMeasurements} />
+      <StageEnvironment
+        stage={project.stage}
+        layers={layers}
+        measurements={project.measurements}
+        showMeasurements={showMeasurements}
+      />
 
       {mode !== "preview" && (
         <Grid
@@ -146,59 +167,96 @@ export default function Viewport() {
         />
       )}
 
-      {project.screens.map((screen) => (
-        <LedScreenObject
-          key={screen.id}
-          screen={screen}
-          gridStart={gridNumbers.get(screen.id)?.start ?? 1}
-          processorLabel={gridNumbers.get(screen.id)?.processorLabel}
-          selected={screen.id === selectedId && editable}
-          showMeasurements={showMeasurements && editable}
-          interactive={editable && !screen.locked}
-          onSelect={select}
-          registerRef={(id, node) => {
-            if (node) objects.current.set(id, node);
-            else objects.current.delete(id);
-          }}
-        />
-      ))}
+      {layers.led.visible &&
+        project.screens.map((screen) => (
+          <LedScreenObject
+            key={screen.id}
+            screen={screen}
+            gridStart={gridNumbers.get(screen.id)?.start ?? 1}
+            processorLabel={gridNumbers.get(screen.id)?.processorLabel}
+            selected={screen.id === selectedId && editable}
+            showMeasurements={showMeasurements && editable}
+            interactive={editable && !screen.locked && !layers.led.locked}
+            onSelect={select}
+            registerRef={(id, node) => {
+              if (node) objects.current.set(id, node);
+              else objects.current.delete(id);
+            }}
+          />
+        ))}
 
-      {gizmoActive && selectedObject && selectedScreen && (
+      {project.equipment.map((item) => {
+        const layer = layers[layerForCategory(item.category)];
+        if (!layer.visible) return null;
+        return (
+          <EquipmentObject
+            key={item.id}
+            item={item}
+            selected={item.id === selectedEquipmentId && editable}
+            interactive={editable && !item.locked && !layer.locked}
+            showLabel={editable && showMeasurements}
+            onSelect={selectEquipment}
+            registerRef={(id, node) => {
+              if (node) objects.current.set(id, node);
+              else objects.current.delete(id);
+            }}
+          />
+        );
+      })}
+
+      {gizmoActive && selectedObject && (
         <TransformControls
           object={selectedObject}
           mode={transformMode}
           size={0.85}
+          {...(snap ? { translationSnap: snap, rotationSnap: 15 * DEG } : {})}
           onMouseDown={() => {
             if (controls.current) controls.current.enabled = false;
             // snapshot once per drag so undo steps back a whole gesture
-            updateScreen(selectedScreen.id, {}, { history: true });
+            if (selectedScreen) updateScreen(selectedScreen.id, {}, { history: true });
+            else if (selectedEquipment) updateEquipment(selectedEquipment.id, {}, { history: true });
           }}
           onMouseUp={() => {
             if (controls.current) controls.current.enabled = true;
           }}
           onObjectChange={() => {
             const o = selectedObject;
-            updateScreen(
-              selectedScreen.id,
-              {
-                position: {
-                  x: +o.position.x.toFixed(3),
-                  y: +o.position.y.toFixed(3),
-                  z: +o.position.z.toFixed(3),
+            if (selectedScreen) {
+              updateScreen(
+                selectedScreen.id,
+                {
+                  position: {
+                    x: +o.position.x.toFixed(3),
+                    y: +o.position.y.toFixed(3),
+                    z: +o.position.z.toFixed(3),
+                  },
+                  rotation: {
+                    x: +(o.rotation.x / DEG).toFixed(2),
+                    y: +(o.rotation.y / DEG).toFixed(2),
+                    z: +(o.rotation.z / DEG).toFixed(2),
+                  },
+                  scale: {
+                    x: +o.scale.x.toFixed(3),
+                    y: +o.scale.y.toFixed(3),
+                    z: +o.scale.z.toFixed(3),
+                  },
                 },
-                rotation: {
-                  x: +(o.rotation.x / DEG).toFixed(2),
-                  y: +(o.rotation.y / DEG).toFixed(2),
-                  z: +(o.rotation.z / DEG).toFixed(2),
+                { history: false },
+              );
+            } else if (selectedEquipment) {
+              updateEquipment(
+                selectedEquipment.id,
+                {
+                  position: {
+                    x: +o.position.x.toFixed(3),
+                    y: +(o.position.y - selectedEquipment.height / 2).toFixed(3),
+                    z: +o.position.z.toFixed(3),
+                  },
+                  rotation: +(o.rotation.y / DEG).toFixed(2),
                 },
-                scale: {
-                  x: +o.scale.x.toFixed(3),
-                  y: +o.scale.y.toFixed(3),
-                  z: +o.scale.z.toFixed(3),
-                },
-              },
-              { history: false },
-            );
+                { history: false },
+              );
+            }
           }}
         />
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 interface NumberFieldProps {
   label: string;
@@ -163,6 +163,67 @@ export function ColorField({
         />
       </span>
     </label>
+  );
+}
+
+export function TextAreaField({
+  label,
+  value,
+  onChange,
+  rows = 3,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+}) {
+  return (
+    <label className="flex flex-col gap-1 py-[3px]">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <textarea
+        value={value}
+        rows={rows}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.stopPropagation()}
+        className="w-full resize-none border border-border bg-input px-2 py-1 text-xs text-foreground outline-none focus:border-ring"
+      />
+    </label>
+  );
+}
+
+export function DateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2 py-[3px]">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.stopPropagation()}
+        className="w-[150px] border border-border bg-input px-2 py-1 text-xs text-foreground outline-none focus:border-ring"
+      />
+    </label>
+  );
+}
+
+export function Readout({ rows }: { rows: Array<[string, string, (string | undefined)?]> }) {
+  return (
+    <div className="mt-1 grid grid-cols-2 gap-2 border-t border-border pt-2 font-mono text-[10px] text-muted-foreground">
+      {rows.map(([label, value, tone]) => (
+        <Fragment key={label}>
+          <span>{label}</span>
+          <span className={`text-right ${tone ?? "text-foreground/80"}`}>{value}</span>
+        </Fragment>
+      ))}
+    </div>
   );
 }
 

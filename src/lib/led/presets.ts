@@ -107,6 +107,19 @@ export const SCREEN_PRESETS: ScreenPreset[] = [
     panelRows: 8,
   },
   {
+    key: "header",
+    label: "Header LED",
+    description: "1920 × 160 · 12 × 1 m",
+    type: "strip",
+    physicalWidth: 12,
+    physicalHeight: 1,
+    pixelWidth: 1920,
+    pixelHeight: 160,
+    pixelPitch: 3.9,
+    panelCols: 12,
+    panelRows: 2,
+  },
+  {
     key: "curved",
     label: "Curved LED",
     description: "2560 × 1080 · 12 × 5.6 m · 60°",
@@ -176,6 +189,8 @@ export function screenFromPreset(
     brightness: 1.1,
     color: "#7fd4ff",
     processorId: DEFAULT_PROCESSORS[0]!.id,
+    processorOutput: 1,
+    content: { x: 0, y: 0, width: preset.pixelWidth, height: preset.pixelHeight },
     visible: true,
     locked: false,
   };
