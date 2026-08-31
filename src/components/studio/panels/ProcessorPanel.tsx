@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, Link2, Unlink } from "lucide-react";
-import { useEditor } from "@/lib/led/store";
+import { useEditor, groupResolution } from "@/lib/led/store";
 import {
   PROCESSOR_CATALOG,
   processorName,
@@ -35,6 +35,7 @@ export function ProcessorPanel() {
   const removeGroup = useEditor((s) => s.removeGroup);
   const updateGroup = useEditor((s) => s.updateGroup);
   const setScreenGroup = useEditor((s) => s.setScreenGroup);
+  const splitGroupResolution = useEditor((s) => s.splitGroupResolution);
   const applySource = useEditor((s) => s.applyProcessorSourceToCanvas);
   const select = useEditor((s) => s.select);
 
@@ -214,6 +215,12 @@ export function ProcessorPanel() {
           const px = members.reduce((sum, s) => sum + s.pixelWidth * s.pixelHeight, 0);
           const lead = members[0];
           const proc = project.processors.find((p) => p.id === lead?.processorId);
+          const res = groupResolution(project, group.id);
+          const perSection = members.length
+            ? `${Math.floor((proc?.inputWidth ?? project.canvas.width) / members.length)} × ${
+                proc?.inputHeight ?? project.canvas.height
+              }`
+            : "—";
           return (
             <div key={group.id} className="border-b border-border/60 py-2 last:border-0">
               <div className="flex items-center justify-between gap-1">
@@ -233,6 +240,13 @@ export function ProcessorPanel() {
               <Readout
                 rows={[
                   ["SECTIONS", members.length ? members.map((m) => m.name).join(" + ") : "None"],
+                  [
+                    "GROUP RES",
+                    res ? `${res.width} × ${res.height} px` : "—",
+                    "text-right text-primary",
+                  ],
+                  ["SOURCE IN", `${proc?.inputWidth ?? "—"} × ${proc?.inputHeight ?? "—"} px`],
+                  ["PER SECTION", perSection, "text-right text-[#7fd4ff]"],
                   ["TOTAL PX", px.toLocaleString()],
                   [
                     "DRIVEN BY",
@@ -241,9 +255,17 @@ export function ProcessorPanel() {
                   ],
                 ]}
               />
+              <button
+                type="button"
+                onClick={() => splitGroupResolution(group.id)}
+                className="mt-1 w-full border border-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+              >
+                Split source equally across sections
+              </button>
             </div>
           );
         })}
+
       </Section>
 
       <Section title="Output Assignment">

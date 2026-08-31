@@ -228,6 +228,54 @@ export function ensureSeed(): Project[] {
   return [project];
 }
 
+/**
+ * A grouped set of LED sections behaves as ONE logical screen on one output:
+ * the processor's source resolution is divided evenly across the members
+ * (left → right), and each member's canvas region + LED resolution is set to
+ * its slice, so the whole group reads as a single combined resolution.
+ */
+function splitGroupInProject(p: Project, groupId: string): Project {
+  const members = p.screens
+    .filter((s) => s.groupId === groupId)
+    .sort((a, b) => a.position.x - b.position.x);
+  if (members.length === 0) return p;
+  const proc = p.processors.find((pr) => pr.id === members[0]!.processorId);
+  const totalW = Math.max(1, Math.round(proc?.inputWidth ?? p.canvas.width));
+  const totalH = Math.max(1, Math.round(proc?.inputHeight ?? p.canvas.height));
+  const base = Math.floor(totalW / members.length);
+  const slices = new Map<string, { x: number; width: number }>();
+  let cursor = 0;
+  members.forEach((m, i) => {
+    const width = i === members.length - 1 ? totalW - cursor : base;
+    slices.set(m.id, { x: cursor, width });
+    cursor += width;
+  });
+  return {
+    ...p,
+    screens: p.screens.map((s) => {
+      const slice = slices.get(s.id);
+      if (!slice) return s;
+      return {
+        ...s,
+        pixelWidth: slice.width,
+        pixelHeight: totalH,
+        content: { x: slice.x, y: 0, width: slice.width, height: totalH },
+      };
+    }),
+  };
+}
+
+/** Total logical resolution of a group (sum of member slices). */
+export function groupResolution(p: Project, groupId: string) {
+  const members = p.screens.filter((s) => s.groupId === groupId);
+  if (members.length === 0) return null;
+  return {
+    width: members.reduce((sum, s) => sum + s.pixelWidth, 0),
+    height: Math.max(...members.map((s) => s.pixelHeight)),
+    count: members.length,
+  };
+}
+
 interface EditorState {
   projects: Project[];
   project: Project | null;
@@ -271,6 +319,7 @@ interface EditorState {
   updateGroup: (id: string, patch: Partial<ScreenGroup>) => void;
   removeGroup: (id: string) => void;
   setScreenGroup: (screenId: string, groupId: string | null) => void;
+  splitGroupResolution: (groupId: string) => void;
   applyProcessorSourceToCanvas: (processorId: string) => void;
 
   deleteScreen: (id: string) => void;
@@ -655,7 +704,7 @@ export const useEditor = create<EditorState>((set, get) => {
       mutate((p) => {
         const ids = screenIds ?? [];
         const lead = p.screens.find((s) => ids.includes(s.id));
-        return {
+        const next: Project = {
           ...p,
           groups: [...(p.groups ?? []), { id, name: name || `LED Group ${(p.groups?.length ?? 0) + 1}`, continuous: true }],
           screens: p.screens.map((s) =>
@@ -670,7 +719,9 @@ export const useEditor = create<EditorState>((set, get) => {
               : s,
           ),
         };
+        return splitGroupInProject(next, id);
       });
+
       set({ status: "LED group created" });
     },
 
@@ -691,8 +742,9 @@ export const useEditor = create<EditorState>((set, get) => {
 
     setScreenGroup: (screenId, groupId) => {
       mutate((p) => {
+        const prevGroup = p.screens.find((s) => s.id === screenId)?.groupId;
         const peer = groupId ? p.screens.find((s) => s.groupId === groupId && s.id !== screenId) : undefined;
-        return {
+        let next: Project = {
           ...p,
           screens: p.screens.map((s) =>
             s.id === screenId
@@ -706,8 +758,18 @@ export const useEditor = create<EditorState>((set, get) => {
               : s,
           ),
         };
+        if (prevGroup && prevGroup !== groupId) next = splitGroupInProject(next, prevGroup);
+        if (groupId) next = splitGroupInProject(next, groupId);
+        return next;
       });
     },
+
+
+    splitGroupResolution: (groupId) => {
+      mutate((p) => splitGroupInProject(p, groupId));
+      set({ status: "Group resolution split evenly" });
+    },
+
 
     applyProcessorSourceToCanvas: (processorId) => {
       const project = get().project;
@@ -715,21 +777,32 @@ export const useEditor = create<EditorState>((set, get) => {
       if (!proc) return;
       const width = proc.inputWidth ?? 1920;
       const height = proc.inputHeight ?? 1080;
-      mutate((p) => ({
-        ...p,
-        canvas: {
-          ...p.canvas,
-          width,
-          height,
-          sourceProcessorId: processorId,
-          aspectPreset:
-            Math.abs(width / height - 16 / 9) < 0.01
-              ? "16:9"
-              : Math.abs(width / height - 32 / 9) < 0.01
-                ? "32:9"
-                : "custom",
-        },
-      }));
+      mutate((p) => {
+        const next: Project = {
+          ...p,
+          canvas: {
+            ...p.canvas,
+            width,
+            height,
+            sourceProcessorId: processorId,
+            aspectPreset:
+              Math.abs(width / height - 16 / 9) < 0.01
+                ? "16:9"
+                : Math.abs(width / height - 32 / 9) < 0.01
+                  ? "32:9"
+                  : "custom",
+          },
+        };
+        const groupIds = [
+          ...new Set(
+            next.screens
+              .filter((s) => s.processorId === processorId && s.groupId)
+              .map((s) => s.groupId as string),
+          ),
+        ];
+        return groupIds.reduce((acc, gid) => splitGroupInProject(acc, gid), next);
+      });
+
       set({ status: `Canvas set to ${width} × ${height} from ${proc.name ?? proc.label}` });
     },
 
