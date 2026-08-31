@@ -6,6 +6,7 @@ import type { CanvasConfig, MediaItem } from "./types";
 const MAX_COMPOSITE_WIDTH = 2048;
 
 const imageCache = new Map<string, HTMLImageElement>();
+const videoCache = new Map<string, HTMLVideoElement>();
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   const cached = imageCache.get(src);
@@ -21,12 +22,32 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
+/** Looping, muted video element used as a live texture source. */
+function loadVideo(src: string): HTMLVideoElement | null {
+  if (typeof document === "undefined") return null;
+  const cached = videoCache.get(src);
+  if (cached) return cached;
+  const el = document.createElement("video");
+  el.src = src;
+  el.muted = true;
+  el.loop = true;
+  el.autoplay = true;
+  el.playsInline = true;
+  el.crossOrigin = "anonymous";
+  void el.play().catch(() => undefined);
+  videoCache.set(src, el);
+  return el;
+}
+
 function drawFitted(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: HTMLImageElement | HTMLVideoElement,
   item: MediaItem,
   s: number,
 ) {
+  const iw = img instanceof HTMLVideoElement ? img.videoWidth : img.width;
+  const ih = img instanceof HTMLVideoElement ? img.videoHeight : img.height;
+  if (!iw || !ih) return;
   const dx = item.x * s;
   const dy = item.y * s;
   const dw = item.width * s;
