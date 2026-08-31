@@ -360,7 +360,7 @@ export const useEditor = create<EditorState>((set, get) => {
           outputs: setup.outputs ?? project.canvas.outputs,
         };
       }
-      const projects = [project, ...get().projects];
+      const projects = mergeProjects(loadProjects(), [project, ...get().projects]);
       persist(projects);
       set({ projects, status: `Created “${project.name}”` });
       return project;
@@ -368,11 +368,12 @@ export const useEditor = create<EditorState>((set, get) => {
 
     createSample: () => {
       const project = createSampleProject();
-      const projects = [project, ...get().projects];
+      const projects = mergeProjects(loadProjects(), [project, ...get().projects]);
       persist(projects);
       set({ projects, status: "Sample project created" });
       return project;
     },
+
 
     openProject: (id) => {
       const project = get().projects.find((p) => p.id === id) ?? null;
