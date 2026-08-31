@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { Line, Text } from "@react-three/drei";
 import type { LedScreen } from "@/lib/led/types";
 import { createLedTexture } from "./led-texture";
-import { useCanvasComposite } from "@/lib/led/media";
+import { cropRegionCanvas, useCanvasComposite } from "@/lib/led/media";
 
 const DEG = Math.PI / 180;
 
@@ -138,26 +138,18 @@ export function LedScreenObject({
 
   /** Crop this screen's region out of the shared content canvas. */
   const canvasRegion = useMemo(() => {
-    if (!composite || typeof document === "undefined") return null;
-    const scale = composite.width / Math.max(1, canvasWidth);
-    const sx = screen.content.x * scale;
-    const sy = screen.content.y * scale;
-    const sw = Math.max(2, screen.content.width * scale);
-    const sh = Math.max(2, screen.content.height * scale);
-    const el = document.createElement("canvas");
-    el.width = Math.round(sw);
-    el.height = Math.round(sh);
-    const ctx = el.getContext("2d");
-    if (!ctx) return null;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, el.width, el.height);
-    ctx.drawImage(composite, sx, sy, sw, sh, 0, 0, el.width, el.height);
+    if (!composite) return null;
+    const el = cropRegionCanvas(composite, canvasWidth, screen.content);
+    if (!el) return null;
     const tex = new THREE.CanvasTexture(el);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
     return tex;
   }, [composite, canvasWidth, screen.content.x, screen.content.y, screen.content.width, screen.content.height]);
 
-  const content = uploaded ?? canvasRegion;
+  // The content canvas is the source of truth; per-screen uploads are a fallback.
+  const content = canvasRegion ?? uploaded;
+
   const curved = screen.curvature.enabled && screen.curvature.angle > 0.5;
   /** Content is always drawn on a dedicated surface in FRONT of the LED body. */
   const contentGeometry = useMemo(() => {

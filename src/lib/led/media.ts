@@ -160,12 +160,16 @@ export function useCanvasComposite() {
   return composite;
 }
 
-/** Crop a region (in logical canvas pixels) of the composite to a data URL. */
-export function cropRegion(
+/**
+ * Crop a region (in logical canvas pixels) out of the composite.
+ * Regions that extend past the canvas edges keep their true offset/scale
+ * (the outside part stays black) instead of being stretched to fit.
+ */
+export function cropRegionCanvas(
   composite: HTMLCanvasElement,
   canvasWidth: number,
   region: { x: number; y: number; width: number; height: number },
-): string | null {
+): HTMLCanvasElement | null {
   if (typeof document === "undefined") return null;
   const scale = composite.width / Math.max(1, canvasWidth);
   const el = document.createElement("canvas");
@@ -175,37 +179,39 @@ export function cropRegion(
   if (!ctx) return null;
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, el.width, el.height);
-  ctx.drawImage(
-    composite,
-    region.x * scale,
-    region.y * scale,
-    Math.max(2, region.width * scale),
-    Math.max(2, region.height * scale),
-    0,
-    0,
-    el.width,
-    el.height,
-  );
-  return el.toDataURL("image/jpeg", 0.8);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  // Draw the whole composite, offset so the region lands at (0,0) 1:1.
+  ctx.drawImage(composite, -region.x * scale, -region.y * scale);
+  return el;
 }
 
-/** Per-screen preview images (uploaded artwork wins, else the mapped canvas region). */
+/** Crop a region (in logical canvas pixels) of the composite to a data URL. */
+export function cropRegion(
+  composite: HTMLCanvasElement,
+  canvasWidth: number,
+  region: { x: number; y: number; width: number; height: number },
+): string | null {
+  const el = cropRegionCanvas(composite, canvasWidth, region);
+  return el ? el.toDataURL("image/jpeg", 0.85) : null;
+}
+
+/** Per-screen preview images — the content canvas is the source of truth. */
 export function useScreenImages(): Record<string, string> {
   const screens = useEditor((s) => s.project?.screens);
+  const hasMedia = useEditor((s) => (s.project?.media ?? []).some((m) => m.visible));
   const canvasWidth = useEditor((s) => s.project?.canvas.width ?? 1920);
   const composite = useCanvasComposite();
 
   return useMemo(() => {
     const out: Record<string, string> = {};
     for (const s of screens ?? []) {
-      if (s.contentImage) {
-        out[s.id] = s.contentImage;
-      } else if (composite) {
-        const url = cropRegion(composite, canvasWidth, s.content);
-        if (url) out[s.id] = url;
-      }
+      const url = composite && hasMedia ? cropRegion(composite, canvasWidth, s.content) : null;
+      if (url) out[s.id] = url;
+      else if (s.contentImage) out[s.id] = s.contentImage;
     }
     return out;
-  }, [screens, canvasWidth, composite]);
+  }, [screens, canvasWidth, composite, hasMedia]);
 }
+
 
