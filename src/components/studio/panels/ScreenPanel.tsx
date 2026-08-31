@@ -25,8 +25,10 @@ export function ScreenPanel() {
   const applyPreset = useEditor((s) => s.applyPreset);
   const alignScreens = useEditor((s) => s.alignScreens);
   const spaceScreens = useEditor((s) => s.spaceScreens);
+  const setGapBetween = useEditor((s) => s.setGapBetween);
   const addScreen = useEditor((s) => s.addScreen);
   const [gap, setGap] = useState(0.5);
+  const [pairTargetId, setPairTargetId] = useState("");
 
   if (!project) return null;
   const screen = project.screens.find((s) => s.id === selectedId) ?? null;
