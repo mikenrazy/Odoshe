@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AlignCenterHorizontal, AlignStartVertical, AlignEndVertical } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
 import { SCREEN_PRESETS } from "@/lib/led/presets";
@@ -23,7 +24,9 @@ export function ScreenPanel() {
   const updateScreen = useEditor((s) => s.updateScreen);
   const applyPreset = useEditor((s) => s.applyPreset);
   const alignScreens = useEditor((s) => s.alignScreens);
+  const spaceScreens = useEditor((s) => s.spaceScreens);
   const addScreen = useEditor((s) => s.addScreen);
+  const [gap, setGap] = useState(0.5);
 
   if (!project) return null;
   const screen = project.screens.find((s) => s.id === selectedId) ?? null;
