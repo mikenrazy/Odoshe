@@ -63,7 +63,12 @@ export const PANEL_SIZE_PRESETS: Array<{
 export interface ProcessorModel {
   id: string;
   brand: string;
+  /** model designation, e.g. "VX1000" */
   label: string;
+  /** user-facing instance name, e.g. "VX1000 #2 (Stage Left)" */
+  name?: string;
+  /** catalogue key this instance was created from */
+  modelKey?: string;
   /** maximum output pixels the processor can drive */
   maxPixels: number;
   /** number of physical LED outputs (ports) */
@@ -71,41 +76,121 @@ export interface ProcessorModel {
   /** max resolution of a single output */
   outputWidth: number;
   outputHeight: number;
+  /** configured source resolution coming from the laptop / Mac */
+  inputWidth?: number;
+  inputHeight?: number;
+  /** supported source resolution envelope */
+  minInputWidth?: number;
+  minInputHeight?: number;
+  maxInputWidth?: number;
+  maxInputHeight?: number;
   builtIn?: boolean;
 }
 
-export const DEFAULT_PROCESSORS: ProcessorModel[] = [
+export interface ProcessorCatalogEntry {
+  key: string;
+  brand: string;
+  label: string;
+  maxPixels: number;
+  outputs: number;
+  outputWidth: number;
+  outputHeight: number;
+  minInputWidth: number;
+  minInputHeight: number;
+  maxInputWidth: number;
+  maxInputHeight: number;
+  /** typical source resolutions supported by this processor */
+  inputPresets: Array<{ width: number; height: number }>;
+}
+
+export const PROCESSOR_CATALOG: ProcessorCatalogEntry[] = [
   {
-    id: "vx1000",
+    key: "vx1000",
     brand: "NovaStar",
     label: "VX1000",
     maxPixels: 6_500_000,
     outputs: 10,
     outputWidth: 4096,
     outputHeight: 1080,
-    builtIn: true,
+    minInputWidth: 1920,
+    minInputHeight: 1080,
+    maxInputWidth: 3840,
+    maxInputHeight: 1080,
+    inputPresets: [
+      { width: 1920, height: 1080 },
+      { width: 2048, height: 1152 },
+      { width: 2560, height: 1080 },
+      { width: 3200, height: 1080 },
+      { width: 3840, height: 1080 },
+    ],
   },
   {
-    id: "vx600",
+    key: "vx600",
     brand: "NovaStar",
     label: "VX600",
     maxPixels: 3_900_000,
     outputs: 6,
     outputWidth: 4096,
     outputHeight: 1080,
-    builtIn: true,
+    minInputWidth: 1024,
+    minInputHeight: 640,
+    maxInputWidth: 1920,
+    maxInputHeight: 1200,
+    inputPresets: [
+      { width: 1280, height: 720 },
+      { width: 1600, height: 900 },
+      { width: 1920, height: 1080 },
+      { width: 1920, height: 1200 },
+    ],
   },
   {
-    id: "vdwall",
+    key: "vdwall",
     brand: "VDWall",
     label: "VDWall",
     maxPixels: 2_300_000,
     outputs: 4,
     outputWidth: 1920,
     outputHeight: 1080,
-    builtIn: true,
+    minInputWidth: 1024,
+    minInputHeight: 640,
+    maxInputWidth: 1920,
+    maxInputHeight: 1080,
+    inputPresets: [
+      { width: 1280, height: 720 },
+      { width: 1920, height: 1080 },
+    ],
   },
 ];
+
+export function processorFromCatalog(entry: ProcessorCatalogEntry, id: string, name?: string): ProcessorModel {
+  return {
+    id,
+    modelKey: entry.key,
+    brand: entry.brand,
+    label: entry.label,
+    name: name ?? `${entry.brand} ${entry.label}`,
+    maxPixels: entry.maxPixels,
+    outputs: entry.outputs,
+    outputWidth: entry.outputWidth,
+    outputHeight: entry.outputHeight,
+    inputWidth: entry.inputPresets[entry.inputPresets.length - 1]!.width,
+    inputHeight: entry.inputPresets[entry.inputPresets.length - 1]!.height,
+    minInputWidth: entry.minInputWidth,
+    minInputHeight: entry.minInputHeight,
+    maxInputWidth: entry.maxInputWidth,
+    maxInputHeight: entry.maxInputHeight,
+  };
+}
+
+/** display name for a processor instance (falls back to brand + model) */
+export function processorName(p: ProcessorModel | undefined) {
+  if (!p) return "Unassigned";
+  return p.name?.trim() || `${p.brand} ${p.label}`;
+}
+
+export const DEFAULT_PROCESSORS: ProcessorModel[] = PROCESSOR_CATALOG.map((entry) =>
+  processorFromCatalog(entry, entry.key),
+).map((p) => ({ ...p, builtIn: true }));
 
 /* ---------------------------------------------------------- canvas/output */
 
@@ -117,12 +202,18 @@ export interface CanvasConfig {
   aspectPreset: AspectPreset;
   refreshRate: number;
   outputs: number;
+  /** processor instance whose source resolution drives this canvas */
+  sourceProcessorId?: string;
 }
 
 export const RESOLUTION_PRESETS: Array<{ key: string; label: string; width: number; height: number }> =
   [
+    { key: "1280x720", label: "1280 × 720", width: 1280, height: 720 },
     { key: "1920x1080", label: "1920 × 1080", width: 1920, height: 1080 },
+    { key: "1920x1200", label: "1920 × 1200", width: 1920, height: 1200 },
+    { key: "2048x1152", label: "2048 × 1152", width: 2048, height: 1152 },
     { key: "2560x1080", label: "2560 × 1080", width: 2560, height: 1080 },
+    { key: "3200x1080", label: "3200 × 1080", width: 3200, height: 1080 },
     { key: "3840x1080", label: "3840 × 1080", width: 3840, height: 1080 },
     { key: "custom", label: "Custom", width: 0, height: 0 },
   ];
@@ -130,6 +221,15 @@ export const RESOLUTION_PRESETS: Array<{ key: string; label: string; width: numb
 export function defaultCanvas(): CanvasConfig {
   return { width: 3840, height: 1080, aspectPreset: "32:9", refreshRate: 60, outputs: 2 };
 }
+
+/** groups several physically separate LED sections into one logical output */
+export interface ScreenGroup {
+  id: string;
+  name: string;
+  /** treat the grouped sections as one continuous surface on one RJ45 port */
+  continuous: boolean;
+}
+
 
 /* ------------------------------------------------------------ LED screens */
 
