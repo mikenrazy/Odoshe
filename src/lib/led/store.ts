@@ -439,6 +439,17 @@ export const useEditor = create<EditorState>((set, get) => {
       const current = get().project;
       const memory = current ? [current, ...get().projects] : get().projects;
       set({ projects: mergeProjects(stored, memory) });
+
+      // Recover anything localStorage lost (quota errors, private mode, cleanup).
+      void restoreProjects().then((backup) => {
+        if (!Array.isArray(backup) || backup.length === 0) return;
+        const recovered = (backup as Project[]).map(normalizeProject);
+        const merged = mergeProjects(recovered, get().projects);
+        if (merged.length !== get().projects.length) {
+          persist(merged);
+          set({ projects: merged });
+        }
+      });
     },
 
 
