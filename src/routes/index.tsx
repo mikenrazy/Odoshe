@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Copy, LayoutGrid, Monitor, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, LayoutGrid, Monitor, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
+import { ProjectSetupDialog } from "@/components/studio/ProjectSetupDialog";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,11 +28,12 @@ function Dashboard() {
   const navigate = useNavigate();
   const projects = useEditor((s) => s.projects);
   const hydrate = useEditor((s) => s.hydrate);
-  const newProject = useEditor((s) => s.newProject);
+  const createSample = useEditor((s) => s.createSample);
   const renameProject = useEditor((s) => s.renameProject);
   const duplicateProject = useEditor((s) => s.duplicateProject);
   const deleteProject = useEditor((s) => s.deleteProject);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   useEffect(() => hydrate(), [hydrate]);
 
@@ -50,15 +52,28 @@ function Dashboard() {
           </p>
         </div>
         <button
-          onClick={() => {
-            const project = newProject(`New Show ${projects.length + 1}`);
-            open(project.id);
-          }}
-          className="ml-auto flex items-center gap-2 bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-foreground hover:bg-primary/85"
+          onClick={() => open(createSample().id)}
+          className="ml-auto flex items-center gap-2 border border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Sample Project
+        </button>
+        <button
+          onClick={() => setSetupOpen(true)}
+          className="flex items-center gap-2 bg-primary px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-foreground hover:bg-primary/85"
         >
           <Plus className="h-3.5 w-3.5" /> New Project
         </button>
       </header>
+
+      {setupOpen && (
+        <ProjectSetupDialog
+          onClose={() => setSetupOpen(false)}
+          onCreate={(id) => {
+            setSetupOpen(false);
+            open(id);
+          }}
+        />
+      )}
 
       <section className="mx-auto max-w-6xl px-6 py-8">
         <h2 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
