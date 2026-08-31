@@ -34,11 +34,13 @@ async function fileToDataUrl(file: File): Promise<{ src: string; width: number; 
 
 type DragState = {
   id: string;
+  target: "media" | "screen";
   mode: "move" | "resize";
   startX: number;
   startY: number;
-  origin: MediaItem;
+  origin: { x: number; y: number; width: number; height: number };
 };
+
 
 /**
  * Digital content canvas workspace: media is authored here in logical pixels,
