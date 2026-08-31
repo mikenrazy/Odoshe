@@ -329,6 +329,10 @@ interface EditorState {
   addScreen: (presetKey?: string) => void;
   updateScreen: (id: string, patch: Partial<LedScreen>, options?: { history?: boolean }) => void;
   applyPreset: (id: string, presetKey: string) => void;
+  /** re-derive the LED resolution from pixel pitch + cabinet grid */
+  syncScreenResolution: (id: string) => void;
+  /** apply a catalogue cabinet spec (size + pitch + native resolution) */
+  applyCabinetSpec: (id: string, cabinetKey: string) => void;
   addProcessor: (processor: Omit<ProcessorModel, "id">) => void;
   addProcessorInstance: (modelKey: string) => void;
   updateProcessor: (id: string, patch: Partial<ProcessorModel>) => void;
