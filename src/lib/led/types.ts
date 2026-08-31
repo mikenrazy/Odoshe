@@ -521,6 +521,9 @@ export interface Project {
   media: MediaItem[];
   /** available video processors, including user-added models */
   processors: ProcessorModel[];
+  /** logical groupings of LED sections (one continuous screen / output) */
+  groups: ScreenGroup[];
+
   extensions: Record<string, unknown>;
   schemaVersion: number;
 }
