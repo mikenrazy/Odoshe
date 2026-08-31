@@ -47,6 +47,22 @@ function Studio() {
     if (projects.length > 0) openProject(projectId);
   }, [projectId, projects.length, openProject]);
 
+  // Flush pending autosave when leaving or closing the studio.
+  useEffect(() => {
+    const flush = () => {
+      const s = useEditor.getState();
+      if (s.project && s.dirty) s.save();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", flush);
+      flush();
+    };
+  }, []);
+
+
   if (!project) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background">

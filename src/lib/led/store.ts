@@ -75,10 +75,50 @@ export function loadProjects(): Project[] {
   }
 }
 
-function persist(projects: Project[]) {
-  if (!isBrowser()) return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+/** Strip heavy base64 media so a project still fits in localStorage. */
+function stripHeavyMedia(projects: Project[]): Project[] {
+  return projects.map((p) => ({
+    ...p,
+    screens: p.screens.map((s) =>
+      s.contentImage && s.contentImage.length > 4000 ? { ...s, contentImage: undefined } : s,
+    ),
+    media: (p.media ?? []).map((m) =>
+      m.src && m.src.length > 4000 ? { ...m, src: "" } : m,
+    ),
+  })) as Project[];
 }
+
+export type PersistResult = { ok: boolean; message?: string };
+
+function persist(projects: Project[]): PersistResult {
+  if (!isBrowser()) return { ok: true };
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    return { ok: true };
+  } catch {
+    // Most likely quota exceeded (uploaded images/videos are stored inline).
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stripHeavyMedia(projects)));
+      return {
+        ok: true,
+        message: "Saved — uploaded media was too large for local storage and was not stored",
+      };
+    } catch {
+      return { ok: false, message: "Save failed — browser storage is full" };
+    }
+  }
+}
+
+/** Merge stored projects with in-memory ones, keeping the newest version of each. */
+function mergeProjects(stored: Project[], memory: Project[]): Project[] {
+  const byId = new Map<string, Project>();
+  for (const p of [...stored, ...memory]) {
+    const prev = byId.get(p.id);
+    if (!prev || (p.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) byId.set(p.id, p);
+  }
+  return [...byId.values()].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+}
+
 
 function equip(typeKey: string, patch: Partial<EquipmentItem>) {
   const def = EQUIPMENT_LIBRARY.find((e) => e.key === typeKey)!;
@@ -237,10 +277,21 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useEditor = create<EditorState>((set, get) => {
   function commitProjects(project: Project) {
-    const projects = get().projects.map((p) => (p.id === project.id ? project : p));
-    persist(projects);
-    set({ projects, lastSavedAt: Date.now(), dirty: false });
+    const known = get().projects;
+    const projects = known.some((p) => p.id === project.id)
+      ? known.map((p) => (p.id === project.id ? project : p))
+      : [project, ...known];
+    const merged = mergeProjects(loadProjects(), projects);
+    const result = persist(merged);
+    set({
+      projects: merged,
+      lastSavedAt: result.ok ? Date.now() : get().lastSavedAt,
+      dirty: !result.ok,
+      ...(result.message ? { status: result.message } : {}),
+    });
+
   }
+
 
   function autosave() {
     if (saveTimer) clearTimeout(saveTimer);
@@ -282,7 +333,13 @@ export const useEditor = create<EditorState>((set, get) => {
     past: [],
     future: [],
 
-    hydrate: () => set({ projects: ensureSeed() }),
+    hydrate: () => {
+      const stored = ensureSeed();
+      const current = get().project;
+      const memory = current ? [current, ...get().projects] : get().projects;
+      set({ projects: mergeProjects(stored, memory) });
+    },
+
 
     newProject: (name, setup) => {
       const project = createProject(name || "Untitled Project");
@@ -309,7 +366,7 @@ export const useEditor = create<EditorState>((set, get) => {
           outputs: setup.outputs ?? project.canvas.outputs,
         };
       }
-      const projects = [project, ...get().projects];
+      const projects = mergeProjects(loadProjects(), [project, ...get().projects]);
       persist(projects);
       set({ projects, status: `Created “${project.name}”` });
       return project;
@@ -317,11 +374,12 @@ export const useEditor = create<EditorState>((set, get) => {
 
     createSample: () => {
       const project = createSampleProject();
-      const projects = [project, ...get().projects];
+      const projects = mergeProjects(loadProjects(), [project, ...get().projects]);
       persist(projects);
       set({ projects, status: "Sample project created" });
       return project;
     },
+
 
     openProject: (id) => {
       const project = get().projects.find((p) => p.id === id) ?? null;
