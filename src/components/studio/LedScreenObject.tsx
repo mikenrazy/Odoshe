@@ -123,6 +123,13 @@ export function LedScreenObject({
 }: Props) {
   const { geometry } = useMemo(() => buildGeometry(screen), [screen]);
   const texture = useMemo(() => createLedTexture(screen.color), [screen.color]);
+  const content = useMemo(() => {
+    if (!screen.contentImage || typeof document === "undefined") return null;
+    const loader = new THREE.TextureLoader();
+    const tex = loader.load(screen.contentImage);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [screen.contentImage]);
   const grid = useMemo(
     () => (screen.panelConfiguration.show ? panelLines(screen) : []),
     [screen],
@@ -170,11 +177,11 @@ export function LedScreenObject({
 
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial
-          map={texture}
-          emissiveMap={texture}
-          color="#0a0d14"
-          emissive={new THREE.Color(screen.color)}
-          emissiveIntensity={screen.brightness * 0.8}
+          map={content ?? texture}
+          emissiveMap={content ?? texture}
+          color={content ? "#ffffff" : "#0a0d14"}
+          emissive={new THREE.Color(content ? "#ffffff" : screen.color)}
+          emissiveIntensity={screen.brightness * (content ? 1.1 : 0.8)}
           metalness={0.25}
           roughness={0.45}
           side={THREE.DoubleSide}

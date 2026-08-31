@@ -6,10 +6,11 @@ import { ScreenPanel } from "./panels/ScreenPanel";
 import { CanvasPanel } from "./panels/CanvasPanel";
 import { ProcessorPanel } from "./panels/ProcessorPanel";
 import { EquipmentPanel } from "./panels/EquipmentPanel";
+import { AssetLibrary } from "./panels/AssetLibrary";
 import { LayersPanel } from "./panels/LayersPanel";
 import { SummaryPanel } from "./panels/SummaryPanel";
 
-type Tab = "setup" | "stage" | "led" | "canvas" | "video" | "gear" | "layers" | "summary";
+type Tab = "setup" | "stage" | "led" | "canvas" | "video" | "gear" | "assets" | "layers" | "summary";
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: "setup", label: "Setup" },
@@ -18,6 +19,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: "canvas", label: "Canvas" },
   { key: "video", label: "Video" },
   { key: "gear", label: "Gear" },
+  { key: "assets", label: "Assets" },
   { key: "layers", label: "Layers" },
   { key: "summary", label: "Summary" },
 ];
@@ -64,6 +66,7 @@ export function RightPanel() {
         {tab === "canvas" && <CanvasPanel />}
         {tab === "video" && <ProcessorPanel />}
         {tab === "gear" && <EquipmentPanel />}
+        {tab === "assets" && <AssetLibrary />}
         {tab === "layers" && <LayersPanel />}
         {tab === "summary" && <SummaryPanel />}
       </div>

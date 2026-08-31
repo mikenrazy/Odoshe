@@ -250,7 +250,7 @@ export default function Viewport() {
                 {
                   position: {
                     x: +o.position.x.toFixed(3),
-                    y: +(o.position.y - selectedEquipment.height / 2).toFixed(3),
+                    y: +o.position.y.toFixed(3),
                     z: +o.position.z.toFixed(3),
                   },
                   rotation: +(o.rotation.y / DEG).toFixed(2),

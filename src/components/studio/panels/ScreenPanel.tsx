@@ -10,6 +10,7 @@ import {
 import { cabinetCalc } from "@/lib/led/calc";
 import { NumberField, Readout, Section, SelectField, TextField, ToggleField } from "../Field";
 import { ProcessorSection } from "../ProcessorSection";
+import { ScreenContentSection } from "../ScreenContentSection";
 
 const TYPE_OPTIONS = (Object.keys(SCREEN_TYPE_LABELS) as ScreenType[]).map((value) => ({
   value,
@@ -49,6 +50,8 @@ export function ScreenPanel() {
 
   return (
     <>
+      <ScreenContentSection screen={screen} />
+
       <Section title="Identification">
         <TextField
           label="Screen Name"
