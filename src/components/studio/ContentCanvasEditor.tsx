@@ -266,7 +266,10 @@ export function ContentCanvasEditor() {
           project.screens.map((screen) => (
             <div
               key={screen.id}
-              className="pointer-events-none absolute border border-dashed border-[#7fd4ff]/70"
+              onPointerDown={(e) => onScreenPointerDown(e, screen, "move")}
+              className={`absolute cursor-move border border-dashed ${
+                screen.id === selectedId ? "border-primary bg-primary/5" : "border-[#7fd4ff]/70"
+              }`}
               style={{
                 left: screen.content.x * scale,
                 top: screen.content.y * scale,
@@ -275,11 +278,16 @@ export function ContentCanvasEditor() {
                 zIndex: 999,
               }}
             >
-              <span className="absolute left-1 top-1 bg-[#7fd4ff]/15 px-1 font-mono text-[9px] uppercase tracking-wider text-[#7fd4ff]">
+              <span className="pointer-events-none absolute left-1 top-1 bg-[#7fd4ff]/15 px-1 font-mono text-[9px] uppercase tracking-wider text-[#7fd4ff]">
                 {screen.name} · OUT {screen.processorOutput}
               </span>
+              <span
+                onPointerDown={(e) => onScreenPointerDown(e, screen, "resize")}
+                className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-[#7fd4ff]"
+              />
             </div>
           ))}
+
       </div>
 
       <section className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
