@@ -158,6 +158,14 @@ export function LedScreenObject({
   }, [composite, canvasWidth, screen.content.x, screen.content.y, screen.content.width, screen.content.height]);
 
   const content = uploaded ?? canvasRegion;
+  const curved = screen.curvature.enabled && screen.curvature.angle > 0.5;
+  /** Content is always drawn on a dedicated surface in FRONT of the LED body. */
+  const contentGeometry = useMemo(() => {
+    if (curved) return null;
+    return new THREE.PlaneGeometry(screen.physicalWidth, screen.physicalHeight);
+  }, [curved, screen.physicalWidth, screen.physicalHeight]);
+  const contentZ = Math.max(screen.physicalDepth, 0.02) / 2 + 0.006;
+
   const grid = useMemo(
     () => (screen.panelConfiguration.show ? panelLines(screen) : []),
     [screen],
@@ -172,6 +180,7 @@ export function LedScreenObject({
   if (texture) texture.repeat.set(repeatX, repeatY);
 
   if (!screen.visible) return null;
+
 
   return (
     <group
@@ -205,17 +214,33 @@ export function LedScreenObject({
 
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial
-          map={content ?? texture}
-          emissiveMap={content ?? texture}
-          color={content ? "#ffffff" : "#0a0d14"}
-          emissive={new THREE.Color(content ? "#ffffff" : screen.color)}
-          emissiveIntensity={screen.brightness * (content ? 1.1 : 0.8)}
+          map={curved ? (content ?? texture) : texture}
+          emissiveMap={curved ? (content ?? texture) : texture}
+          color={curved && content ? "#ffffff" : "#0a0d14"}
+          emissive={new THREE.Color(curved && content ? "#ffffff" : screen.color)}
+          emissiveIntensity={screen.brightness * (curved && content ? 1.1 : 0.8)}
           metalness={0.25}
           roughness={0.45}
           side={THREE.DoubleSide}
           toneMapped={false}
         />
       </mesh>
+
+      {/* Content canvas region rendered on the FRONT face only */}
+      {!curved && content && contentGeometry && (
+        <mesh geometry={contentGeometry} position={[0, 0, contentZ]}>
+          <meshStandardMaterial
+            map={content}
+            emissiveMap={content}
+            color="#ffffff"
+            emissive={new THREE.Color("#ffffff")}
+            emissiveIntensity={screen.brightness * 1.1}
+            side={THREE.FrontSide}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+
 
       {grid.map((points, i) => (
         <Line key={i} points={points} color="#0b1220" lineWidth={1.2} transparent opacity={0.85} />
@@ -225,17 +250,20 @@ export function LedScreenObject({
         cabinets.cells.map((cell) => (
           <Text
             key={cell.index}
-            position={cell.position}
+            position={[cell.position[0], cell.position[1], curved ? cell.position[2] : contentZ + 0.004]}
             rotation={[0, cell.rotY, 0]}
             fontSize={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.55}
             color="#ffffff"
+            fillOpacity={content ? 0.35 : 1}
             anchorX="center"
             anchorY="middle"
             outlineWidth={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.045}
             outlineColor="#05070b"
+            outlineOpacity={content ? 0.35 : 1}
           >
             {`${gridStart + cell.index}`}
           </Text>
+
 
         ))}
 

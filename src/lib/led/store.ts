@@ -462,10 +462,36 @@ export const useEditor = create<EditorState>((set, get) => {
       mutate(
         (p) => ({
           ...p,
-          screens: p.screens.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+          screens: p.screens.map((s) => {
+            if (s.id !== id) return s;
+            const next = { ...s, ...patch };
+            // Single source of truth: the canvas region follows the LED resolution
+            // unless the caller is explicitly editing the region itself.
+            if (
+              !patch.content &&
+              (patch.pixelWidth !== undefined || patch.pixelHeight !== undefined)
+            ) {
+              next.content = {
+                ...next.content,
+                width: next.pixelWidth,
+                height: next.pixelHeight,
+              };
+            }
+            // Ports/outputs must stay inside the assigned processor's real port count.
+            const proc = p.processors.find((pr) => pr.id === next.processorId);
+            if (proc) {
+              next.rj45Port = Math.min(Math.max(1, Math.round(next.rj45Port)), proc.outputs);
+              next.processorOutput = Math.min(
+                Math.max(1, Math.round(next.processorOutput)),
+                proc.outputs,
+              );
+            }
+            return next;
+          }),
         }),
         options?.history !== false,
       ),
+
 
     applyPreset: (id, presetKey) => {
       const preset = SCREEN_PRESETS.find((p) => p.key === presetKey);

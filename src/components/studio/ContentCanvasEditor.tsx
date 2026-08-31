@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Layers, Square, Trash2, Type, Video } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
+import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import type { LedScreen, MediaItem } from "@/lib/led/types";
 
 const MAX_UPLOAD_EDGE = 1920;
@@ -76,6 +77,11 @@ export function ContentCanvasEditor() {
     () => [...(project?.media ?? [])].sort((a, b) => a.z - b.z),
     [project?.media],
   );
+  const grids = useMemo(
+    () => (project ? computeGridNumbers(project) : new Map()),
+    [project],
+  );
+
 
   if (!project || !canvas) return null;
 
@@ -263,30 +269,43 @@ export function ContentCanvasEditor() {
         ))}
 
         {showRegions &&
-          project.screens.map((screen) => (
-            <div
-              key={screen.id}
-              onPointerDown={(e) => onScreenPointerDown(e, screen, "move")}
-              className={`absolute cursor-move border border-dashed ${
-                screen.id === selectedId ? "border-primary bg-primary/5" : "border-[#7fd4ff]/70"
-              }`}
-              style={{
-                left: screen.content.x * scale,
-                top: screen.content.y * scale,
-                width: screen.content.width * scale,
-                height: screen.content.height * scale,
-                zIndex: 999,
-              }}
-            >
-              <span className="pointer-events-none absolute left-1 top-1 bg-[#7fd4ff]/15 px-1 font-mono text-[9px] uppercase tracking-wider text-[#7fd4ff]">
-                {screen.name} · OUT {screen.processorOutput}
-              </span>
-              <span
-                onPointerDown={(e) => onScreenPointerDown(e, screen, "resize")}
-                className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-[#7fd4ff]"
-              />
-            </div>
-          ))}
+          project.screens.map((screen) => {
+            const proc = project.processors.find((p) => p.id === screen.processorId);
+            const assignment = grids.get(screen.id);
+            return (
+              <div
+                key={screen.id}
+                onPointerDown={(e) => onScreenPointerDown(e, screen, "move")}
+                className={`absolute cursor-move border border-dashed ${
+                  screen.id === selectedId ? "border-primary bg-primary/5" : "border-[#7fd4ff]/70"
+                }`}
+                style={{
+                  left: screen.content.x * scale,
+                  top: screen.content.y * scale,
+                  width: screen.content.width * scale,
+                  height: screen.content.height * scale,
+                  zIndex: 999,
+                }}
+              >
+                <span className="pointer-events-none absolute left-1 top-1 bg-[#7fd4ff]/15 px-1 font-mono text-[9px] uppercase leading-relaxed tracking-wider text-[#7fd4ff]">
+                  {screen.name} · {proc ? `${proc.brand} ${proc.label}` : "UNPATCHED"} · RJ45 PORT{" "}
+                  {screen.rj45Port} · OUT {screen.processorOutput}
+                  {assignment
+                    ? ` · GRID ${assignment.start}–${assignment.start + assignment.count - 1}`
+                    : ""}
+                </span>
+                <span className="pointer-events-none absolute bottom-1 left-1 bg-black/40 px-1 font-mono text-[9px] text-muted-foreground">
+                  {screen.content.x},{screen.content.y} · {screen.content.width}×
+                  {screen.content.height} px
+                </span>
+                <span
+                  onPointerDown={(e) => onScreenPointerDown(e, screen, "resize")}
+                  className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-[#7fd4ff]"
+                />
+              </div>
+            );
+          })}
+
 
       </div>
 
