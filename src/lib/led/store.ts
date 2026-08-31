@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getAssets } from "./asset-store";
 import {
   createMediaItem,
   createProject,
