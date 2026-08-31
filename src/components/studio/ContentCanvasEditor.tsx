@@ -44,6 +44,51 @@ type DragState = {
   origin: { x: number; y: number; width: number; height: number };
 };
 
+/** Native pixel size of the media behind a layer (image or video). */
+function useNaturalSize(src: string | undefined, kind: MediaItem["kind"]) {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    setSize(null);
+    if (!src || (kind !== "image" && kind !== "video")) return;
+    let live = true;
+    if (kind === "video") {
+      const el = document.createElement("video");
+      el.preload = "metadata";
+      el.muted = true;
+      el.onloadedmetadata = () =>
+        live && setSize({ width: el.videoWidth, height: el.videoHeight });
+      el.src = src;
+      return () => {
+        live = false;
+      };
+    }
+    const img = new Image();
+    img.onload = () => live && setSize({ width: img.naturalWidth, height: img.naturalHeight });
+    img.src = src;
+    return () => {
+      live = false;
+    };
+  }, [src, kind]);
+  return size;
+}
+
+/** How many pixels of the layer frame the media actually paints. */
+function renderedSize(
+  natural: { width: number; height: number } | null,
+  item: MediaItem,
+): { width: number; height: number } | null {
+  if (!natural || !natural.width || !natural.height) return null;
+  if (item.fit === "stretch") return { width: item.width, height: item.height };
+  const ratio = natural.width / natural.height;
+  const frame = item.width / item.height;
+  const cover = item.fit === "cover";
+  if (cover ? ratio > frame : ratio < frame) {
+    return { width: Math.round(item.height * ratio), height: item.height };
+  }
+  return { width: item.width, height: Math.round(item.width / ratio) };
+}
+
+
 
 /**
  * Digital content canvas workspace: media is authored here in logical pixels,
