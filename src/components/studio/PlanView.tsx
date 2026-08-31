@@ -2,7 +2,20 @@ import { useMemo, useRef, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
 import { useScreenImages } from "@/lib/led/media";
-import { layerForCategory } from "@/lib/led/types";
+import {
+  layerForCategory,
+  STAGE_ELEMENT_LABELS,
+  type StageConfig,
+  type StageElementKey,
+} from "@/lib/led/types";
+import { elementFootprint, resolveAnchor } from "@/lib/led/stage-elements";
+
+const STAGE_ELEMENT_KEYS = Object.keys(STAGE_ELEMENT_LABELS) as StageElementKey[];
+
+function stageElementEnabled(stage: StageConfig, key: StageElementKey) {
+  return Boolean(stage[key]);
+}
+
 
 type PlanAxis = "top" | "front" | "side";
 
