@@ -838,12 +838,13 @@ export const useEditor = create<EditorState>((set, get) => {
         );
         const positions = new Map<string, { x: number; y: number }>();
         // Keep the first screen fixed; lay the rest out edge-to-edge + gap.
+        const first = sorted[0]!;
         let cursor =
           direction === "horizontal"
-            ? sorted[0].position.x + sorted[0].physicalWidth / 2 + g
-            : sorted[0].position.y + sorted[0].physicalHeight / 2 + g;
+            ? first.position.x + first.physicalWidth / 2 + g
+            : first.position.y + first.physicalHeight / 2 + g;
         for (let i = 1; i < sorted.length; i++) {
-          const s = sorted[i];
+          const s = sorted[i]!;
           if (direction === "horizontal") {
             positions.set(s.id, { x: cursor + s.physicalWidth / 2, y: s.position.y });
             cursor += s.physicalWidth + g;
