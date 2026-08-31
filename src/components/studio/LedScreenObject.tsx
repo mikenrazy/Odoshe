@@ -214,17 +214,33 @@ export function LedScreenObject({
 
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial
-          map={content ?? texture}
-          emissiveMap={content ?? texture}
-          color={content ? "#ffffff" : "#0a0d14"}
-          emissive={new THREE.Color(content ? "#ffffff" : screen.color)}
-          emissiveIntensity={screen.brightness * (content ? 1.1 : 0.8)}
+          map={curved ? (content ?? texture) : texture}
+          emissiveMap={curved ? (content ?? texture) : texture}
+          color={curved && content ? "#ffffff" : "#0a0d14"}
+          emissive={new THREE.Color(curved && content ? "#ffffff" : screen.color)}
+          emissiveIntensity={screen.brightness * (curved && content ? 1.1 : 0.8)}
           metalness={0.25}
           roughness={0.45}
           side={THREE.DoubleSide}
           toneMapped={false}
         />
       </mesh>
+
+      {/* Content canvas region rendered on the FRONT face only */}
+      {!curved && content && contentGeometry && (
+        <mesh geometry={contentGeometry} position={[0, 0, contentZ]}>
+          <meshStandardMaterial
+            map={content}
+            emissiveMap={content}
+            color="#ffffff"
+            emissive={new THREE.Color("#ffffff")}
+            emissiveIntensity={screen.brightness * 1.1}
+            side={THREE.FrontSide}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+
 
       {grid.map((points, i) => (
         <Line key={i} points={points} color="#0b1220" lineWidth={1.2} transparent opacity={0.85} />
