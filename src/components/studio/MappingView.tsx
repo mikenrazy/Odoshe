@@ -2,6 +2,7 @@ import { useEditor } from "@/lib/led/store";
 import { cabinetCalc } from "@/lib/led/calc";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { signalChain, validateMapping } from "@/lib/led/mapping";
+import { PortMap } from "./PortMap";
 
 /** LED Mapping Mode — physical layout (metres) vs content canvas (pixels). */
 export function MappingView() {
@@ -164,6 +165,24 @@ export function MappingView() {
           ))}
           {chain.length === 0 && (
             <p className="text-[11px] text-muted-foreground">No LED surfaces patched.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="mb-6 border border-border bg-card p-4">
+        <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Processor Port Capacity
+        </h3>
+        <div className="space-y-4">
+          {project.processors
+            .filter((proc) => project.screens.some((s) => s.processorId === proc.id))
+            .map((proc) => (
+              <PortMap key={proc.id} project={project} processor={proc} />
+            ))}
+          {!project.screens.length && (
+            <p className="text-[10px] text-muted-foreground">
+              Add an LED screen to see per-port pixel loads.
+            </p>
           )}
         </div>
       </section>
