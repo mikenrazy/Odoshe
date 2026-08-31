@@ -228,6 +228,54 @@ export function ensureSeed(): Project[] {
   return [project];
 }
 
+/**
+ * A grouped set of LED sections behaves as ONE logical screen on one output:
+ * the processor's source resolution is divided evenly across the members
+ * (left → right), and each member's canvas region + LED resolution is set to
+ * its slice, so the whole group reads as a single combined resolution.
+ */
+function splitGroupInProject(p: Project, groupId: string): Project {
+  const members = p.screens
+    .filter((s) => s.groupId === groupId)
+    .sort((a, b) => a.position.x - b.position.x);
+  if (members.length === 0) return p;
+  const proc = p.processors.find((pr) => pr.id === members[0]!.processorId);
+  const totalW = Math.max(1, Math.round(proc?.inputWidth ?? p.canvas.width));
+  const totalH = Math.max(1, Math.round(proc?.inputHeight ?? p.canvas.height));
+  const base = Math.floor(totalW / members.length);
+  const slices = new Map<string, { x: number; width: number }>();
+  let cursor = 0;
+  members.forEach((m, i) => {
+    const width = i === members.length - 1 ? totalW - cursor : base;
+    slices.set(m.id, { x: cursor, width });
+    cursor += width;
+  });
+  return {
+    ...p,
+    screens: p.screens.map((s) => {
+      const slice = slices.get(s.id);
+      if (!slice) return s;
+      return {
+        ...s,
+        pixelWidth: slice.width,
+        pixelHeight: totalH,
+        content: { x: slice.x, y: 0, width: slice.width, height: totalH },
+      };
+    }),
+  };
+}
+
+/** Total logical resolution of a group (sum of member slices). */
+export function groupResolution(p: Project, groupId: string) {
+  const members = p.screens.filter((s) => s.groupId === groupId);
+  if (members.length === 0) return null;
+  return {
+    width: members.reduce((sum, s) => sum + s.pixelWidth, 0),
+    height: Math.max(...members.map((s) => s.pixelHeight)),
+    count: members.length,
+  };
+}
+
 interface EditorState {
   projects: Project[];
   project: Project | null;
