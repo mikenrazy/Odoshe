@@ -261,8 +261,15 @@ interface EditorState {
   updateScreen: (id: string, patch: Partial<LedScreen>, options?: { history?: boolean }) => void;
   applyPreset: (id: string, presetKey: string) => void;
   addProcessor: (processor: Omit<ProcessorModel, "id">) => void;
+  addProcessorInstance: (modelKey: string) => void;
   updateProcessor: (id: string, patch: Partial<ProcessorModel>) => void;
   removeProcessor: (id: string) => void;
+  addGroup: (name: string, screenIds?: string[]) => void;
+  updateGroup: (id: string, patch: Partial<ScreenGroup>) => void;
+  removeGroup: (id: string) => void;
+  setScreenGroup: (screenId: string, groupId: string | null) => void;
+  applyProcessorSourceToCanvas: (processorId: string) => void;
+
   deleteScreen: (id: string) => void;
   duplicateScreen: (id: string) => void;
   alignScreens: (axis: "left" | "centerX" | "right" | "top" | "middleY" | "bottom") => void;
