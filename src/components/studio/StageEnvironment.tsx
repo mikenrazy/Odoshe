@@ -1,5 +1,6 @@
 import { Line, Text } from "@react-three/drei";
 import type { Layers, Measurement, StageConfig } from "@/lib/led/types";
+import { resolveAnchor, type ElementAnchor } from "@/lib/led/stage-elements";
 
 interface Props {
   stage: StageConfig;
@@ -8,12 +9,417 @@ interface Props {
   showMeasurements: boolean;
 }
 
+const DEG = Math.PI / 180;
+
+/** Wraps children in the placement transform resolved from the element setup. */
+function Placed({ a, y, children }: { a: ElementAnchor; y: number; children: React.ReactNode }) {
+  return (
+    <group
+      position={[a.x, y + a.y, a.z]}
+      rotation={[0, a.rotation * DEG, 0]}
+      scale={[a.scale, a.scale, a.scale]}
+    >
+      {children}
+    </group>
+  );
+}
+
+/* ------------------------------------------------------------------ stairs */
+
+function Stairs({ stage, a }: { stage: StageConfig; a: ElementAnchor }) {
+  const height = stage.height;
+  const glow = a.style === "glow";
+  const steps = a.style === "wide" ? 4 : 3;
+  const runWidth =
+    a.style === "wrap"
+      ? stage.width
+      : a.style === "wide"
+        ? stage.width * 0.45
+        : a.style === "dual"
+          ? stage.width * 0.22
+          : 3;
+  const stepDepth = a.style === "wide" ? 0.6 : 0.7;
+
+  const flight = (offsetX: number) => (
+    <group key={offsetX} position={[offsetX, 0, 0]}>
+      {Array.from({ length: steps }, (_, i) => {
+        const h = (height * (steps - i)) / (steps + 1);
+        return (
+          <group key={i} position={[0, h / 2, 0.35 + i * stepDepth]}>
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[runWidth, h, stepDepth]} />
+              <meshStandardMaterial
+                color={stage.stairsColor}
+                emissive={stage.stairsColor}
+                emissiveIntensity={glow ? 0.05 : 0.12}
+                roughness={0.45}
+                metalness={0.25}
+              />
+            </mesh>
+            {glow && (
+              <mesh position={[0, h / 2 + 0.012, stepDepth / 2 - 0.02]}>
+                <boxGeometry args={[runWidth, 0.03, 0.06]} />
+                <meshStandardMaterial
+                  color="#ffd9a0"
+                  emissive="#ffb454"
+                  emissiveIntensity={1.6}
+                  roughness={0.3}
+                />
+              </mesh>
+            )}
+          </group>
+        );
+      })}
+    </group>
+  );
+
+  const offsets =
+    a.style === "dual" ? [-(stage.width / 2 - runWidth / 2 - 0.4), stage.width / 2 - runWidth / 2 - 0.4] : [0];
+
+  return <>{offsets.map(flight)}</>;
+}
+
+/* ------------------------------------------------------------------ podium */
+
+function Podium({ stage, a }: { stage: StageConfig; a: ElementAnchor }) {
+  const c = stage.podiumColor;
+  if (a.style === "classic") {
+    return (
+      <group>
+        <mesh position={[0, 0.15, 0]} castShadow>
+          <boxGeometry args={[0.95, 0.3, 0.7]} />
+          <meshStandardMaterial color={c} roughness={0.5} metalness={0.25} />
+        </mesh>
+        <mesh position={[0, 0.7, 0]} castShadow>
+          <boxGeometry args={[0.7, 0.85, 0.5]} />
+          <meshStandardMaterial color={c} roughness={0.45} metalness={0.3} />
+        </mesh>
+        <mesh position={[0, 1.16, 0.05]} rotation={[-0.22, 0, 0]} castShadow>
+          <boxGeometry args={[0.9, 0.05, 0.55]} />
+          <meshStandardMaterial color={c} roughness={0.35} metalness={0.4} />
+        </mesh>
+      </group>
+    );
+  }
+  if (a.style === "acrylic") {
+    return (
+      <group>
+        <mesh position={[0, 0.6, 0]} castShadow>
+          <boxGeometry args={[0.85, 1.2, 0.5]} />
+          <meshStandardMaterial
+            color="#9fd8ff"
+            transparent
+            opacity={0.35}
+            roughness={0.08}
+            metalness={0.1}
+          />
+        </mesh>
+        <mesh position={[0, 1.22, 0]}>
+          <boxGeometry args={[0.9, 0.05, 0.55]} />
+          <meshStandardMaterial color={c} roughness={0.3} metalness={0.5} />
+        </mesh>
+      </group>
+    );
+  }
+  if (a.style === "led") {
+    return (
+      <group>
+        <mesh position={[0, 0.6, 0]} castShadow>
+          <boxGeometry args={[0.85, 1.2, 0.55]} />
+          <meshStandardMaterial color="#0c1018" roughness={0.6} metalness={0.3} />
+        </mesh>
+        <mesh position={[0, 0.6, 0.29]}>
+          <planeGeometry args={[0.78, 1.05]} />
+          <meshStandardMaterial color={c} emissive={c} emissiveIntensity={1.1} roughness={0.4} />
+        </mesh>
+      </group>
+    );
+  }
+  return (
+    <mesh position={[0, 0.6, 0]} castShadow>
+      <boxGeometry args={[0.8, 1.2, 0.55]} />
+      <meshStandardMaterial color={c} roughness={0.4} metalness={0.4} />
+    </mesh>
+  );
+}
+
+/* --------------------------------------------------------------- furniture */
+
+function Furniture({ a }: { a: ElementAnchor }) {
+  if (a.style === "panel") {
+    return (
+      <group>
+        {[-1.05, -0.35, 0.35, 1.05].map((x) => (
+          <group key={x} position={[x, 0, -0.35]}>
+            <mesh position={[0, 0.42, 0]} castShadow>
+              <boxGeometry args={[0.55, 0.1, 0.55]} />
+              <meshStandardMaterial color="#2f6f6a" roughness={0.7} />
+            </mesh>
+            <mesh position={[0, 0.72, -0.24]} castShadow>
+              <boxGeometry args={[0.55, 0.6, 0.08]} />
+              <meshStandardMaterial color="#2f6f6a" roughness={0.7} />
+            </mesh>
+          </group>
+        ))}
+        <mesh position={[0, 0.28, 0.55]} castShadow>
+          <boxGeometry args={[2.4, 0.08, 0.6]} />
+          <meshStandardMaterial color="#1b2330" roughness={0.4} metalness={0.35} />
+        </mesh>
+      </group>
+    );
+  }
+  if (a.style === "stools") {
+    return (
+      <group>
+        {[-0.9, 0, 0.9].map((x) => (
+          <group key={x} position={[x, 0, 0]}>
+            <mesh position={[0, 0.38, 0]} castShadow>
+              <cylinderGeometry args={[0.05, 0.05, 0.75, 10]} />
+              <meshStandardMaterial color="#8b93a7" metalness={0.8} roughness={0.3} />
+            </mesh>
+            <mesh position={[0, 0.79, 0]} castShadow>
+              <cylinderGeometry args={[0.22, 0.22, 0.08, 16]} />
+              <meshStandardMaterial color="#2f6f6a" roughness={0.65} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+    );
+  }
+  if (a.style === "roundtable") {
+    return (
+      <group>
+        <mesh position={[0, 0.36, 0]} castShadow>
+          <cylinderGeometry args={[0.75, 0.75, 0.06, 28]} />
+          <meshStandardMaterial color="#1b2330" roughness={0.4} metalness={0.35} />
+        </mesh>
+        <mesh position={[0, 0.18, 0]}>
+          <cylinderGeometry args={[0.1, 0.16, 0.36, 12]} />
+          <meshStandardMaterial color="#8b93a7" metalness={0.8} roughness={0.3} />
+        </mesh>
+        {[0, 90, 180, 270].map((deg) => {
+          const r = 1.15;
+          const rad = deg * DEG;
+          return (
+            <mesh
+              key={deg}
+              position={[Math.cos(rad) * r, 0.45, Math.sin(rad) * r]}
+              rotation={[0, -rad, 0]}
+              castShadow
+            >
+              <boxGeometry args={[0.5, 0.9, 0.5]} />
+              <meshStandardMaterial color="#2f6f6a" roughness={0.7} />
+            </mesh>
+          );
+        })}
+      </group>
+    );
+  }
+  return (
+    <group>
+      {[0, 1, 2].map((i) => (
+        <mesh key={i} position={[(i - 1) * 0.9, 0.45, 0]} castShadow>
+          <boxGeometry args={[0.6, 0.9, 0.6]} />
+          <meshStandardMaterial color="#2f6f6a" roughness={0.7} metalness={0.15} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/* ------------------------------------------------------------------- truss */
+
+function Truss({ stage, a }: { stage: StageConfig; a: ElementAnchor }) {
+  const span = stage.width + 3;
+  const top = stage.backWallHeight + 0.4;
+  const mat = (
+    <meshStandardMaterial color={stage.trussColor} roughness={0.5} metalness={0.8} />
+  );
+  const post = (x: number, z: number) => (
+    <mesh key={`${x}:${z}`} position={[x, top / 2, z]} castShadow>
+      <boxGeometry args={[0.35, top, 0.35]} />
+      {mat}
+    </mesh>
+  );
+
+  if (a.style === "arch") {
+    const segs = 9;
+    return (
+      <group>
+        {Array.from({ length: segs }, (_, i) => {
+          const t = i / (segs - 1);
+          const ang = Math.PI * t;
+          return (
+            <mesh
+              key={i}
+              position={[-Math.cos(ang) * (span / 2), Math.sin(ang) * top, 0]}
+              rotation={[0, 0, -ang + Math.PI / 2]}
+              castShadow
+            >
+              <boxGeometry args={[0.32, (Math.PI * span) / (2 * segs) + 0.15, 0.32]} />
+              {mat}
+            </mesh>
+          );
+        })}
+      </group>
+    );
+  }
+
+  return (
+    <group>
+      <mesh position={[0, top, 0]} castShadow>
+        <boxGeometry args={[span, 0.35, 0.35]} />
+        {mat}
+      </mesh>
+      {post(-span / 2, 0)}
+      {post(span / 2, 0)}
+      {a.style === "box" && (
+        <>
+          <mesh position={[0, top, stage.depth]} castShadow>
+            <boxGeometry args={[span, 0.35, 0.35]} />
+            {mat}
+          </mesh>
+          {post(-span / 2, stage.depth)}
+          {post(span / 2, stage.depth)}
+          {[-span / 2, span / 2].map((x) => (
+            <mesh key={`s${x}`} position={[x, top, stage.depth / 2]} castShadow>
+              <boxGeometry args={[0.3, 0.3, stage.depth]} />
+              {mat}
+            </mesh>
+          ))}
+        </>
+      )}
+      {a.style === "grid" &&
+        [0.3, 0.55, 0.8].map((t) => (
+          <mesh key={t} position={[0, top * t, 0]}>
+            <boxGeometry args={[span, 0.14, 0.14]} />
+            {mat}
+          </mesh>
+        ))}
+    </group>
+  );
+}
+
+/* ---------------------------------------------------------------- backdrop */
+
+function Backdrop({ stage, a }: { stage: StageConfig; a: ElementAnchor }) {
+  const w = stage.width + 3;
+  const h = stage.backWallHeight;
+  if (a.style === "drape") {
+    const pleats = Math.max(6, Math.round(w / 1.1));
+    return (
+      <group>
+        {Array.from({ length: pleats }, (_, i) => (
+          <mesh
+            key={i}
+            position={[-w / 2 + (i + 0.5) * (w / pleats), h / 2, i % 2 ? 0.08 : 0]}
+            rotation={[0, i % 2 ? 0.12 : -0.12, 0]}
+          >
+            <planeGeometry args={[w / pleats + 0.12, h]} />
+            <meshStandardMaterial color="#141826" roughness={1} metalness={0} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+  if (a.style === "cyc") {
+    return (
+      <mesh position={[0, h / 2, 0]}>
+        <cylinderGeometry args={[w / 2, w / 2, h, 40, 1, true, -Math.PI / 2.6, Math.PI / 1.3]} />
+        <meshStandardMaterial color="#0e121c" roughness={1} side={2} />
+      </mesh>
+    );
+  }
+  if (a.style === "frame") {
+    return (
+      <group>
+        <mesh position={[0, h / 2, 0]}>
+          <planeGeometry args={[w, h]} />
+          <meshStandardMaterial color="#0b0d14" roughness={1} />
+        </mesh>
+        <mesh position={[0, h - 0.3, 0.06]}>
+          <boxGeometry args={[w, 0.5, 0.12]} />
+          <meshStandardMaterial
+            color={stage.trussColor}
+            emissive={stage.trussColor}
+            emissiveIntensity={0.15}
+            metalness={0.7}
+            roughness={0.4}
+          />
+        </mesh>
+      </group>
+    );
+  }
+  return (
+    <mesh position={[0, h / 2, 0]}>
+      <planeGeometry args={[w, h]} />
+      <meshStandardMaterial color="#0b0d14" roughness={1} metalness={0} />
+    </mesh>
+  );
+}
+
+/* ------------------------------------------------------------------ fascia */
+
+function Fascia({ stage, a }: { stage: StageConfig; a: ElementAnchor }) {
+  const w = stage.width + 0.04;
+  const h = stage.height;
+  if (a.style === "pleated") {
+    const pleats = Math.max(8, Math.round(w / 0.5));
+    return (
+      <group>
+        {Array.from({ length: pleats }, (_, i) => (
+          <mesh
+            key={i}
+            position={[-w / 2 + (i + 0.5) * (w / pleats), h / 2, i % 2 ? 0.03 : 0]}
+          >
+            <boxGeometry args={[w / pleats + 0.03, h, 0.04]} />
+            <meshStandardMaterial color={stage.fasciaColor} roughness={0.95} metalness={0.02} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+  return (
+    <group>
+      <mesh position={[0, h / 2, 0]}>
+        <boxGeometry args={[w, h, 0.04]} />
+        <meshStandardMaterial
+          color={stage.fasciaColor}
+          roughness={a.style === "brand" ? 0.5 : 0.9}
+          metalness={a.style === "brand" ? 0.35 : 0.05}
+        />
+      </mesh>
+      {a.style === "ledtape" && (
+        <mesh position={[0, h - 0.04, 0.03]}>
+          <boxGeometry args={[w, 0.06, 0.03]} />
+          <meshStandardMaterial color="#9fd8ff" emissive="#4bb6ff" emissiveIntensity={2} />
+        </mesh>
+      )}
+      {a.style === "brand" && (
+        <mesh position={[0, h / 2, 0.03]}>
+          <planeGeometry args={[w * 0.9, h * 0.6]} />
+          <meshStandardMaterial color="#e6ecf5" roughness={0.6} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+/* ================================================================== stage */
+
 export function StageEnvironment({ stage, layers, measurements, showMeasurements }: Props) {
   const { width, depth, height } = stage;
   const halfW = width / 2;
   const halfD = depth / 2;
   const orientationY =
     stage.orientation === "corner" ? Math.PI / 4 : stage.orientation === "center" ? 0 : 0;
+
+  const stairsA = resolveAnchor(stage, "stairs", { outside: true });
+  const podiumA = resolveAnchor(stage, "podium");
+  const furnitureA = resolveAnchor(stage, "furniture");
+  const fasciaA = resolveAnchor(stage, "fascia", { outside: true });
+  const backdropA = resolveAnchor(stage, "backdrop", { outside: true });
+  const trussA = resolveAnchor(stage, "truss");
 
   return (
     <group>
@@ -45,91 +451,50 @@ export function StageEnvironment({ stage, layers, measurements, showMeasurements
             </mesh>
           )}
 
-          {/* fascia skirt around the deck front */}
           {stage.fascia && (
-            <mesh position={[0, height / 2, halfD + 0.02]}>
-              <boxGeometry args={[width + 0.04, height, 0.04]} />
-              <meshStandardMaterial color={stage.fasciaColor} roughness={0.9} metalness={0.05} />
-            </mesh>
+            <Placed a={fasciaA} y={0}>
+              <Fascia stage={stage} a={fasciaA} />
+            </Placed>
           )}
 
           {stage.backWall && (
             <mesh position={[0, stage.backWallHeight / 2, -halfD - 0.15]} receiveShadow castShadow>
               <boxGeometry args={[width + 2, stage.backWallHeight, 0.3]} />
-              <meshStandardMaterial
-                color={stage.backWallColor}
-                roughness={0.85}
-                metalness={0.1}
-              />
+              <meshStandardMaterial color={stage.backWallColor} roughness={0.85} metalness={0.1} />
             </mesh>
           )}
 
           {stage.backdrop && (
-            <mesh position={[0, stage.backWallHeight / 2, -halfD - 0.34]}>
-              <planeGeometry args={[width + 3, stage.backWallHeight]} />
-              <meshStandardMaterial color="#0b0d14" roughness={1} metalness={0} />
-            </mesh>
+            <Placed a={{ ...backdropA, z: backdropA.z - 0.34 }} y={0}>
+              <Backdrop stage={stage} a={backdropA} />
+            </Placed>
           )}
 
-          {stage.stairs &&
-            [0, 1, 2].map((i) => (
-              <mesh
-                key={i}
-                position={[0, (height * (3 - i)) / 6, halfD + 0.35 + i * 0.7]}
-                castShadow
-                receiveShadow
-              >
-                <boxGeometry args={[3, (height / 3) * (3 - i), 0.7]} />
-                <meshStandardMaterial
-                  color={stage.stairsColor}
-                  emissive={stage.stairsColor}
-                  emissiveIntensity={0.12}
-                  roughness={0.45}
-                  metalness={0.25}
-                />
-              </mesh>
-            ))}
+          {stage.stairs && (
+            <Placed a={stairsA} y={0}>
+              <Stairs stage={stage} a={stairsA} />
+            </Placed>
+          )}
 
           {stage.podium && (
-            <group position={[halfW - 2, height, halfD - 1.4]}>
-              <mesh position={[0, 0.6, 0]} castShadow>
-                <boxGeometry args={[0.8, 1.2, 0.55]} />
-                <meshStandardMaterial color={stage.podiumColor} roughness={0.4} metalness={0.4} />
-              </mesh>
-            </group>
+            <Placed a={podiumA} y={height}>
+              <Podium stage={stage} a={podiumA} />
+            </Placed>
           )}
 
           {stage.furniture && (
-            <group position={[-halfW + 2.4, height, halfD - 1.6]}>
-              {[0, 1, 2].map((i) => (
-                <mesh key={i} position={[i * 0.9, 0.45, 0]} castShadow>
-                  <boxGeometry args={[0.6, 0.9, 0.6]} />
-                  <meshStandardMaterial color="#2f6f6a" roughness={0.7} metalness={0.15} />
-                </mesh>
-              ))}
-            </group>
+            <Placed a={furnitureA} y={height}>
+              <Furniture a={furnitureA} />
+            </Placed>
           )}
         </group>
       )}
 
       {/* overhead structure */}
       {layers.structure.visible && stage.truss && (
-        <group>
-          <mesh position={[0, stage.backWallHeight + 0.4, -halfD + 0.2]} castShadow>
-            <boxGeometry args={[width + 3, 0.35, 0.35]} />
-            <meshStandardMaterial color={stage.trussColor} roughness={0.5} metalness={0.8} />
-          </mesh>
-          {[-1, 1].map((s) => (
-            <mesh
-              key={s}
-              position={[s * ((width + 3) / 2), (stage.backWallHeight + 0.4) / 2, -halfD + 0.2]}
-              castShadow
-            >
-              <boxGeometry args={[0.35, stage.backWallHeight + 0.4, 0.35]} />
-              <meshStandardMaterial color={stage.trussColor} roughness={0.5} metalness={0.8} />
-            </mesh>
-          ))}
-        </group>
+        <Placed a={trussA} y={0}>
+          <Truss stage={stage} a={trussA} />
+        </Placed>
       )}
 
       {/* lighting positions marker bar */}

@@ -466,6 +466,137 @@ export const STAGE_ORIENTATION_LABELS: Record<StageOrientation, string> = {
   center: "In the round",
 };
 
+/* ------------------------------------------------- stage element styling */
+
+export type StagePlacement =
+  | "left"
+  | "center"
+  | "right"
+  | "front"
+  | "back"
+  | "front-left"
+  | "front-right"
+  | "back-left"
+  | "back-right"
+  | "custom";
+
+export const STAGE_PLACEMENT_LABELS: Record<StagePlacement, string> = {
+  left: "Stage left",
+  center: "Center",
+  right: "Stage right",
+  front: "Downstage (front)",
+  back: "Upstage (back)",
+  "front-left": "Front left",
+  "front-right": "Front right",
+  "back-left": "Back left",
+  "back-right": "Back right",
+  custom: "Custom (offsets)",
+};
+
+export type StageElementKey =
+  | "stairs"
+  | "podium"
+  | "furniture"
+  | "truss"
+  | "backdrop"
+  | "fascia";
+
+export const STAGE_ELEMENT_LABELS: Record<StageElementKey, string> = {
+  stairs: "Stairs",
+  podium: "Podium / Lectern",
+  furniture: "Furniture",
+  truss: "Truss",
+  backdrop: "Backdrop",
+  fascia: "Fascia",
+};
+
+export interface StageElementSetup {
+  /** visual style variation key */
+  style: string;
+  placement: StagePlacement;
+  /** metres, applied on top of the placement anchor */
+  offsetX: number;
+  offsetZ: number;
+  /** metres above the stage deck */
+  elevation: number;
+  /** degrees around Y */
+  rotation: number;
+  /** uniform size multiplier */
+  scale: number;
+}
+
+export const STAGE_ELEMENT_STYLES: Record<
+  StageElementKey,
+  Array<{ value: string; label: string }>
+> = {
+  stairs: [
+    { value: "straight", label: "Straight run" },
+    { value: "wide", label: "Wide feature" },
+    { value: "dual", label: "Dual side flights" },
+    { value: "wrap", label: "Full-width wrap" },
+    { value: "glow", label: "Glow-nosing" },
+  ],
+  podium: [
+    { value: "modern", label: "Modern block" },
+    { value: "classic", label: "Classic lectern" },
+    { value: "acrylic", label: "Acrylic" },
+    { value: "led", label: "LED front" },
+  ],
+  furniture: [
+    { value: "lounge", label: "Lounge cubes" },
+    { value: "panel", label: "Panel chairs + table" },
+    { value: "stools", label: "Bar stools" },
+    { value: "roundtable", label: "Round table" },
+  ],
+  truss: [
+    { value: "goalpost", label: "Goalpost" },
+    { value: "box", label: "Box / four post" },
+    { value: "arch", label: "Arch" },
+    { value: "grid", label: "Grid ladder" },
+  ],
+  backdrop: [
+    { value: "flat", label: "Flat panel" },
+    { value: "drape", label: "Pleated drape" },
+    { value: "cyc", label: "Curved cyc" },
+    { value: "frame", label: "Framed header" },
+  ],
+  fascia: [
+    { value: "matte", label: "Matte skirt" },
+    { value: "pleated", label: "Pleated skirt" },
+    { value: "ledtape", label: "LED tape edge" },
+    { value: "brand", label: "Branded panel" },
+  ],
+};
+
+export function defaultStageElement(key: StageElementKey): StageElementSetup {
+  const base: StageElementSetup = {
+    style: STAGE_ELEMENT_STYLES[key][0]!.value,
+    placement: "center",
+    offsetX: 0,
+    offsetZ: 0,
+    elevation: 0,
+    rotation: 0,
+    scale: 1,
+  };
+  if (key === "stairs") return { ...base, placement: "front" };
+  if (key === "podium") return { ...base, placement: "front-right" };
+  if (key === "furniture") return { ...base, placement: "front-left" };
+  if (key === "truss" || key === "backdrop") return { ...base, placement: "back" };
+  if (key === "fascia") return { ...base, placement: "front" };
+  return base;
+}
+
+export function defaultStageElements(): Record<StageElementKey, StageElementSetup> {
+  return {
+    stairs: defaultStageElement("stairs"),
+    podium: defaultStageElement("podium"),
+    furniture: defaultStageElement("furniture"),
+    truss: defaultStageElement("truss"),
+    backdrop: defaultStageElement("backdrop"),
+    fascia: defaultStageElement("fascia"),
+  };
+}
+
 export interface StageConfig {
   width: number;
   depth: number;
@@ -481,6 +612,8 @@ export interface StageConfig {
   backdrop: boolean;
   truss: boolean;
   lightingPositions: boolean;
+  /** per-element style + placement setups (optional on legacy projects) */
+  elements?: Partial<Record<StageElementKey, StageElementSetup>>;
   /** element colours */
   stageColor: string;
   backWallColor: string;
@@ -490,6 +623,7 @@ export interface StageConfig {
   fasciaColor: string;
   trussColor: string;
 }
+
 
 /* ---------------------------------------------------------------- project */
 
@@ -553,6 +687,8 @@ export function defaultStage(): StageConfig {
     floorColor: "#080a10",
     fasciaColor: "#12161f",
     trussColor: "#8b93a7",
+    elements: defaultStageElements(),
+
   };
 }
 
