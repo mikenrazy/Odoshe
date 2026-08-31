@@ -10,6 +10,7 @@ import {
 import { aspectLabel } from "@/lib/led/calc";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { NumberField, Readout, Section, SelectField, TextField } from "../Field";
+import { PortMap } from "../PortMap";
 
 function sourceOptions(proc: ProcessorModel) {
   const catalog = PROCESSOR_CATALOG.find((c) => c.key === (proc.modelKey ?? proc.id));
@@ -186,6 +187,7 @@ export function ProcessorPanel() {
                   ],
                 ]}
               />
+              <PortMap project={project} processor={proc} />
             </div>
           );
         })}

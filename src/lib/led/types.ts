@@ -76,6 +76,8 @@ export interface ProcessorModel {
   /** max resolution of a single output */
   outputWidth: number;
   outputHeight: number;
+  /** maximum pixels a single RJ45 output port can drive */
+  portMaxPixels?: number;
   /** configured source resolution coming from the laptop / Mac */
   inputWidth?: number;
   inputHeight?: number;
@@ -95,6 +97,8 @@ export interface ProcessorCatalogEntry {
   outputs: number;
   outputWidth: number;
   outputHeight: number;
+  /** maximum pixels per single RJ45 output port */
+  portMaxPixels: number;
   minInputWidth: number;
   minInputHeight: number;
   maxInputWidth: number;
@@ -112,6 +116,7 @@ export const PROCESSOR_CATALOG: ProcessorCatalogEntry[] = [
     outputs: 10,
     outputWidth: 4096,
     outputHeight: 1080,
+    portMaxPixels: 650_000,
     minInputWidth: 1920,
     minInputHeight: 1080,
     maxInputWidth: 3840,
@@ -132,6 +137,7 @@ export const PROCESSOR_CATALOG: ProcessorCatalogEntry[] = [
     outputs: 6,
     outputWidth: 4096,
     outputHeight: 1080,
+    portMaxPixels: 650_000,
     minInputWidth: 1024,
     minInputHeight: 640,
     maxInputWidth: 1920,
@@ -151,6 +157,7 @@ export const PROCESSOR_CATALOG: ProcessorCatalogEntry[] = [
     outputs: 4,
     outputWidth: 1920,
     outputHeight: 1080,
+    portMaxPixels: 650_000,
     minInputWidth: 1024,
     minInputHeight: 640,
     maxInputWidth: 1920,
@@ -173,6 +180,7 @@ export function processorFromCatalog(entry: ProcessorCatalogEntry, id: string, n
     outputs: entry.outputs,
     outputWidth: entry.outputWidth,
     outputHeight: entry.outputHeight,
+    portMaxPixels: entry.portMaxPixels,
     inputWidth: entry.inputPresets[entry.inputPresets.length - 1]!.width,
     inputHeight: entry.inputPresets[entry.inputPresets.length - 1]!.height,
     minInputWidth: entry.minInputWidth,
@@ -290,6 +298,12 @@ export interface LedScreen {
    * cabinet 10 or screen 10.
    */
   rj45Port: number;
+  /**
+   * How many consecutive RJ45 ports this screen consumes, starting at
+   * `rj45Port`. A wall wider than one port's capacity is split by cabinet
+   * columns across `portSpan` ports.
+   */
+  portSpan?: number;
   /** slice of the content canvas shown on this screen */
   content: ContentRegion;
   /** optional image (data URL) shown as content on the LED surface in 3D */
@@ -799,6 +813,7 @@ export function normalizeProject(project: Project): Project {
       outputs: p.outputs ?? catalog?.outputs ?? 4,
       outputWidth: p.outputWidth ?? catalog?.outputWidth ?? 1920,
       outputHeight: p.outputHeight ?? catalog?.outputHeight ?? 1080,
+      portMaxPixels: p.portMaxPixels ?? catalog?.portMaxPixels ?? 650_000,
       inputWidth: p.inputWidth ?? catalog?.maxInputWidth ?? 1920,
       inputHeight: p.inputHeight ?? catalog?.maxInputHeight ?? 1080,
       minInputWidth: p.minInputWidth ?? catalog?.minInputWidth ?? 640,
@@ -819,6 +834,7 @@ export function normalizeProject(project: Project): Project {
       processorId: s.processorId ?? processors[0]!.id,
       processorOutput: s.processorOutput ?? 1,
       rj45Port: s.rj45Port ?? s.processorOutput ?? 1,
+      portSpan: Math.max(1, Math.round(s.portSpan ?? 1)),
       content: s.content ?? { x: 0, y: 0, width: s.pixelWidth, height: s.pixelHeight },
       gridOrder: s.gridOrder ?? index + 1,
       panelConfiguration: {
