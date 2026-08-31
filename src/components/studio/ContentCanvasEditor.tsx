@@ -461,8 +461,6 @@ export function ContentCanvasEditor() {
               [
                 ["X", "x"],
                 ["Y", "y"],
-                ["W", "width"],
-                ["H", "height"],
               ] as const
             ).map(([label, key]) => (
               <label key={key} className="flex items-center justify-between gap-2">
@@ -475,6 +473,88 @@ export function ContentCanvasEditor() {
                 />
               </label>
             ))}
+            {(
+              [
+                ["W", "width"],
+                ["H", "height"],
+              ] as const
+            ).map(([label, key]) => (
+              <label key={key} className="flex items-center justify-between gap-2">
+                {label}
+                <input
+                  type="number"
+                  value={selected[key]}
+                  onChange={(e) => resizeSelected(key, Number(e.target.value))}
+                  className="w-24 border border-border bg-input px-2 py-1 text-right text-foreground outline-none focus:border-ring"
+                />
+              </label>
+            ))}
+            <label className="flex items-center justify-between gap-2">
+              Lock aspect
+              <input
+                type="checkbox"
+                checked={lockAspect}
+                onChange={(e) => setLockAspect(e.target.checked)}
+                className="h-3 w-3 accent-primary"
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-1 pt-1">
+              <button
+                type="button"
+                onClick={fillCanvas}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Fill canvas
+              </button>
+              <button
+                type="button"
+                onClick={fitCanvas}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Fit canvas
+              </button>
+              <button
+                type="button"
+                onClick={centerLayer}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Centre
+              </button>
+              <button
+                type="button"
+                onClick={canvasToLayer}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Canvas → layer
+              </button>
+            </div>
+
+            {project.screens.length > 0 && (
+              <label className="flex items-center justify-between gap-2">
+                Fit to screen
+                <select
+                  value=""
+                  onChange={(e) => e.target.value && fitToScreen(e.target.value)}
+                  className="w-24 border border-border bg-input px-2 py-1 text-foreground outline-none"
+                >
+                  <option value="">Select…</option>
+                  {project.screens.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {overflows && (
+              <p className="border border-destructive/60 bg-destructive/10 p-2 text-[9px] leading-relaxed tracking-normal text-destructive">
+                Layer is {selected.width}×{selected.height} px but the canvas is {canvas.width}×
+                {canvas.height} px — anything outside the canvas is never mapped to the LED
+                surfaces. Use “Fit canvas”, or “Canvas → layer” to raise the source resolution.
+              </p>
+            )}
             <label className="flex items-center justify-between gap-2">
               Opacity
               <input
