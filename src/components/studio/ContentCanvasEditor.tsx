@@ -76,6 +76,11 @@ export function ContentCanvasEditor() {
     () => [...(project?.media ?? [])].sort((a, b) => a.z - b.z),
     [project?.media],
   );
+  const grids = useMemo(
+    () => (project ? computeGridNumbers(project) : new Map()),
+    [project],
+  );
+
 
   if (!project || !canvas) return null;
 
