@@ -595,14 +595,25 @@ export function normalizeProject(project: Project): Project {
       ? project.processors
       : DEFAULT_PROCESSORS.map((p) => ({ ...p }))
   ).map((p) => {
-    const fallback = DEFAULT_PROCESSORS.find((d) => d.id === p.id);
+    const catalog =
+      PROCESSOR_CATALOG.find((d) => d.key === (p.modelKey ?? p.id)) ??
+      PROCESSOR_CATALOG.find((d) => d.label === p.label);
     return {
       ...p,
-      outputs: p.outputs ?? fallback?.outputs ?? 4,
-      outputWidth: p.outputWidth ?? fallback?.outputWidth ?? 1920,
-      outputHeight: p.outputHeight ?? fallback?.outputHeight ?? 1080,
+      name: p.name ?? `${p.brand} ${p.label}`,
+      modelKey: p.modelKey ?? catalog?.key,
+      outputs: p.outputs ?? catalog?.outputs ?? 4,
+      outputWidth: p.outputWidth ?? catalog?.outputWidth ?? 1920,
+      outputHeight: p.outputHeight ?? catalog?.outputHeight ?? 1080,
+      inputWidth: p.inputWidth ?? catalog?.maxInputWidth ?? 1920,
+      inputHeight: p.inputHeight ?? catalog?.maxInputHeight ?? 1080,
+      minInputWidth: p.minInputWidth ?? catalog?.minInputWidth ?? 640,
+      minInputHeight: p.minInputHeight ?? catalog?.minInputHeight ?? 360,
+      maxInputWidth: p.maxInputWidth ?? catalog?.maxInputWidth ?? 1920,
+      maxInputHeight: p.maxInputHeight ?? catalog?.maxInputHeight ?? 1080,
     };
   });
+
 
   const screens = (project.screens ?? []).map((s, index) => {
     const panel = s.panelConfiguration ?? { cols: 1, rows: 1, show: false };
