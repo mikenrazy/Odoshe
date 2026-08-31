@@ -227,7 +227,8 @@ export function ensureSeed(): Project[] {
   const existing = loadProjects();
   if (existing.length > 0) return existing;
   const project = createSampleProject();
-  persist([project]);
+  // Seeding must not clobber the IndexedDB backup: hydrate() restores from it.
+  persist([project], false);
   return [project];
 }
 
