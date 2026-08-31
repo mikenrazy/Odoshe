@@ -130,11 +130,11 @@ export async function rehydrateAssets(project: Project): Promise<Project> {
 
 export type PersistResult = { ok: boolean; message?: string };
 
-function persist(projects: Project[]): PersistResult {
+function persist(projects: Project[], backup = true): PersistResult {
   if (!isBrowser()) return { ok: true };
   const light = JSON.stringify(forStorage(projects));
   // Durable fallback copy — survives localStorage quota failures.
-  void backupProjects(light);
+  if (backup) void backupProjects(light);
   try {
     window.localStorage.setItem(STORAGE_KEY, light);
     return { ok: true };
