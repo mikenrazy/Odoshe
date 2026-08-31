@@ -24,7 +24,7 @@ import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
 const STORAGE_KEY = "dx5ve.led-designer.projects.v1";
 
 export type ViewportMode = "design" | "configuration" | "preview";
-export type Workspace = "stage" | "mapping" | "plan";
+export type Workspace = "stage" | "canvas" | "mapping" | "plan";
 export type TransformMode = "translate" | "rotate" | "scale";
 export type CameraView =
   | "front"

@@ -155,7 +155,16 @@ export function ProcessorPanel() {
                 onChange={(processorId) => updateScreen(screen.id, { processorId })}
               />
               <SelectField
-                label="Output"
+                label="RJ45 Port"
+                value={String(screen.rj45Port)}
+                options={Array.from({ length: proc?.outputs ?? 4 }, (_, i) => ({
+                  value: String(i + 1),
+                  label: `RJ45 Port ${i + 1}`,
+                }))}
+                onChange={(v) => updateScreen(screen.id, { rj45Port: Number(v) })}
+              />
+              <SelectField
+                label="Logical Output"
                 value={String(screen.processorOutput)}
                 options={Array.from({ length: proc?.outputs ?? 4 }, (_, i) => ({
                   value: String(i + 1),
@@ -187,6 +196,8 @@ export function ProcessorPanel() {
                       <span className="text-foreground/70">{proc.label}</span>
                       <span>→</span>
                       <span className="text-primary">OUT {s.processorOutput}</span>
+                      <span>→</span>
+                      <span className="text-[#7fd4ff]">RJ45 {s.rj45Port}</span>
                       <span>→</span>
                       <span className="truncate text-foreground/90">{s.name}</span>
                     </div>

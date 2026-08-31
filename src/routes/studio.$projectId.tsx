@@ -7,6 +7,7 @@ import { RightPanel } from "@/components/studio/RightPanel";
 import { BottomBar } from "@/components/studio/BottomBar";
 import { ViewportHost } from "@/components/studio/ViewportHost";
 import { MappingView } from "@/components/studio/MappingView";
+import { ContentCanvasEditor } from "@/components/studio/ContentCanvasEditor";
 import { PlanView } from "@/components/studio/PlanView";
 import { useShortcuts } from "@/components/studio/useShortcuts";
 
@@ -65,6 +66,7 @@ function Studio() {
       <div className="flex min-h-0 flex-1">
         <LeftSidebar />
         {workspace === "stage" && <ViewportHost />}
+        {workspace === "canvas" && <ContentCanvasEditor />}
         {workspace === "mapping" && <MappingView />}
         {workspace === "plan" && <PlanView />}
         <RightPanel />
