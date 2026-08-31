@@ -9,6 +9,15 @@ import {
   type ScreenType,
 } from "@/lib/led/types";
 import { cabinetCalc } from "@/lib/led/calc";
+import {
+  CABINET_CATALOG,
+  PITCH_PRESETS,
+  STATUS_ICON,
+  STATUS_LABEL,
+  STATUS_TONE,
+  derivedResolution,
+  screenStatus,
+} from "@/lib/led/resolution";
 import { NumberField, Readout, Section, SelectField, TextField, ToggleField } from "../Field";
 import { ProcessorSection } from "../ProcessorSection";
 import { ScreenContentSection } from "../ScreenContentSection";
@@ -27,6 +36,8 @@ export function ScreenPanel() {
   const spaceScreens = useEditor((s) => s.spaceScreens);
   const setGapBetween = useEditor((s) => s.setGapBetween);
   const addScreen = useEditor((s) => s.addScreen);
+  const applyCabinetSpec = useEditor((s) => s.applyCabinetSpec);
+  const syncScreenResolution = useEditor((s) => s.syncScreenResolution);
   const [gap, setGap] = useState(0.5);
   const [pairTargetId, setPairTargetId] = useState("");
 
@@ -112,6 +123,8 @@ export function ScreenPanel() {
   }
 
   const calc = cabinetCalc(screen);
+  const derived = derivedResolution(screen);
+  const resStatus = screenStatus(project, screen);
 
   return (
     <>
@@ -245,8 +258,8 @@ export function ScreenPanel() {
             ["ASPECT", calc.aspectLabel],
             [
               "STATUS",
-              `${STATUS_ICON[status.status]} ${STATUS_LABEL[status.status]}`,
-              STATUS_TONE[status.status],
+              `${STATUS_ICON[resStatus.status]} ${STATUS_LABEL[resStatus.status]}`,
+              STATUS_TONE[resStatus.status],
             ],
           ]}
         />
@@ -289,9 +302,9 @@ export function ScreenPanel() {
             Sync to cabinet resolution ({derived.pixelWidth} × {derived.pixelHeight})
           </button>
         )}
-        {status.notes.length > 0 && (
+        {resStatus.notes.length > 0 && (
           <ul className="mt-2 space-y-1 text-[10px] leading-relaxed text-muted-foreground">
-            {status.notes.map((n) => (
+            {resStatus.notes.map((n) => (
               <li key={n}>• {n}</li>
             ))}
           </ul>
