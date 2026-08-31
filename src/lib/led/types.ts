@@ -570,7 +570,7 @@ export const STAGE_ELEMENT_STYLES: Record<
 
 export function defaultStageElement(key: StageElementKey): StageElementSetup {
   const base: StageElementSetup = {
-    style: STAGE_ELEMENT_STYLES[key][0].value,
+    style: STAGE_ELEMENT_STYLES[key][0]!.value,
     placement: "center",
     offsetX: 0,
     offsetZ: 0,
