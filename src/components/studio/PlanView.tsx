@@ -9,6 +9,8 @@ import {
   type StageElementKey,
 } from "@/lib/led/types";
 import { elementFootprint, resolveAnchor } from "@/lib/led/stage-elements";
+import { deckFinishLabel, deckParts, stageFinish, stageRisers } from "@/lib/led/stage-shapes";
+
 
 const STAGE_ELEMENT_KEYS = Object.keys(STAGE_ELEMENT_LABELS) as StageElementKey[];
 
