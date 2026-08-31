@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { Line, Text } from "@react-three/drei";
 import type { LedScreen } from "@/lib/led/types";
 import { createLedTexture } from "./led-texture";
+import { useCanvasComposite } from "@/lib/led/media";
 
 const DEG = Math.PI / 180;
 
@@ -109,6 +110,8 @@ interface Props {
   interactive: boolean;
   onSelect: (id: string) => void;
   registerRef?: (id: string, object: THREE.Object3D | null) => void;
+  /** width of the digital content canvas in pixels (for region cropping) */
+  canvasWidth?: number;
 }
 
 export function LedScreenObject({
@@ -120,16 +123,41 @@ export function LedScreenObject({
   interactive,
   onSelect,
   registerRef,
+  canvasWidth = 1920,
 }: Props) {
   const { geometry } = useMemo(() => buildGeometry(screen), [screen]);
   const texture = useMemo(() => createLedTexture(screen.color), [screen.color]);
-  const content = useMemo(() => {
+  const composite = useCanvasComposite();
+  const uploaded = useMemo(() => {
     if (!screen.contentImage || typeof document === "undefined") return null;
     const loader = new THREE.TextureLoader();
     const tex = loader.load(screen.contentImage);
     tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }, [screen.contentImage]);
+
+  /** Crop this screen's region out of the shared content canvas. */
+  const canvasRegion = useMemo(() => {
+    if (!composite || typeof document === "undefined") return null;
+    const scale = composite.width / Math.max(1, canvasWidth);
+    const sx = screen.content.x * scale;
+    const sy = screen.content.y * scale;
+    const sw = Math.max(2, screen.content.width * scale);
+    const sh = Math.max(2, screen.content.height * scale);
+    const el = document.createElement("canvas");
+    el.width = Math.round(sw);
+    el.height = Math.round(sh);
+    const ctx = el.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, el.width, el.height);
+    ctx.drawImage(composite, sx, sy, sw, sh, 0, 0, el.width, el.height);
+    const tex = new THREE.CanvasTexture(el);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [composite, canvasWidth, screen.content.x, screen.content.y, screen.content.width, screen.content.height]);
+
+  const content = uploaded ?? canvasRegion;
   const grid = useMemo(
     () => (screen.panelConfiguration.show ? panelLines(screen) : []),
     [screen],

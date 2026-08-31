@@ -1,6 +1,7 @@
 import { useEditor } from "@/lib/led/store";
 import { cabinetCalc } from "@/lib/led/calc";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
+import { signalChain, validateMapping } from "@/lib/led/mapping";
 
 /** LED Mapping Mode — physical layout (metres) vs content canvas (pixels). */
 export function MappingView() {
@@ -10,6 +11,8 @@ export function MappingView() {
 
   if (!project) return null;
   const grids = computeGridNumbers(project);
+  const chain = signalChain(project);
+  const issues = validateMapping(project);
 
   const screens = project.screens;
   const spanX = Math.max(project.stage.width, 4) * 1.3;
@@ -114,13 +117,86 @@ export function MappingView() {
                   fontFamily="monospace"
                 >
                   {assignment
-                    ? `${assignment.processorLabel} · OUT ${screen.processorOutput} · GRID ${assignment.start}–${assignment.start + assignment.count - 1}`
+                    ? `${assignment.processorLabel} · PORT ${screen.rj45Port} · OUT ${screen.processorOutput} · GRID ${assignment.start}–${assignment.start + assignment.count - 1}`
                     : ""}
                 </text>
               </g>
             );
           })}
         </svg>
+      </section>
+
+      <section className="mb-6 border border-border bg-card p-4">
+        <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Signal Flow — media → canvas → logical output → processor → RJ45 port → screen → cabinets
+        </h3>
+        <div className="space-y-2 font-mono text-[10px]">
+          {chain.map((link) => (
+            <button
+              key={link.screen.id}
+              type="button"
+              onClick={() => select(link.screen.id)}
+              className={`flex w-full flex-wrap items-center gap-2 border px-3 py-2 text-left ${
+                link.screen.id === selectedId ? "border-primary" : "border-border"
+              }`}
+            >
+              <span className="text-muted-foreground">MEDIA</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-foreground/80">
+                CANVAS {link.screen.content.x},{link.screen.content.y} ·{" "}
+                {link.screen.content.width}×{link.screen.content.height}
+              </span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-foreground/80">OUT {link.logicalOutput}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-foreground/80">
+                {link.processor ? `${link.processor.brand} ${link.processor.label}` : "UNPATCHED"}
+              </span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-[#7fd4ff]">RJ45 PORT {link.rj45Port}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-foreground">{link.screen.name.toUpperCase()}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-primary">
+                {link.cabinetCols}×{link.cabinetRows} CABINETS · GRID {link.gridStart}–{link.gridEnd}
+              </span>
+            </button>
+          ))}
+          {chain.length === 0 && (
+            <p className="text-[11px] text-muted-foreground">No LED surfaces patched.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="mb-6 border border-border bg-card p-4">
+        <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Mapping Validation
+        </h3>
+        <div className="space-y-2 font-mono text-[10px]">
+          {issues.length === 0 && (
+            <p className="text-[11px] text-[#5fd08a]">All checks passed — mapping is valid.</p>
+          )}
+          {issues.map((issue) => (
+            <button
+              key={issue.id}
+              type="button"
+              onClick={() => issue.screenId && select(issue.screenId)}
+              className={`block w-full border-l-2 bg-secondary/20 px-3 py-2 text-left ${
+                issue.level === "error" ? "border-destructive" : "border-primary"
+              }`}
+            >
+              <span
+                className={`uppercase tracking-[0.14em] ${
+                  issue.level === "error" ? "text-destructive" : "text-primary"
+                }`}
+              >
+                {issue.level}
+              </span>
+              <span className="ml-2 text-foreground/90">{issue.title}</span>
+              <p className="mt-1 text-muted-foreground">{issue.detail}</p>
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="mb-6 border border-border bg-card p-4">
@@ -182,6 +258,7 @@ export function MappingView() {
               <th className="px-3 py-2">Resolution</th>
               <th className="px-3 py-2">Canvas</th>
               <th className="px-3 py-2">Processor</th>
+              <th className="px-3 py-2">RJ45 Port</th>
               <th className="px-3 py-2">Grid</th>
             </tr>
           </thead>
@@ -207,6 +284,7 @@ export function MappingView() {
                   <td className="px-3 py-2">
                     {a?.processorName} · OUT {s.processorOutput}
                   </td>
+                  <td className="px-3 py-2 text-[#7fd4ff]">PORT {s.rj45Port}</td>
                   <td className="px-3 py-2 text-primary">
                     {a ? `${a.start}–${a.start + a.count - 1}` : "—"}
                   </td>
@@ -215,7 +293,7 @@ export function MappingView() {
             })}
             {screens.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                <td colSpan={8} className="px-3 py-4 text-muted-foreground">
                   No LED surfaces configured.
                 </td>
               </tr>

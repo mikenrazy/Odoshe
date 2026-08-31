@@ -1,0 +1,200 @@
+import { cabinetCalc } from "./calc";
+import { computeGridNumbers } from "./grid-numbering";
+import type { LedScreen, Project, ProcessorModel } from "./types";
+
+/**
+ * The mapping chain is deliberately explicit:
+ *   Media → Content Canvas → Logical Output → Processor → Physical RJ45 Port
+ *   → LED Screen → LED Cabinets
+ * Each hop is a distinct concept and is never inferred from another.
+ */
+export interface SignalChainLink {
+  screen: LedScreen;
+  processor: ProcessorModel | undefined;
+  /** logical output region index on the content canvas */
+  logicalOutput: number;
+  /** physical RJ45 / LAN connector on the processor */
+  rj45Port: number;
+  cabinets: number;
+  cabinetCols: number;
+  cabinetRows: number;
+  gridStart: number;
+  gridEnd: number;
+}
+
+export function signalChain(project: Project): SignalChainLink[] {
+  const grids = computeGridNumbers(project);
+  return project.screens.map((screen) => {
+    const calc = cabinetCalc(screen);
+    const assignment = grids.get(screen.id);
+    return {
+      screen,
+      processor: project.processors.find((p) => p.id === screen.processorId),
+      logicalOutput: screen.processorOutput,
+      rj45Port: screen.rj45Port,
+      cabinets: calc.total,
+      cabinetCols: calc.cols,
+      cabinetRows: calc.rows,
+      gridStart: assignment?.start ?? 1,
+      gridEnd: assignment ? assignment.start + assignment.count - 1 : 1,
+    };
+  });
+}
+
+export function portLabel(processor: ProcessorModel | undefined, port: number) {
+  return `${processor ? `${processor.brand} ${processor.label}` : "Processor"} → RJ45 Port ${port}`;
+}
+
+export type IssueLevel = "error" | "warning";
+
+export interface MappingIssue {
+  id: string;
+  level: IssueLevel;
+  title: string;
+  detail: string;
+  screenId?: string;
+}
+
+function overlaps(a: LedScreen, b: LedScreen) {
+  return (
+    a.content.x < b.content.x + b.content.width &&
+    b.content.x < a.content.x + a.content.width &&
+    a.content.y < b.content.y + b.content.height &&
+    b.content.y < a.content.y + a.content.height
+  );
+}
+
+/** Validation across ports, outputs, resolutions and canvas geometry. */
+export function validateMapping(project: Project): MappingIssue[] {
+  const issues: MappingIssue[] = [];
+  const seenPorts = new Map<string, LedScreen>();
+
+  for (const screen of project.screens) {
+    const proc = project.processors.find((p) => p.id === screen.processorId);
+
+    if (!proc) {
+      issues.push({
+        id: `${screen.id}-noproc`,
+        level: "error",
+        title: `${screen.name}: no processor`,
+        detail: "This LED screen is not assigned to a video processor.",
+        screenId: screen.id,
+      });
+      continue;
+    }
+
+    const key = `${proc.id}:${screen.rj45Port}`;
+    const clash = seenPorts.get(key);
+    if (clash) {
+      issues.push({
+        id: `${screen.id}-dupport`,
+        level: "error",
+        title: `Duplicate RJ45 port ${screen.rj45Port} on ${proc.label}`,
+        detail: `${clash.name} and ${screen.name} are both patched to ${proc.label} RJ45 Port ${screen.rj45Port}.`,
+        screenId: screen.id,
+      });
+    } else {
+      seenPorts.set(key, screen);
+    }
+
+    if (screen.rj45Port < 1 || screen.rj45Port > proc.outputs) {
+      issues.push({
+        id: `${screen.id}-badport`,
+        level: "error",
+        title: `${screen.name}: RJ45 port ${screen.rj45Port} does not exist`,
+        detail: `${proc.brand} ${proc.label} has ${proc.outputs} physical LAN ports.`,
+        screenId: screen.id,
+      });
+    }
+
+    if (screen.processorOutput < 1 || screen.processorOutput > proc.outputs) {
+      issues.push({
+        id: `${screen.id}-badlogical`,
+        level: "warning",
+        title: `${screen.name}: logical output ${screen.processorOutput} out of range`,
+        detail: `Logical outputs available on this processor: 1–${proc.outputs}.`,
+        screenId: screen.id,
+      });
+    }
+
+    const portPixels = screen.pixelWidth * screen.pixelHeight;
+    if (portPixels > proc.outputWidth * proc.outputHeight) {
+      issues.push({
+        id: `${screen.id}-portload`,
+        level: "warning",
+        title: `${screen.name}: exceeds single-port capacity`,
+        detail: `${screen.pixelWidth} × ${screen.pixelHeight} px needs more than one RJ45 port (port max ${proc.outputWidth} × ${proc.outputHeight}).`,
+        screenId: screen.id,
+      });
+    }
+
+    const c = screen.content;
+    if (c.width !== screen.pixelWidth || c.height !== screen.pixelHeight) {
+      issues.push({
+        id: `${screen.id}-res`,
+        level: "warning",
+        title: `${screen.name}: canvas region ≠ LED resolution`,
+        detail: `Region is ${c.width} × ${c.height} px but the LED is ${screen.pixelWidth} × ${screen.pixelHeight} px — content will be scaled.`,
+        screenId: screen.id,
+      });
+    }
+
+    if (
+      c.x < 0 ||
+      c.y < 0 ||
+      c.x + c.width > project.canvas.width ||
+      c.y + c.height > project.canvas.height
+    ) {
+      issues.push({
+        id: `${screen.id}-outside`,
+        level: "error",
+        title: `${screen.name}: region outside the content canvas`,
+        detail: `Canvas is ${project.canvas.width} × ${project.canvas.height} px; region ends at ${
+          c.x + c.width
+        } × ${c.y + c.height} px.`,
+        screenId: screen.id,
+      });
+    }
+  }
+
+  for (let i = 0; i < project.screens.length; i++) {
+    for (let j = i + 1; j < project.screens.length; j++) {
+      const a = project.screens[i]!;
+      const b = project.screens[j]!;
+      if (overlaps(a, b)) {
+        issues.push({
+          id: `${a.id}-${b.id}-overlap`,
+          level: "warning",
+          title: `Canvas regions overlap`,
+          detail: `${a.name} and ${b.name} share pixels on the content canvas — they will show duplicate content.`,
+          screenId: a.id,
+        });
+      }
+    }
+  }
+
+  for (const proc of project.processors) {
+    const used = project.screens.filter((s) => s.processorId === proc.id);
+    if (used.length === 0) continue;
+    const load = used.reduce((sum, s) => sum + s.pixelWidth * s.pixelHeight, 0);
+    if (load > proc.maxPixels) {
+      issues.push({
+        id: `${proc.id}-overload`,
+        level: "error",
+        title: `${proc.brand} ${proc.label} over capacity`,
+        detail: `${load.toLocaleString()} px patched against a ${proc.maxPixels.toLocaleString()} px limit.`,
+      });
+    }
+  }
+
+  if (project.screens.length === 0) {
+    issues.push({
+      id: "no-screens",
+      level: "warning",
+      title: "No LED surfaces configured",
+      detail: "Add an LED screen to start mapping ports and canvas regions.",
+    });
+  }
+
+  return issues;
+}

@@ -173,6 +173,7 @@ export default function Viewport() {
           <LedScreenObject
             key={screen.id}
             screen={screen}
+            canvasWidth={project.canvas.width}
             gridStart={gridNumbers.get(screen.id)?.start ?? 1}
             processorLabel={gridNumbers.get(screen.id)?.processorLabel}
             selected={screen.id === selectedId && editable}

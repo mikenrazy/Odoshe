@@ -175,8 +175,17 @@ export interface LedScreen {
   color: string;
   /** id of the video processor driving this screen */
   processorId: string;
-  /** 1-based processor output/port this screen is patched to */
+  /**
+   * Logical output number on the processor's canvas/layer mapping.
+   * This is NOT the physical connector — see `rj45Port`.
+   */
   processorOutput: number;
+  /**
+   * Physical RJ45 / LAN port on the back of the processor that feeds this
+   * screen. `OUT 10` in the UI always means RJ45 Port 10 — never panel 10,
+   * cabinet 10 or screen 10.
+   */
+  rj45Port: number;
   /** slice of the content canvas shown on this screen */
   content: ContentRegion;
   /** optional image (data URL) shown as content on the LED surface in 3D */
@@ -293,6 +302,52 @@ export interface Measurement {
   to: { x: number; z: number };
 }
 
+/* ------------------------------------------------------- content canvas media */
+
+export type MediaKind = "image" | "video" | "text" | "shape";
+
+export interface MediaItem {
+  id: string;
+  kind: MediaKind;
+  name: string;
+  /** data URL for image/video media */
+  src?: string | undefined;
+  /** copy for text media */
+  text?: string | undefined;
+  color: string;
+  fontSize: number;
+  /** pixel coordinates on the content canvas */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+  /** stacking order, higher paints later */
+  z: number;
+  visible: boolean;
+  /** how the media fits its frame */
+  fit: "cover" | "contain" | "stretch";
+}
+
+export function createMediaItem(patch: Partial<MediaItem> = {}): MediaItem {
+  return {
+    id: uid("media"),
+    kind: "shape",
+    name: "Media",
+    color: "#ff9d2e",
+    fontSize: 160,
+    x: 0,
+    y: 0,
+    width: 640,
+    height: 360,
+    opacity: 1,
+    z: 0,
+    visible: true,
+    fit: "cover",
+    ...patch,
+  };
+}
+
 /* ------------------------------------------------------------------ stage */
 
 export type StageOrientation = "end" | "thrust" | "corner" | "center";
@@ -355,6 +410,8 @@ export interface Project {
   equipment: EquipmentItem[];
   layers: Layers;
   measurements: Measurement[];
+  /** media placed on the digital content canvas */
+  media: MediaItem[];
   /** available video processors, including user-added models */
   processors: ProcessorModel[];
   extensions: Record<string, unknown>;
@@ -407,6 +464,7 @@ export function createProject(name: string, overrides: Partial<Project> = {}): P
     equipment: [],
     layers: defaultLayers(),
     measurements: [],
+    media: [],
     processors: DEFAULT_PROCESSORS.map((p) => ({ ...p })),
     extensions: {},
     schemaVersion: SCHEMA_VERSION,
@@ -443,6 +501,7 @@ export function normalizeProject(project: Project): Project {
       ...s,
       processorId: s.processorId ?? processors[0]!.id,
       processorOutput: s.processorOutput ?? 1,
+      rj45Port: s.rj45Port ?? s.processorOutput ?? 1,
       content: s.content ?? { x: 0, y: 0, width: s.pixelWidth, height: s.pixelHeight },
       gridOrder: s.gridOrder ?? index + 1,
       panelConfiguration: {
@@ -467,6 +526,7 @@ export function normalizeProject(project: Project): Project {
     screens,
     equipment: project.equipment ?? [],
     measurements: project.measurements ?? [],
+    media: (project.media ?? []).map((m, i) => ({ ...m, z: m.z ?? i })),
     extensions: project.extensions ?? {},
     schemaVersion: SCHEMA_VERSION,
   };

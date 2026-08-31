@@ -28,7 +28,16 @@ export function ProcessorSection({ screen }: Props) {
         onChange={(processorId) => updateScreen(screen.id, { processorId })}
       />
       <SelectField
-        label="Output"
+        label="RJ45 Port"
+        value={String(screen.rj45Port)}
+        options={Array.from({ length: active.outputs }, (_, i) => ({
+          value: String(i + 1),
+          label: `RJ45 Port ${i + 1}`,
+        }))}
+        onChange={(v) => updateScreen(screen.id, { rj45Port: Number(v) })}
+      />
+      <SelectField
+        label="Logical Output"
         value={String(screen.processorOutput)}
         options={Array.from({ length: active.outputs }, (_, i) => ({
           value: String(i + 1),
@@ -41,6 +50,7 @@ export function ProcessorSection({ screen }: Props) {
         rows={[
           ["CAPACITY", `${active.maxPixels.toLocaleString()} px`],
           ["SCREEN LOAD", `${load.toFixed(1)}%`, load > 100 ? "text-destructive" : undefined],
+          ["PHYSICAL PORT", `RJ45 Port ${screen.rj45Port}`, "text-right text-[#7fd4ff]"],
           ["OUTPUT MAX", `${active.outputWidth} × ${active.outputHeight}`],
           [
             "GRID RANGE",

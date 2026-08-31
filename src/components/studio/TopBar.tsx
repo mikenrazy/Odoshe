@@ -19,6 +19,7 @@ import {
 
 const WORKSPACES: Array<{ key: Workspace; label: string }> = [
   { key: "stage", label: "2D / 3D Preview" },
+  { key: "canvas", label: "Content Canvas" },
   { key: "mapping", label: "LED Mapping" },
   { key: "plan", label: "Production Plan" },
 ];
