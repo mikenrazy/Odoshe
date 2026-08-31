@@ -15,6 +15,9 @@ import {
   type Measurement,
   type MediaItem,
   type ProcessorModel,
+  type ScreenGroup,
+  PROCESSOR_CATALOG,
+  processorFromCatalog,
   type Project,
   type ProjectMeta,
   type StageConfig,
@@ -601,6 +604,105 @@ export const useEditor = create<EditorState>((set, get) => {
       const id = uid("proc");
       mutate((p) => ({ ...p, processors: [...p.processors, { ...processor, id }] }));
       set({ status: `Added processor “${processor.label}”` });
+    },
+
+    addProcessorInstance: (modelKey) => {
+      const entry = PROCESSOR_CATALOG.find((c) => c.key === modelKey);
+      if (!entry) return;
+      const project = get().project;
+      if (!project) return;
+      const count = project.processors.filter((p) => (p.modelKey ?? p.id) === entry.key).length;
+      const id = uid("proc");
+      const instance = processorFromCatalog(
+        entry,
+        id,
+        `${entry.brand} ${entry.label} #${count + 1}`,
+      );
+      mutate((p) => ({ ...p, processors: [...p.processors, instance] }));
+      set({ status: `Added ${instance.name}` });
+    },
+
+    addGroup: (name, screenIds) => {
+      const id = uid("grp");
+      mutate((p) => {
+        const ids = screenIds ?? [];
+        const lead = p.screens.find((s) => ids.includes(s.id));
+        return {
+          ...p,
+          groups: [...(p.groups ?? []), { id, name: name || `LED Group ${(p.groups?.length ?? 0) + 1}`, continuous: true }],
+          screens: p.screens.map((s) =>
+            ids.includes(s.id)
+              ? {
+                  ...s,
+                  groupId: id,
+                  processorId: lead?.processorId ?? s.processorId,
+                  rj45Port: lead?.rj45Port ?? s.rj45Port,
+                  processorOutput: lead?.processorOutput ?? s.processorOutput,
+                }
+              : s,
+          ),
+        };
+      });
+      set({ status: "LED group created" });
+    },
+
+    updateGroup: (id, patch) =>
+      mutate((p) => ({
+        ...p,
+        groups: (p.groups ?? []).map((g) => (g.id === id ? { ...g, ...patch } : g)),
+      })),
+
+    removeGroup: (id) => {
+      mutate((p) => ({
+        ...p,
+        groups: (p.groups ?? []).filter((g) => g.id !== id),
+        screens: p.screens.map((s) => (s.groupId === id ? { ...s, groupId: undefined } : s)),
+      }));
+      set({ status: "LED group removed" });
+    },
+
+    setScreenGroup: (screenId, groupId) => {
+      mutate((p) => {
+        const peer = groupId ? p.screens.find((s) => s.groupId === groupId && s.id !== screenId) : undefined;
+        return {
+          ...p,
+          screens: p.screens.map((s) =>
+            s.id === screenId
+              ? {
+                  ...s,
+                  groupId: groupId ?? undefined,
+                  processorId: peer?.processorId ?? s.processorId,
+                  rj45Port: peer?.rj45Port ?? s.rj45Port,
+                  processorOutput: peer?.processorOutput ?? s.processorOutput,
+                }
+              : s,
+          ),
+        };
+      });
+    },
+
+    applyProcessorSourceToCanvas: (processorId) => {
+      const project = get().project;
+      const proc = project?.processors.find((p) => p.id === processorId);
+      if (!proc) return;
+      const width = proc.inputWidth ?? 1920;
+      const height = proc.inputHeight ?? 1080;
+      mutate((p) => ({
+        ...p,
+        canvas: {
+          ...p.canvas,
+          width,
+          height,
+          sourceProcessorId: processorId,
+          aspectPreset:
+            Math.abs(width / height - 16 / 9) < 0.01
+              ? "16:9"
+              : Math.abs(width / height - 32 / 9) < 0.01
+                ? "32:9"
+                : "custom",
+        },
+      }));
+      set({ status: `Canvas set to ${width} × ${height} from ${proc.name ?? proc.label}` });
     },
 
     updateProcessor: (id, patch) =>
