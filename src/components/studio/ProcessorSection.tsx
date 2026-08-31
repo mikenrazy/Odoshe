@@ -9,6 +9,8 @@ import {
   STATUS_TONE,
 } from "@/lib/led/resolution";
 import { Readout, Section, SelectField } from "./Field";
+import { PortMap } from "./PortMap";
+import { processorPortMap, portsNeeded } from "@/lib/led/ports";
 
 interface Props {
   screen: LedScreen;
@@ -27,6 +29,13 @@ export function ProcessorSection({ screen }: Props) {
   const assignment = computeGridNumbers(project).get(screen.id);
   const group = screen.groupId ? groupResolution(project, screen.groupId) : null;
   const chain = processorChain(project, active);
+  const portMapData = processorPortMap(project, active);
+  const span = Math.max(1, Math.round(screen.portSpan ?? 1));
+  const needed = portsNeeded(screen, active);
+  const myPorts = portMapData.ports.filter(
+    (p) => p.port >= screen.rj45Port && p.port < screen.rj45Port + span,
+  );
+  const screenPixels = myPorts.reduce((sum, p) => sum + p.pixels, 0);
   const scalingLabel: Record<string, string> = {
     "1:1": "1:1 — pixel perfect",
     upscale: "Upscaling source → LED",
@@ -80,6 +89,19 @@ export function ProcessorSection({ screen }: Props) {
               ] as [string, string, string?][])
             : []),
           [
+            "PORT SPAN",
+            span > 1
+              ? `RJ45 ${screen.rj45Port}–${screen.rj45Port + span - 1} (${span} ports)`
+              : `RJ45 ${screen.rj45Port} (1 port)`,
+            needed > span ? "text-right text-destructive" : "text-right text-[#7fd4ff]",
+          ],
+          [
+            "PORTS REQUIRED",
+            `${needed} at ${(active.portMaxPixels ?? 650000).toLocaleString()} px/port`,
+            needed > span ? "text-right text-destructive" : undefined,
+          ],
+          ["SECTION LOAD", `${screenPixels.toLocaleString()} px on these ports`],
+          [
             "GRID RANGE",
             assignment
               ? `${active.label} – Grid ${assignment.start}${
@@ -126,6 +148,8 @@ export function ProcessorSection({ screen }: Props) {
           </ul>
         )}
       </div>
+
+      <PortMap project={project} processor={active} />
 
       <button
         type="button"
