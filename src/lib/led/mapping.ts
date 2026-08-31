@@ -295,7 +295,7 @@ export function validateMapping(project: Project): MappingIssue[] {
           level: "error",
           title: `${proc.label} RJ45 Port ${port.port} over capacity`,
           detail: `${port.pixels.toLocaleString()} px / ${port.maxPixels.toLocaleString()} px (${port.width} × ${port.height}). ${port.notes.join(" ")}`,
-          screenId: port.sections[0]?.screenId,
+          ...(port.sections[0] ? { screenId: port.sections[0].screenId } : {}),
         });
       } else if (port.status === "warn") {
         issues.push({
@@ -303,7 +303,7 @@ export function validateMapping(project: Project): MappingIssue[] {
           level: "warning",
           title: `${proc.label} RJ45 Port ${port.port} at ${port.loadPct.toFixed(0)}%`,
           detail: `${port.pixels.toLocaleString()} px of ${port.maxPixels.toLocaleString()} px used — ${port.remaining.toLocaleString()} px remaining.`,
-          screenId: port.sections[0]?.screenId,
+          ...(port.sections[0] ? { screenId: port.sections[0].screenId } : {}),
         });
       }
     }
