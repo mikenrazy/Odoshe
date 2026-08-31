@@ -479,8 +479,11 @@ export const useEditor = create<EditorState>((set, get) => {
         };
       }
       const projects = mergeProjects(loadProjects(), [project, ...get().projects]);
-      persist(projects);
-      set({ projects, status: `Created “${project.name}”` });
+      const result = persist(projects);
+      set({
+        projects,
+        status: result.ok ? `Created “${project.name}”` : (result.message ?? "Save failed"),
+      });
       return project;
     },
 
