@@ -1,4 +1,5 @@
 import { cabinetCalc } from "./calc";
+import { derivedResolution, projectChains } from "./resolution";
 import { computeGridNumbers } from "./grid-numbering";
 import type { LedScreen, Project, ProcessorModel } from "./types";
 
@@ -230,6 +231,59 @@ export function validateMapping(project: Project): MappingIssue[] {
         screenId: members[0]!.id,
       });
     }
+  }
+
+  // cabinet / pitch derived resolution vs configured resolution
+  for (const screen of project.screens) {
+    const d = derivedResolution(screen);
+    if (d.overridden) {
+      issues.push({
+        id: `${screen.id}-derived`,
+        level: screen.resolutionOverride ? "warning" : "error",
+        title: `${screen.name}: resolution ≠ cabinet specification`,
+        detail: `P${screen.pixelPitch} on a ${d.cols} × ${d.rows} cabinet grid gives ${d.pixelWidth} × ${d.pixelHeight} px, but the screen is set to ${screen.pixelWidth} × ${screen.pixelHeight} px.${
+          screen.resolutionOverride ? " Manual override is enabled." : ""
+        }`,
+        screenId: screen.id,
+      });
+    }
+    if (
+      Math.abs(d.actualWidth - screen.physicalWidth) > 0.005 ||
+      Math.abs(d.actualHeight - screen.physicalHeight) > 0.005
+    ) {
+      issues.push({
+        id: `${screen.id}-physical`,
+        level: "warning",
+        title: `${screen.name}: cabinet grid ≠ physical size`,
+        detail: `${d.cols} × ${d.rows} cabinets measure ${d.actualWidth} × ${d.actualHeight} m against a configured ${screen.physicalWidth} × ${screen.physicalHeight} m.`,
+        screenId: screen.id,
+      });
+    }
+  }
+
+  // source → processor → mapping → LED chain
+  for (const chain of projectChains(project)) {
+    for (const [i, note] of chain.notes.entries()) {
+      issues.push({
+        id: `${chain.processor.id}-chain-${i}`,
+        level: chain.status === "error" ? "error" : "warning",
+        title: `${chain.processor.name ?? chain.processor.label}: ${
+          chain.status === "error" ? "incompatible chain" : "scaling required"
+        }`,
+        detail: note,
+      });
+    }
+  }
+
+  // multiple processors must be mapped independently
+  const activeProcessors = new Set(project.screens.map((s) => s.processorId));
+  if (activeProcessors.size > 1) {
+    issues.push({
+      id: "multi-processor",
+      level: "warning",
+      title: "Multiple processors in use",
+      detail: `${activeProcessors.size} processors drive this stage — each needs its own source feed and output mapping. Verify per-processor canvas regions before show.`,
+    });
   }
 
   if (project.screens.length === 0) {

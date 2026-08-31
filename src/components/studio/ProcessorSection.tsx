@@ -2,6 +2,12 @@ import { useEditor, groupResolution } from "@/lib/led/store";
 import type { LedScreen } from "@/lib/led/types";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { processorName } from "@/lib/led/types";
+import {
+  processorChain,
+  STATUS_ICON,
+  STATUS_LABEL,
+  STATUS_TONE,
+} from "@/lib/led/resolution";
 import { Readout, Section, SelectField } from "./Field";
 
 interface Props {
@@ -20,6 +26,14 @@ export function ProcessorSection({ screen }: Props) {
   const load = active.maxPixels > 0 ? (pixels / active.maxPixels) * 100 : 0;
   const assignment = computeGridNumbers(project).get(screen.id);
   const group = screen.groupId ? groupResolution(project, screen.groupId) : null;
+  const chain = processorChain(project, active);
+  const scalingLabel: Record<string, string> = {
+    "1:1": "1:1 — pixel perfect",
+    upscale: "Upscaling source → LED",
+    downscale: "Downscaling source → LED",
+    letterbox: "Letterboxing (pillar/letter bars)",
+    crop: "Cropping (source wider than LED)",
+  };
 
   return (
     <Section title="Video Processor">
@@ -76,6 +90,42 @@ export function ProcessorSection({ screen }: Props) {
           ],
         ]}
       />
+
+      <div className="mt-3 border-t border-border pt-2">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Signal chain
+        </div>
+        <Readout
+          rows={[
+            ["1 · SOURCE", `${chain.sourceWidth} × ${chain.sourceHeight} px (laptop / playback)`],
+            [
+              "2 · PROC IN",
+              `${chain.sourceWidth} × ${chain.sourceHeight} · max ${active.maxInputWidth ?? 1920} × ${active.maxInputHeight ?? 1080}`,
+            ],
+            [
+              "3 · MAPPING",
+              chain.ledWidth > 0 ? `${chain.ledWidth} × ${chain.ledHeight} px canvas` : "—",
+            ],
+            [
+              "4 · LED WALL",
+              `${chain.ledPixels.toLocaleString()} px · ${chain.screens} section(s) · ${chain.portsUsed}/${active.outputs} ports`,
+            ],
+            ["SCALING", scalingLabel[chain.scaling] ?? chain.scaling],
+            [
+              "CHAIN STATUS",
+              `${STATUS_ICON[chain.status]} ${STATUS_LABEL[chain.status]}`,
+              STATUS_TONE[chain.status],
+            ],
+          ]}
+        />
+        {chain.notes.length > 0 && (
+          <ul className="mt-2 space-y-1 text-[10px] leading-relaxed text-muted-foreground">
+            {chain.notes.map((n) => (
+              <li key={n}>• {n}</li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <button
         type="button"

@@ -9,6 +9,15 @@ import {
   type ScreenType,
 } from "@/lib/led/types";
 import { cabinetCalc } from "@/lib/led/calc";
+import {
+  CABINET_CATALOG,
+  PITCH_PRESETS,
+  STATUS_ICON,
+  STATUS_LABEL,
+  STATUS_TONE,
+  derivedResolution,
+  screenStatus,
+} from "@/lib/led/resolution";
 import { NumberField, Readout, Section, SelectField, TextField, ToggleField } from "../Field";
 import { ProcessorSection } from "../ProcessorSection";
 import { ScreenContentSection } from "../ScreenContentSection";
@@ -27,6 +36,8 @@ export function ScreenPanel() {
   const spaceScreens = useEditor((s) => s.spaceScreens);
   const setGapBetween = useEditor((s) => s.setGapBetween);
   const addScreen = useEditor((s) => s.addScreen);
+  const applyCabinetSpec = useEditor((s) => s.applyCabinetSpec);
+  const syncScreenResolution = useEditor((s) => s.syncScreenResolution);
   const [gap, setGap] = useState(0.5);
   const [pairTargetId, setPairTargetId] = useState("");
 
@@ -112,6 +123,8 @@ export function ScreenPanel() {
   }
 
   const calc = cabinetCalc(screen);
+  const derived = derivedResolution(screen);
+  const resStatus = screenStatus(project, screen);
 
   return (
     <>
@@ -204,38 +217,98 @@ export function ScreenPanel() {
         />
       </Section>
 
-      <Section title="Pixel Configuration">
-        <NumberField
-          label="Pixel Width"
-          suffix="px"
-          step={16}
-          min={16}
-          value={screen.pixelWidth}
-          onChange={(pixelWidth) => updateScreen(screen.id, { pixelWidth })}
+      <Section title="LED Resolution (derived)">
+        <SelectField
+          label="Cabinet Spec"
+          value={
+            CABINET_CATALOG.find(
+              (c) =>
+                c.key === screen.cabinetKey ||
+                (Math.abs(c.width - screen.panelConfiguration.panelWidth) < 0.005 &&
+                  Math.abs(c.height - screen.panelConfiguration.panelHeight) < 0.005 &&
+                  Math.abs(c.pitch - screen.pixelPitch) < 0.01),
+            )?.key ?? ""
+          }
+          options={[
+            { value: "", label: "— custom / not in catalogue —" },
+            ...CABINET_CATALOG.map((c) => ({ value: c.key, label: c.label })),
+          ]}
+          onChange={(key) => key && applyCabinetSpec(screen.id, key)}
         />
-        <NumberField
-          label="Pixel Height"
-          suffix="px"
-          step={16}
-          min={16}
-          value={screen.pixelHeight}
-          onChange={(pixelHeight) => updateScreen(screen.id, { pixelHeight })}
-        />
-        <NumberField
+        <SelectField
           label="Pixel Pitch"
-          suffix="mm"
-          step={0.1}
-          min={0.5}
-          value={screen.pixelPitch}
-          onChange={(pixelPitch) => updateScreen(screen.id, { pixelPitch })}
+          value={String(screen.pixelPitch)}
+          options={[
+            ...(PITCH_PRESETS.includes(screen.pixelPitch)
+              ? []
+              : [{ value: String(screen.pixelPitch), label: `P${screen.pixelPitch} (custom)` }]),
+            ...PITCH_PRESETS.map((p) => ({ value: String(p), label: `P${p}` })),
+          ]}
+          onChange={(v) =>
+            updateScreen(screen.id, { pixelPitch: Number(v), cabinetKey: undefined })
+          }
         />
         <Readout
           rows={[
+            ["CABINET RES", `${derived.cabinetPixelWidth} × ${derived.cabinetPixelHeight} px`],
+            ["CABINET GRID", `${derived.cols} × ${derived.rows} (${derived.totalCabinets})`],
+            ["DERIVED RES", `${derived.pixelWidth} × ${derived.pixelHeight} px`, "text-right text-primary"],
+            ["SOURCE OF TRUTH", derived.source === "catalog" ? "Cabinet catalogue" : "Pitch maths"],
             ["PX TOTAL", (screen.pixelWidth * screen.pixelHeight).toLocaleString()],
-            ["NATIVE PITCH", `${((screen.physicalWidth * 1000) / screen.pixelWidth).toFixed(2)} mm`],
             ["ASPECT", calc.aspectLabel],
+            [
+              "STATUS",
+              `${STATUS_ICON[resStatus.status]} ${STATUS_LABEL[resStatus.status]}`,
+              STATUS_TONE[resStatus.status],
+            ],
           ]}
         />
+        <ToggleField
+          label="Manual resolution override"
+          value={!!screen.resolutionOverride}
+          onChange={(resolutionOverride) => updateScreen(screen.id, { resolutionOverride })}
+        />
+        {screen.resolutionOverride ? (
+          <>
+            <NumberField
+              label="Pixel Width"
+              suffix="px"
+              step={16}
+              min={16}
+              value={screen.pixelWidth}
+              onChange={(pixelWidth) => updateScreen(screen.id, { pixelWidth })}
+            />
+            <NumberField
+              label="Pixel Height"
+              suffix="px"
+              step={16}
+              min={16}
+              value={screen.pixelHeight}
+              onChange={(pixelHeight) => updateScreen(screen.id, { pixelHeight })}
+            />
+          </>
+        ) : (
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+            Resolution is calculated from pixel pitch × cabinet grid. Enable the override only if
+            the physical wall differs from the catalogue specification.
+          </p>
+        )}
+        {derived.overridden && (
+          <button
+            type="button"
+            onClick={() => syncScreenResolution(screen.id)}
+            className="mt-1 w-full border border-border px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary hover:bg-secondary"
+          >
+            Sync to cabinet resolution ({derived.pixelWidth} × {derived.pixelHeight})
+          </button>
+        )}
+        {resStatus.notes.length > 0 && (
+          <ul className="mt-2 space-y-1 text-[10px] leading-relaxed text-muted-foreground">
+            {resStatus.notes.map((n) => (
+              <li key={n}>• {n}</li>
+            ))}
+          </ul>
+        )}
       </Section>
 
       <Section title="LED Cabinet Calculator">

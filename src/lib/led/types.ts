@@ -265,6 +265,10 @@ export interface LedScreen {
   pixelHeight: number;
   /** millimetres */
   pixelPitch: number;
+  /** cabinet specification key from CABINET_CATALOG (source of truth for resolution) */
+  cabinetKey?: string | undefined;
+  /** when true the operator pinned a manual resolution instead of the derived one */
+  resolutionOverride?: boolean | undefined;
   position: Vec3;
   /** degrees */
   rotation: Vec3;
