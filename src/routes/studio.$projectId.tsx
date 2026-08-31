@@ -6,6 +6,8 @@ import { LeftSidebar } from "@/components/studio/LeftSidebar";
 import { RightPanel } from "@/components/studio/RightPanel";
 import { BottomBar } from "@/components/studio/BottomBar";
 import { ViewportHost } from "@/components/studio/ViewportHost";
+import { MappingView } from "@/components/studio/MappingView";
+import { PlanView } from "@/components/studio/PlanView";
 import { useShortcuts } from "@/components/studio/useShortcuts";
 
 export const Route = createFileRoute("/studio/$projectId")({
@@ -33,6 +35,7 @@ function Studio() {
   const openProject = useEditor((s) => s.openProject);
   const project = useEditor((s) => s.project);
   const projects = useEditor((s) => s.projects);
+  const workspace = useEditor((s) => s.workspace);
   useShortcuts();
 
   useEffect(() => {
@@ -61,7 +64,9 @@ function Studio() {
       <TopBar />
       <div className="flex min-h-0 flex-1">
         <LeftSidebar />
-        <ViewportHost />
+        {workspace === "stage" && <ViewportHost />}
+        {workspace === "mapping" && <MappingView />}
+        {workspace === "plan" && <PlanView />}
         <RightPanel />
       </div>
       <BottomBar />
