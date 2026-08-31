@@ -597,11 +597,60 @@ export function defaultStageElements(): Record<StageElementKey, StageElementSetu
   };
 }
 
+/* --------------------------------------------- stage shape / finish / risers */
+
+export type StageShape =
+  | "rectangle"
+  | "thrust"
+  | "runway"
+  | "tshape"
+  | "round"
+  | "curved-front";
+
+export const STAGE_SHAPES: Array<{ value: StageShape; label: string }> = [
+  { value: "rectangle", label: "Rectangular" },
+  { value: "thrust", label: "Thrust" },
+  { value: "runway", label: "Runway / catwalk" },
+  { value: "tshape", label: "T-shape" },
+  { value: "round", label: "Circular (in the round)" },
+  { value: "curved-front", label: "Curved front" },
+];
+
+export type StageDeckFinish = "matte" | "gloss" | "carpet" | "wood" | "ledfloor";
+
+export const STAGE_DECK_FINISHES: Array<{ value: StageDeckFinish; label: string }> = [
+  { value: "matte", label: "Matte black deck" },
+  { value: "gloss", label: "High gloss" },
+  { value: "carpet", label: "Carpet" },
+  { value: "wood", label: "Wood / parquet" },
+  { value: "ledfloor", label: "LED floor" },
+];
+
+export interface StageRiser {
+  id: string;
+  name: string;
+  /** stage-local metres */
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  /** height above the main deck */
+  height: number;
+  rotation: number;
+  color: string;
+}
+
 export interface StageConfig {
   width: number;
   depth: number;
   height: number;
   orientation: StageOrientation;
+  /** deck footprint type (optional on legacy projects) */
+  shape?: StageShape;
+  /** deck surface material (optional on legacy projects) */
+  deckFinish?: StageDeckFinish;
+  /** multi-level riser platforms on top of the deck */
+  risers?: StageRiser[];
   backWall: boolean;
   backWallHeight: number;
   stairs: boolean;
@@ -623,6 +672,7 @@ export interface StageConfig {
   fasciaColor: string;
   trussColor: string;
 }
+
 
 
 /* ---------------------------------------------------------------- project */
