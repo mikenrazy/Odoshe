@@ -59,9 +59,33 @@ export function ScreenPanel() {
           Space ↕ Vertical
         </button>
       </div>
+      {screen && project.screens.length > 1 && (
+        <>
+          <SelectField
+            label="Gap to Screen"
+            value={pairTargetId}
+            options={[
+              { value: "", label: "— select screen —" },
+              ...project.screens
+                .filter((s) => s.id !== screen.id)
+                .map((s) => ({ value: s.id, label: s.name })),
+            ]}
+            onChange={setPairTargetId}
+          />
+          <button
+            type="button"
+            disabled={!pairTargetId}
+            onClick={() => pairTargetId && setGapBetween(screen.id, pairTargetId, gap)}
+            className="mt-1 w-full border border-border px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground disabled:opacity-40"
+          >
+            Set gap between "{screen.name}" and selected
+          </button>
+        </>
+      )}
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
         Arranges all screens edge-to-edge with the chosen gap, starting from the leftmost (or
-        bottom-most) screen. For exact placement, keep using each screen's X/Y/Z position.
+        bottom-most) screen. Use "Gap to Screen" to set the distance between two specific screens
+        — the other screen moves along the direction it already sits.
       </p>
     </Section>
   );
