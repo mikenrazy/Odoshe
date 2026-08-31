@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getAssets } from "./asset-store";
 import {
   createMediaItem,
   createProject,
@@ -75,17 +76,53 @@ export function loadProjects(): Project[] {
   }
 }
 
-/** Strip heavy base64 media so a project still fits in localStorage. */
+/**
+ * Strip heavy base64 payloads before writing to localStorage.
+ * Payloads that have an `assetId` live in IndexedDB and are restored on hydrate,
+ * so dropping the inline copy here is lossless.
+ */
 function stripHeavyMedia(projects: Project[]): Project[] {
   return projects.map((p) => ({
     ...p,
     screens: p.screens.map((s) =>
-      s.contentImage && s.contentImage.length > 4000 ? { ...s, contentImage: undefined } : s,
+      s.contentImage && s.contentImage.length > 4000
+        ? { ...s, contentImage: s.contentAssetId ? undefined : s.contentImage }
+        : s,
     ),
     media: (p.media ?? []).map((m) =>
-      m.src && m.src.length > 4000 ? { ...m, src: "" } : m,
+      m.src && m.src.length > 4000 ? { ...m, src: m.assetId ? undefined : m.src } : m,
     ),
   })) as Project[];
+}
+
+/** Always drop asset-backed payloads: they are re-read from IndexedDB. */
+function forStorage(projects: Project[]): Project[] {
+  return projects.map((p) => ({
+    ...p,
+    screens: p.screens.map((s) => (s.contentAssetId ? { ...s, contentImage: undefined } : s)),
+    media: (p.media ?? []).map((m) => (m.assetId ? { ...m, src: undefined } : m)),
+  })) as Project[];
+}
+
+/** Re-attach IndexedDB payloads to a project's media and screen content. */
+export async function rehydrateAssets(project: Project): Promise<Project> {
+  const ids = [
+    ...(project.media ?? []).filter((m) => m.assetId && !m.src).map((m) => m.assetId!),
+    ...project.screens.filter((s) => s.contentAssetId && !s.contentImage).map((s) => s.contentAssetId!),
+  ];
+  if (ids.length === 0) return project;
+  const assets = await getAssets([...new Set(ids)]);
+  return {
+    ...project,
+    media: (project.media ?? []).map((m) =>
+      m.assetId && !m.src && assets[m.assetId] ? { ...m, src: assets[m.assetId] } : m,
+    ),
+    screens: project.screens.map((s) =>
+      s.contentAssetId && !s.contentImage && assets[s.contentAssetId]
+        ? { ...s, contentImage: assets[s.contentAssetId] }
+        : s,
+    ),
+  };
 }
 
 export type PersistResult = { ok: boolean; message?: string };
@@ -93,7 +130,7 @@ export type PersistResult = { ok: boolean; message?: string };
 function persist(projects: Project[]): PersistResult {
   if (!isBrowser()) return { ok: true };
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(forStorage(projects)));
     return { ok: true };
   } catch {
     // Most likely quota exceeded (uploaded images/videos are stored inline).
@@ -383,6 +420,26 @@ export const useEditor = create<EditorState>((set, get) => {
 
     openProject: (id) => {
       const project = get().projects.find((p) => p.id === id) ?? null;
+      if (project) {
+        // pull uploaded artwork/video back out of IndexedDB
+        void rehydrateAssets(normalizeProject(project)).then((full) => {
+          const current = get().project;
+          if (current && current.id === full.id) {
+            set({
+              project: {
+                ...current,
+                media: full.media,
+                screens: current.screens.map((s) => {
+                  const restored = full.screens.find((f) => f.id === s.id);
+                  return restored?.contentImage && !s.contentImage
+                    ? { ...s, contentImage: restored.contentImage }
+                    : s;
+                }),
+              },
+            });
+          }
+        });
+      }
       set({
         project: project ? { ...normalizeProject(project), schemaVersion: SCHEMA_VERSION } : null,
         selectedId: null,

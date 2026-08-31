@@ -6,6 +6,7 @@ import type { CanvasConfig, MediaItem } from "./types";
 const MAX_COMPOSITE_WIDTH = 2048;
 
 const imageCache = new Map<string, HTMLImageElement>();
+const videoCache = new Map<string, HTMLVideoElement>();
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
   const cached = imageCache.get(src);
@@ -21,12 +22,32 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
+/** Looping, muted video element used as a live texture source. */
+function loadVideo(src: string): HTMLVideoElement | null {
+  if (typeof document === "undefined") return null;
+  const cached = videoCache.get(src);
+  if (cached) return cached;
+  const el = document.createElement("video");
+  el.src = src;
+  el.muted = true;
+  el.loop = true;
+  el.autoplay = true;
+  el.playsInline = true;
+  el.crossOrigin = "anonymous";
+  void el.play().catch(() => undefined);
+  videoCache.set(src, el);
+  return el;
+}
+
 function drawFitted(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: HTMLImageElement | HTMLVideoElement,
   item: MediaItem,
   s: number,
 ) {
+  const iw = img instanceof HTMLVideoElement ? img.videoWidth : img.width;
+  const ih = img instanceof HTMLVideoElement ? img.videoHeight : img.height;
+  if (!iw || !ih) return;
   const dx = item.x * s;
   const dy = item.y * s;
   const dw = item.width * s;
@@ -37,7 +58,7 @@ function drawFitted(
     return;
   }
 
-  const ratio = img.width / img.height;
+  const ratio = iw / ih;
   const frame = dw / dh;
   const cover = item.fit === "cover";
   let w = dw;
@@ -89,6 +110,13 @@ export async function renderComposite(
         (item.x + item.width / 2) * scale,
         (item.y + item.height / 2) * scale,
       );
+    } else if (item.kind === "video" && item.src) {
+      const video = loadVideo(item.src);
+      if (video && video.readyState >= 2) drawFitted(ctx, video, item, scale);
+      else {
+        ctx.fillStyle = "#11151d";
+        ctx.fillRect(item.x * scale, item.y * scale, item.width * scale, item.height * scale);
+      }
     } else if (item.src) {
       const img = await loadImage(item.src);
       if (img) drawFitted(ctx, img, item, scale);
@@ -104,21 +132,30 @@ export function useCanvasComposite() {
   const canvas = useEditor((s) => s.project?.canvas);
   const [composite, setComposite] = useState<HTMLCanvasElement | null>(null);
   const signature = JSON.stringify({ canvas, media });
+  const hasVideo = !!media?.some((m) => m.visible && m.kind === "video" && m.src);
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     if (!canvas || !media || media.length === 0) {
       setComposite(null);
       return;
     }
-    void renderComposite(canvas, media).then((el) => {
-      if (!cancelled) setComposite(el);
-    });
+    const draw = () => {
+      void renderComposite(canvas, media).then((el) => {
+        if (cancelled) return;
+        setComposite(el);
+        // video layers need a live refresh so the LED surfaces keep playing
+        if (hasVideo) timer = setTimeout(draw, 125);
+      });
+    };
+    draw();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature]);
+  }, [signature, hasVideo]);
 
   return composite;
 }

@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { ImageUp, X } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
+import { newAssetId, putAsset } from "@/lib/led/asset-store";
 import type { LedScreen } from "@/lib/led/types";
 import { Section } from "./Field";
 
@@ -49,7 +50,7 @@ export function ScreenContentSection({ screen }: { screen: LedScreen }) {
           <button
             type="button"
             title="Remove content"
-            onClick={() => updateScreen(screen.id, { contentImage: undefined })}
+            onClick={() => updateScreen(screen.id, { contentImage: undefined, contentAssetId: undefined })}
             className="absolute right-1 top-1 bg-background/80 p-1 text-muted-foreground hover:text-destructive"
           >
             <X className="h-3 w-3" />
@@ -66,7 +67,9 @@ export function ScreenContentSection({ screen }: { screen: LedScreen }) {
           const file = e.target.files?.[0];
           if (!file) return;
           const contentImage = await toDataUrl(file);
-          updateScreen(screen.id, { contentImage });
+          const contentAssetId = newAssetId();
+          await putAsset(contentAssetId, contentImage);
+          updateScreen(screen.id, { contentImage, contentAssetId });
           e.target.value = "";
         }}
       />
