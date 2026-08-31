@@ -277,10 +277,19 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useEditor = create<EditorState>((set, get) => {
   function commitProjects(project: Project) {
-    const projects = get().projects.map((p) => (p.id === project.id ? project : p));
-    persist(projects);
-    set({ projects, lastSavedAt: Date.now(), dirty: false });
+    const known = get().projects;
+    const projects = known.some((p) => p.id === project.id)
+      ? known.map((p) => (p.id === project.id ? project : p))
+      : [project, ...known];
+    const result = persist(mergeProjects(loadProjects(), projects));
+    set({
+      projects,
+      lastSavedAt: result.ok ? Date.now() : get().lastSavedAt,
+      dirty: !result.ok,
+      ...(result.message ? { status: result.message } : {}),
+    });
   }
+
 
   function autosave() {
     if (saveTimer) clearTimeout(saveTimer);
