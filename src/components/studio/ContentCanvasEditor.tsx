@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Layers, Square, Trash2, Type, Video } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
-import type { MediaItem } from "@/lib/led/types";
+import type { LedScreen, MediaItem } from "@/lib/led/types";
 
 const MAX_UPLOAD_EDGE = 1920;
 
@@ -54,6 +54,10 @@ export function ContentCanvasEditor() {
   const selectMedia = useEditor((s) => s.selectMedia);
   const raiseMedia = useEditor((s) => s.raiseMedia);
   const selectedMediaId = useEditor((s) => s.selectedMediaId);
+  const updateScreen = useEditor((s) => s.updateScreen);
+  const select = useEditor((s) => s.select);
+  const selectedId = useEditor((s) => s.selectedId);
+
 
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
