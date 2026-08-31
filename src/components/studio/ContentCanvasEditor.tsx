@@ -58,6 +58,7 @@ export function ContentCanvasEditor() {
   const raiseMedia = useEditor((s) => s.raiseMedia);
   const selectedMediaId = useEditor((s) => s.selectedMediaId);
   const updateScreen = useEditor((s) => s.updateScreen);
+  const setCanvas = useEditor((s) => s.setCanvas);
   const select = useEditor((s) => s.select);
   const selectedId = useEditor((s) => s.selectedId);
 
