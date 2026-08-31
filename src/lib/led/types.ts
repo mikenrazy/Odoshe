@@ -314,6 +314,8 @@ export interface MediaItem {
   name: string;
   /** data URL for image/video media */
   src?: string | undefined;
+  /** IndexedDB key holding `src` (kept out of localStorage) */
+  assetId?: string | undefined;
   /** copy for text media */
   text?: string | undefined;
   color: string;
