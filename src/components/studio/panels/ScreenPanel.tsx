@@ -405,36 +405,7 @@ export function ScreenPanel() {
         </div>
       </Section>
 
-      <Section title="Screen Spacing">
-        <NumberField
-          label="Gap Between Screens"
-          suffix="m"
-          step={0.05}
-          min={0}
-          value={gap}
-          onChange={(v) => setGap(Math.max(0, v))}
-        />
-        <div className="mt-1 flex gap-px bg-border/60 p-px">
-          <button
-            type="button"
-            onClick={() => spaceScreens(gap, "horizontal")}
-            className="flex-1 bg-card px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
-          >
-            Space ↔ Horizontal
-          </button>
-          <button
-            type="button"
-            onClick={() => spaceScreens(gap, "vertical")}
-            className="flex-1 bg-card px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
-          >
-            Space ↕ Vertical
-          </button>
-        </div>
-        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-          Arranges all screens edge-to-edge with the chosen gap, starting from the leftmost (or
-          bottom-most) screen. For exact placement, keep using each screen's X/Y/Z position.
-        </p>
-      </Section>
+      {spacingSection}
 
       <Section title="Rotation">
         <NumberField
