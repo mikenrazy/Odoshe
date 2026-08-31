@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Layers, Square, Trash2, Type, Video } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
+import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import type { LedScreen, MediaItem } from "@/lib/led/types";
 
 const MAX_UPLOAD_EDGE = 1920;
