@@ -420,6 +420,26 @@ export const useEditor = create<EditorState>((set, get) => {
 
     openProject: (id) => {
       const project = get().projects.find((p) => p.id === id) ?? null;
+      if (project) {
+        // pull uploaded artwork/video back out of IndexedDB
+        void rehydrateAssets(normalizeProject(project)).then((full) => {
+          const current = get().project;
+          if (current && current.id === full.id) {
+            set({
+              project: {
+                ...current,
+                media: full.media,
+                screens: current.screens.map((s) => {
+                  const restored = full.screens.find((f) => f.id === s.id);
+                  return restored?.contentImage && !s.contentImage
+                    ? { ...s, contentImage: restored.contentImage }
+                    : s;
+                }),
+              },
+            });
+          }
+        });
+      }
       set({
         project: project ? { ...normalizeProject(project), schemaVersion: SCHEMA_VERSION } : null,
         selectedId: null,
