@@ -79,44 +79,68 @@ export function portMaxPixels(processor: ProcessorModel) {
   return Math.max(1, processor.portMaxPixels ?? 650_000);
 }
 
-/** Cabinet columns a single port can carry for a given screen. */
-export function colsPerPort(screen: LedScreen, processor: ProcessorModel) {
+/**
+ * Best 2D cabinet tiling for one screen: how many cabinet columns and rows a
+ * single port can carry, respecting the port pixel budget AND the port's
+ * maximum width/height. The combination that needs the fewest ports wins.
+ */
+export function portTiling(screen: LedScreen, processor: ProcessorModel) {
   const d = derivedResolution(screen);
   const cabW = Math.max(1, d.cabinetPixelWidth);
-  const height = Math.max(1, d.cabinetPixelHeight * d.rows);
-  const byPixels = Math.floor(portMaxPixels(processor) / (cabW * height));
-  const byWidth = Math.floor(processor.outputWidth / cabW);
-  return Math.max(1, Math.min(byPixels || 1, byWidth || 1, d.cols));
+  const cabH = Math.max(1, d.cabinetPixelHeight);
+  const budget = portMaxPixels(processor);
+  const maxRows = Math.max(1, Math.min(d.rows, Math.floor(processor.outputHeight / cabH) || 1));
+  const maxCols = Math.max(1, Math.min(d.cols, Math.floor(processor.outputWidth / cabW) || 1));
+
+  let best = { cols: 1, rows: 1, ports: Number.MAX_SAFE_INTEGER };
+  for (let rows = 1; rows <= maxRows; rows++) {
+    const cols = Math.max(
+      1,
+      Math.min(maxCols, Math.floor(budget / (cabW * cabH * rows)) || 1),
+    );
+    const ports = Math.ceil(d.cols / cols) * Math.ceil(d.rows / rows);
+    if (ports < best.ports) best = { cols, rows, ports };
+  }
+  return { ...best, derived: d, cabW, cabH };
+}
+
+/** Cabinet columns a single port can carry for a given screen. */
+export function colsPerPort(screen: LedScreen, processor: ProcessorModel) {
+  return portTiling(screen, processor).cols;
 }
 
 /** How many consecutive ports a screen needs at the current cabinet layout. */
 export function portsNeeded(screen: LedScreen, processor: ProcessorModel) {
-  const d = derivedResolution(screen);
-  return Math.max(1, Math.ceil(d.cols / colsPerPort(screen, processor)));
+  return portTiling(screen, processor).ports;
 }
 
-/** Split a screen into per-port cabinet slices, honouring its portSpan. */
+/** Split a screen into per-port cabinet tiles (row bands × column slices). */
 export function screenSlices(screen: LedScreen, processor: ProcessorModel): PortSection[] {
-  const d = derivedResolution(screen);
-  const span = Math.max(1, Math.round(screen.portSpan ?? 1));
-  const base = Math.floor(d.cols / span);
-  const extra = d.cols % span;
+  const t = portTiling(screen, processor);
+  const d = t.derived;
   const slices: PortSection[] = [];
-  for (let i = 0; i < span; i++) {
-    const cols = Math.max(0, base + (i < extra ? 1 : 0));
-    if (cols === 0) continue;
-    const width = cols * d.cabinetPixelWidth;
-    const height = d.rows * d.cabinetPixelHeight;
-    slices.push({
-      screenId: screen.id,
-      screenName: span > 1 ? `${screen.name} · slice ${i + 1}/${span}` : screen.name,
-      cabinetCols: cols,
-      cabinetRows: d.rows,
-      cabinets: cols * d.rows,
-      width,
-      height,
-      pixels: width * height,
-    });
+  const rowBands = Math.ceil(d.rows / t.rows);
+  const colBands = Math.ceil(d.cols / t.cols);
+  const total = rowBands * colBands;
+  let index = 0;
+  for (let r = 0; r < rowBands; r++) {
+    const rows = Math.min(t.rows, d.rows - r * t.rows);
+    for (let c = 0; c < colBands; c++) {
+      const cols = Math.min(t.cols, d.cols - c * t.cols);
+      index += 1;
+      const width = cols * t.cabW;
+      const height = rows * t.cabH;
+      slices.push({
+        screenId: screen.id,
+        screenName: total > 1 ? `${screen.name} · slice ${index}/${total}` : screen.name,
+        cabinetCols: cols,
+        cabinetRows: rows,
+        cabinets: cols * rows,
+        width,
+        height,
+        pixels: width * height,
+      });
+    }
   }
   return slices;
 }
