@@ -21,6 +21,8 @@ import {
   type Project,
   type ProjectMeta,
   type StageConfig,
+  type StageRiser,
+
 } from "./types";
 import { createEquipment, EQUIPMENT_LIBRARY } from "./equipment";
 import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
