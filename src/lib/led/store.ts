@@ -281,13 +281,15 @@ export const useEditor = create<EditorState>((set, get) => {
     const projects = known.some((p) => p.id === project.id)
       ? known.map((p) => (p.id === project.id ? project : p))
       : [project, ...known];
-    const result = persist(mergeProjects(loadProjects(), projects));
+    const merged = mergeProjects(loadProjects(), projects);
+    const result = persist(merged);
     set({
-      projects,
+      projects: merged,
       lastSavedAt: result.ok ? Date.now() : get().lastSavedAt,
       dirty: !result.ok,
       ...(result.message ? { status: result.message } : {}),
     });
+
   }
 
 
