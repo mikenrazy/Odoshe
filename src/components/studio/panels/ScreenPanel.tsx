@@ -31,21 +31,57 @@ export function ScreenPanel() {
   if (!project) return null;
   const screen = project.screens.find((s) => s.id === selectedId) ?? null;
 
-  if (!screen) {
-    return (
-      <Section title="LED Screens">
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Select an LED surface in the viewport or object tree to edit its physical dimensions,
-          pixel configuration, cabinets, transform and curvature.
-        </p>
+  const spacingSection = (
+    <Section title="Screen Spacing">
+      <NumberField
+        label="Gap Between Screens"
+        suffix="m"
+        step={0.05}
+        min={0}
+        value={gap}
+        onChange={(v) => setGap(Math.max(0, v))}
+      />
+      <div className="mt-1 flex gap-px bg-border/60 p-px">
         <button
           type="button"
-          onClick={() => addScreen()}
-          className="mt-2 w-full bg-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-foreground"
+          onClick={() => spaceScreens(gap, "horizontal")}
+          className="flex-1 bg-card px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
         >
-          Add LED screen
+          Space ↔ Horizontal
         </button>
-      </Section>
+        <button
+          type="button"
+          onClick={() => spaceScreens(gap, "vertical")}
+          className="flex-1 bg-card px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+        >
+          Space ↕ Vertical
+        </button>
+      </div>
+      <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+        Arranges all screens edge-to-edge with the chosen gap, starting from the leftmost (or
+        bottom-most) screen. For exact placement, keep using each screen's X/Y/Z position.
+      </p>
+    </Section>
+  );
+
+  if (!screen) {
+    return (
+      <>
+        <Section title="LED Screens">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Select an LED surface in the viewport or object tree to edit its physical dimensions,
+            pixel configuration, cabinets, transform and curvature.
+          </p>
+          <button
+            type="button"
+            onClick={() => addScreen()}
+            className="mt-2 w-full bg-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-foreground"
+          >
+            Add LED screen
+          </button>
+        </Section>
+        {project.screens.length > 1 && spacingSection}
+      </>
     );
   }
 
