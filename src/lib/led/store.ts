@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getAssets } from "./asset-store";
+import { getAssets, backupProjects, restoreProjects } from "./asset-store";
 import {
   createMediaItem,
   createProject,
