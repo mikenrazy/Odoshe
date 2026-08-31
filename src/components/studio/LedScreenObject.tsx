@@ -250,17 +250,20 @@ export function LedScreenObject({
         cabinets.cells.map((cell) => (
           <Text
             key={cell.index}
-            position={cell.position}
+            position={[cell.position[0], cell.position[1], curved ? cell.position[2] : contentZ + 0.004]}
             rotation={[0, cell.rotY, 0]}
             fontSize={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.55}
             color="#ffffff"
+            fillOpacity={content ? 0.35 : 1}
             anchorX="center"
             anchorY="middle"
             outlineWidth={Math.min(cabinets.cellWidth, cabinets.cellHeight) * 0.045}
             outlineColor="#05070b"
+            outlineOpacity={content ? 0.35 : 1}
           >
             {`${gridStart + cell.index}`}
           </Text>
+
 
         ))}
 
