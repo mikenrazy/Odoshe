@@ -150,10 +150,14 @@ export function ContentCanvasEditor() {
     for (const file of Array.from(files)) {
       const { src, width, height } = await fileToDataUrl(file);
       const fit = Math.min(canvas.width / width, canvas.height / height, 1);
+      // heavy payloads live in IndexedDB; the project only keeps the asset id
+      const assetId = newAssetId();
+      await putAsset(assetId, src);
       addMedia({
         kind: file.type.startsWith("video/") ? "video" : "image",
         name: file.name.replace(/\.[^.]+$/, ""),
         src,
+        assetId,
         width: Math.round(width * fit),
         height: Math.round(height * fit),
       });
