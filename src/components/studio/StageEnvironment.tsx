@@ -431,25 +431,87 @@ export function StageEnvironment({ stage, layers, measurements, showMeasurements
 
       {layers.stage.visible && (
         <group rotation={[0, orientationY, 0]}>
-          {/* stage platform */}
-          <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[width, height, depth]} />
-            <meshStandardMaterial color={stage.stageColor} roughness={0.28} metalness={0.55} />
-          </mesh>
+          {/* stage deck (shape-aware) */}
+          {parts.map((part, i) => (
+            <group key={`${part.kind}-${i}`} position={[part.x, 0, part.z]}>
+              {part.kind === "rect" && (
+                <>
+                  <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
+                    <boxGeometry args={[part.w, height, part.d]} />
+                    <meshStandardMaterial
+                      color={stage.stageColor}
+                      emissive={stage.stageColor}
+                      emissiveIntensity={deckMat.emissiveIntensity}
+                      roughness={deckMat.roughness}
+                      metalness={deckMat.metalness}
+                    />
+                  </mesh>
+                  <mesh position={[0, height + 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[part.w, part.d]} />
+                    <meshStandardMaterial
+                      color={stage.stageColor}
+                      emissive={stage.stageColor}
+                      emissiveIntensity={deckMat.emissiveIntensity}
+                      roughness={Math.max(0.05, deckMat.roughness * 0.7)}
+                      metalness={deckMat.metalness}
+                    />
+                  </mesh>
+                </>
+              )}
+              {(part.kind === "circle" || part.kind === "semi") && (
+                <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
+                  <cylinderGeometry
+                    args={[
+                      part.w / 2,
+                      part.w / 2,
+                      height,
+                      48,
+                      1,
+                      false,
+                      part.kind === "semi" ? -Math.PI / 2 : 0,
+                      part.kind === "semi" ? Math.PI : Math.PI * 2,
+                    ]}
+                  />
+                  <meshStandardMaterial
+                    color={stage.stageColor}
+                    emissive={stage.stageColor}
+                    emissiveIntensity={deckMat.emissiveIntensity}
+                    roughness={deckMat.roughness}
+                    metalness={deckMat.metalness}
+                  />
+                </mesh>
+              )}
+            </group>
+          ))}
 
-          {/* platform edge trim */}
-          <mesh position={[0, height + 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[width, depth]} />
-            <meshStandardMaterial color={stage.stageColor} roughness={0.18} metalness={0.75} />
-          </mesh>
+          {/* multi-level risers */}
+          {risers.map((r) => (
+            <group key={r.id} position={[r.x, height, r.z]} rotation={[0, r.rotation * DEG, 0]}>
+              <mesh position={[0, r.height / 2, 0]} castShadow receiveShadow>
+                <boxGeometry args={[r.width, r.height, r.depth]} />
+                <meshStandardMaterial color={r.color} roughness={0.6} metalness={0.3} />
+              </mesh>
+              <mesh position={[0, r.height + 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[r.width, r.depth]} />
+                <meshStandardMaterial
+                  color={stage.stageColor}
+                  roughness={Math.max(0.05, deckMat.roughness * 0.7)}
+                  metalness={deckMat.metalness}
+                />
+              </mesh>
+              <Text
+                position={[0, r.height + 0.16, r.depth / 2 + 0.05]}
+                fontSize={0.18}
+                color="#8b93a7"
+                anchorX="center"
+                outlineWidth={0.01}
+                outlineColor="#05070b"
+              >
+                {`${r.name} · +${r.height.toFixed(2)}m`}
+              </Text>
+            </group>
+          ))}
 
-          {/* thrust extension */}
-          {stage.orientation === "thrust" && (
-            <mesh position={[0, height / 2, halfD + depth * 0.25]} castShadow receiveShadow>
-              <boxGeometry args={[width * 0.35, height, depth * 0.5]} />
-              <meshStandardMaterial color={stage.stageColor} roughness={0.3} metalness={0.5} />
-            </mesh>
-          )}
 
           {stage.fascia && (
             <Placed a={fasciaA} y={0}>
