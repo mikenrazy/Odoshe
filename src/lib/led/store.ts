@@ -828,6 +828,42 @@ export const useEditor = create<EditorState>((set, get) => {
       set({ status: `Aligned screens (${axis})` });
     },
 
+    spaceScreens: (gap, direction) => {
+      const project = get().project;
+      if (!project || project.screens.length < 2) return;
+      const g = Math.max(0, gap);
+      mutate((p) => {
+        const sorted = [...p.screens].sort((a, b) =>
+          direction === "horizontal" ? a.position.x - b.position.x : a.position.y - b.position.y,
+        );
+        const positions = new Map<string, { x: number; y: number }>();
+        // Keep the first screen fixed; lay the rest out edge-to-edge + gap.
+        let cursor =
+          direction === "horizontal"
+            ? sorted[0].position.x + sorted[0].physicalWidth / 2 + g
+            : sorted[0].position.y + sorted[0].physicalHeight / 2 + g;
+        for (let i = 1; i < sorted.length; i++) {
+          const s = sorted[i];
+          if (direction === "horizontal") {
+            positions.set(s.id, { x: cursor + s.physicalWidth / 2, y: s.position.y });
+            cursor += s.physicalWidth + g;
+          } else {
+            positions.set(s.id, { x: s.position.x, y: cursor + s.physicalHeight / 2 });
+            cursor += s.physicalHeight + g;
+          }
+        }
+        return {
+          ...p,
+          screens: p.screens.map((s) => {
+            const next = positions.get(s.id);
+            if (!next || s.locked) return s;
+            return { ...s, position: { ...s.position, ...next } };
+          }),
+        };
+      });
+      set({ status: `Spaced screens with ${g.toFixed(2)} m gap (${direction})` });
+    },
+
     renumberGrids: () => {
       mutate((p) => ({
         ...p,
