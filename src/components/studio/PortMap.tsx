@@ -66,10 +66,14 @@ export function PortMap({ project, processor, readOnly }: Props) {
                 style={{ width: `${Math.min(100, p.loadPct)}%` }}
               />
             </div>
+            <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">
+              {p.cabinets}/{p.maxCabinets || map.maxPanelsPerPort}
+            </span>
             <span className={`w-12 shrink-0 text-right tabular-nums ${PORT_TONE[p.status]}`}>
               {p.loadPct.toFixed(0)}%
             </span>
             <span className="w-4 shrink-0 text-right">{PORT_ICON[p.status]}</span>
+
           </div>
         ))}
       </div>
