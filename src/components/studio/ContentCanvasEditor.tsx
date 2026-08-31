@@ -170,6 +170,87 @@ export function ContentCanvasEditor() {
 
   const selected = ordered.find((m) => m.id === selectedMediaId) ?? null;
 
+  /** true when the layer sticks out of the canvas — that part is never mapped */
+  const overflows =
+    !!selected &&
+    (selected.x < 0 ||
+      selected.y < 0 ||
+      selected.x + selected.width > canvas.width ||
+      selected.y + selected.height > canvas.height);
+
+  const resizeSelected = (key: "width" | "height", raw: number) => {
+    if (!selected) return;
+    const value = Math.max(16, Math.round(raw));
+    if (!lockAspect) {
+      updateMedia(selected.id, { [key]: value });
+      return;
+    }
+    const ratio = selected.width / Math.max(1, selected.height);
+    updateMedia(
+      selected.id,
+      key === "width"
+        ? { width: value, height: Math.max(16, Math.round(value / ratio)) }
+        : { height: value, width: Math.max(16, Math.round(value * ratio)) },
+    );
+  };
+
+  /** stretch the layer to exactly cover the canvas (1:1 with processor source) */
+  const fillCanvas = () => {
+    if (!selected) return;
+    updateMedia(selected.id, {
+      x: 0,
+      y: 0,
+      width: canvas.width,
+      height: canvas.height,
+      fit: "cover",
+    });
+  };
+
+  /** scale the layer down/up to fit inside the canvas, keeping its aspect */
+  const fitCanvas = () => {
+    if (!selected) return;
+    const k = Math.min(canvas.width / selected.width, canvas.height / selected.height);
+    const width = Math.max(16, Math.round(selected.width * k));
+    const height = Math.max(16, Math.round(selected.height * k));
+    updateMedia(selected.id, {
+      width,
+      height,
+      x: Math.round((canvas.width - width) / 2),
+      y: Math.round((canvas.height - height) / 2),
+    });
+  };
+
+  const centerLayer = () => {
+    if (!selected) return;
+    updateMedia(selected.id, {
+      x: Math.round((canvas.width - selected.width) / 2),
+      y: Math.round((canvas.height - selected.height) / 2),
+    });
+  };
+
+  /** grow the canvas (and processor source) to the layer's own size */
+  const canvasToLayer = () => {
+    if (!selected) return;
+    setCanvas({
+      width: Math.max(16, Math.round(selected.width)),
+      height: Math.max(16, Math.round(selected.height)),
+    });
+    updateMedia(selected.id, { x: 0, y: 0 });
+  };
+
+  /** snap the layer onto one LED screen's mapped canvas region */
+  const fitToScreen = (screenId: string) => {
+    const screen = project.screens.find((s) => s.id === screenId);
+    if (!screen || !selected) return;
+    updateMedia(selected.id, {
+      x: screen.content.x,
+      y: screen.content.y,
+      width: screen.content.width,
+      height: screen.content.height,
+      fit: "cover",
+    });
+  };
+
   return (
     <div className="min-w-0 flex-1 overflow-y-auto bg-[#05070b] p-6">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
