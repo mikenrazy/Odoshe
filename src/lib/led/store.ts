@@ -742,8 +742,9 @@ export const useEditor = create<EditorState>((set, get) => {
 
     setScreenGroup: (screenId, groupId) => {
       mutate((p) => {
+        const prevGroup = p.screens.find((s) => s.id === screenId)?.groupId;
         const peer = groupId ? p.screens.find((s) => s.groupId === groupId && s.id !== screenId) : undefined;
-        return {
+        let next: Project = {
           ...p,
           screens: p.screens.map((s) =>
             s.id === screenId
@@ -757,8 +758,12 @@ export const useEditor = create<EditorState>((set, get) => {
               : s,
           ),
         };
+        if (prevGroup && prevGroup !== groupId) next = splitGroupInProject(next, prevGroup);
+        if (groupId) next = splitGroupInProject(next, groupId);
+        return next;
       });
     },
+
 
     splitGroupResolution: (groupId) => {
       mutate((p) => splitGroupInProject(p, groupId));
