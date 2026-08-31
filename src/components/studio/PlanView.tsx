@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Download, Printer } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
+import { useScreenImages } from "@/lib/led/media";
 import { layerForCategory } from "@/lib/led/types";
 
 type PlanAxis = "top" | "front" | "side";
@@ -37,6 +38,8 @@ export function PlanView() {
   const toggleSnap = useEditor((s) => s.toggleSnap);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [view, setView] = useState<PlanAxis>("top");
+  const screenImages = useScreenImages();
+
 
   const items = useMemo<PlanItem[]>(() => {
     if (!project) return [];
