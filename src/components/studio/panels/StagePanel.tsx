@@ -1,7 +1,20 @@
 import { useEditor } from "@/lib/led/store";
-import { STAGE_ORIENTATION_LABELS, type StageOrientation } from "@/lib/led/types";
+import {
+  STAGE_ELEMENT_LABELS,
+  STAGE_ELEMENT_STYLES,
+  STAGE_ORIENTATION_LABELS,
+  STAGE_PLACEMENT_LABELS,
+  defaultStageElements,
+  type StageElementKey,
+  type StagePlacement,
+  type StageOrientation,
+} from "@/lib/led/types";
+import { elementSetup } from "@/lib/led/stage-elements";
 import { fromDisplay, toDisplay, unitSuffix } from "@/lib/led/units";
 import { ColorField, NumberField, Section, SelectField, ToggleField } from "../Field";
+
+const ELEMENT_KEYS = Object.keys(STAGE_ELEMENT_LABELS) as StageElementKey[];
+const PLACEMENTS = Object.keys(STAGE_PLACEMENT_LABELS) as StagePlacement[];
 
 export function StagePanel() {
   const project = useEditor((s) => s.project);
@@ -13,6 +26,25 @@ export function StagePanel() {
   const suffix = unitSuffix(units);
   const num = (v: number) => +toDisplay(v, units).toFixed(3);
   const back = (v: number) => +fromDisplay(v, units).toFixed(4);
+
+  const enabled: Record<StageElementKey, boolean> = {
+    stairs: stage.stairs,
+    podium: stage.podium,
+    furniture: stage.furniture,
+    truss: stage.truss,
+    backdrop: stage.backdrop,
+    fascia: stage.fascia,
+  };
+
+  const patchElement = (key: StageElementKey, patch: Partial<ReturnType<typeof elementSetup>>) =>
+    setStage({
+      elements: {
+        ...defaultStageElements(),
+        ...(stage.elements ?? {}),
+        [key]: { ...elementSetup(stage, key), ...patch },
+      },
+    });
+
 
   return (
     <>
