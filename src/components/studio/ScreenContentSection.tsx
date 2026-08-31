@@ -66,7 +66,9 @@ export function ScreenContentSection({ screen }: { screen: LedScreen }) {
           const file = e.target.files?.[0];
           if (!file) return;
           const contentImage = await toDataUrl(file);
-          updateScreen(screen.id, { contentImage });
+          const contentAssetId = newAssetId();
+          await putAsset(contentAssetId, contentImage);
+          updateScreen(screen.id, { contentImage, contentAssetId });
           e.target.value = "";
         }}
       />
