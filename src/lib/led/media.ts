@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useEditor } from "./store";
 import type { CanvasConfig, MediaItem } from "./types";
 
@@ -122,3 +122,53 @@ export function useCanvasComposite() {
 
   return composite;
 }
+
+/** Crop a region (in logical canvas pixels) of the composite to a data URL. */
+export function cropRegion(
+  composite: HTMLCanvasElement,
+  canvasWidth: number,
+  region: { x: number; y: number; width: number; height: number },
+): string | null {
+  if (typeof document === "undefined") return null;
+  const scale = composite.width / Math.max(1, canvasWidth);
+  const el = document.createElement("canvas");
+  el.width = Math.max(2, Math.round(region.width * scale));
+  el.height = Math.max(2, Math.round(region.height * scale));
+  const ctx = el.getContext("2d");
+  if (!ctx) return null;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, el.width, el.height);
+  ctx.drawImage(
+    composite,
+    region.x * scale,
+    region.y * scale,
+    Math.max(2, region.width * scale),
+    Math.max(2, region.height * scale),
+    0,
+    0,
+    el.width,
+    el.height,
+  );
+  return el.toDataURL("image/jpeg", 0.8);
+}
+
+/** Per-screen preview images (uploaded artwork wins, else the mapped canvas region). */
+export function useScreenImages(): Record<string, string> {
+  const screens = useEditor((s) => s.project?.screens);
+  const canvasWidth = useEditor((s) => s.project?.canvas.width ?? 1920);
+  const composite = useCanvasComposite();
+
+  return useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const s of screens ?? []) {
+      if (s.contentImage) {
+        out[s.id] = s.contentImage;
+      } else if (composite) {
+        const url = cropRegion(composite, canvasWidth, s.content);
+        if (url) out[s.id] = url;
+      }
+    }
+    return out;
+  }, [screens, canvasWidth, composite]);
+}
+

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Image as ImageIcon, Layers, Square, Trash2, Type, Video } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
-import type { MediaItem } from "@/lib/led/types";
+import type { LedScreen, MediaItem } from "@/lib/led/types";
 
 const MAX_UPLOAD_EDGE = 1920;
 
@@ -34,11 +34,13 @@ async function fileToDataUrl(file: File): Promise<{ src: string; width: number; 
 
 type DragState = {
   id: string;
+  target: "media" | "screen";
   mode: "move" | "resize";
   startX: number;
   startY: number;
-  origin: MediaItem;
+  origin: { x: number; y: number; width: number; height: number };
 };
+
 
 /**
  * Digital content canvas workspace: media is authored here in logical pixels,
@@ -52,6 +54,10 @@ export function ContentCanvasEditor() {
   const selectMedia = useEditor((s) => s.selectMedia);
   const raiseMedia = useEditor((s) => s.raiseMedia);
   const selectedMediaId = useEditor((s) => s.selectedMediaId);
+  const updateScreen = useEditor((s) => s.updateScreen);
+  const select = useEditor((s) => s.select);
+  const selectedId = useEditor((s) => s.selectedId);
+
 
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -77,7 +83,32 @@ export function ContentCanvasEditor() {
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     selectMedia(item.id);
-    dragRef.current = { id: item.id, mode, startX: e.clientX, startY: e.clientY, origin: item };
+    dragRef.current = {
+      id: item.id,
+      target: "media",
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: { x: item.x, y: item.y, width: item.width, height: item.height },
+    };
+  };
+
+  const onScreenPointerDown = (
+    e: React.PointerEvent,
+    screen: LedScreen,
+    mode: "move" | "resize",
+  ) => {
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    select(screen.id);
+    dragRef.current = {
+      id: screen.id,
+      target: "screen",
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: { ...screen.content },
+    };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -85,23 +116,24 @@ export function ContentCanvasEditor() {
     if (!drag) return;
     const dx = (e.clientX - drag.startX) / scale;
     const dy = (e.clientY - drag.startY) / scale;
-    if (drag.mode === "move") {
-      updateMedia(
-        drag.id,
-        { x: Math.round(drag.origin.x + dx), y: Math.round(drag.origin.y + dy) },
-        { history: false },
-      );
+    const patch =
+      drag.mode === "move"
+        ? { x: Math.round(drag.origin.x + dx), y: Math.round(drag.origin.y + dy) }
+        : {
+            width: Math.max(16, Math.round(drag.origin.width + dx)),
+            height: Math.max(16, Math.round(drag.origin.height + dy)),
+          };
+
+    if (drag.target === "media") {
+      updateMedia(drag.id, patch, { history: false });
     } else {
-      updateMedia(
-        drag.id,
-        {
-          width: Math.max(16, Math.round(drag.origin.width + dx)),
-          height: Math.max(16, Math.round(drag.origin.height + dy)),
-        },
-        { history: false },
-      );
+      const screen = project?.screens.find((s) => s.id === drag.id);
+      if (screen) {
+        updateScreen(drag.id, { content: { ...screen.content, ...patch } }, { history: false });
+      }
     }
   };
+
 
   const endDrag = () => {
     dragRef.current = null;
@@ -234,7 +266,10 @@ export function ContentCanvasEditor() {
           project.screens.map((screen) => (
             <div
               key={screen.id}
-              className="pointer-events-none absolute border border-dashed border-[#7fd4ff]/70"
+              onPointerDown={(e) => onScreenPointerDown(e, screen, "move")}
+              className={`absolute cursor-move border border-dashed ${
+                screen.id === selectedId ? "border-primary bg-primary/5" : "border-[#7fd4ff]/70"
+              }`}
               style={{
                 left: screen.content.x * scale,
                 top: screen.content.y * scale,
@@ -243,11 +278,16 @@ export function ContentCanvasEditor() {
                 zIndex: 999,
               }}
             >
-              <span className="absolute left-1 top-1 bg-[#7fd4ff]/15 px-1 font-mono text-[9px] uppercase tracking-wider text-[#7fd4ff]">
+              <span className="pointer-events-none absolute left-1 top-1 bg-[#7fd4ff]/15 px-1 font-mono text-[9px] uppercase tracking-wider text-[#7fd4ff]">
                 {screen.name} · OUT {screen.processorOutput}
               </span>
+              <span
+                onPointerDown={(e) => onScreenPointerDown(e, screen, "resize")}
+                className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-[#7fd4ff]"
+              />
             </div>
           ))}
+
       </div>
 
       <section className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
