@@ -5,7 +5,8 @@ import { newAssetId, putAsset } from "@/lib/led/asset-store";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import type { LedScreen, MediaItem } from "@/lib/led/types";
 
-const MAX_UPLOAD_EDGE = 1920;
+// keep enough resolution for ultra-wide canvases (e.g. 3840 × 1080)
+const MAX_UPLOAD_EDGE = 3840;
 
 async function fileToDataUrl(file: File): Promise<{ src: string; width: number; height: number }> {
   const raw = await new Promise<string>((resolve, reject) => {
@@ -57,6 +58,7 @@ export function ContentCanvasEditor() {
   const raiseMedia = useEditor((s) => s.raiseMedia);
   const selectedMediaId = useEditor((s) => s.selectedMediaId);
   const updateScreen = useEditor((s) => s.updateScreen);
+  const setCanvas = useEditor((s) => s.setCanvas);
   const select = useEditor((s) => s.select);
   const selectedId = useEditor((s) => s.selectedId);
 
@@ -64,6 +66,7 @@ export function ContentCanvasEditor() {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [showRegions, setShowRegions] = useState(true);
+  const [lockAspect, setLockAspect] = useState(true);
   const [viewWidth, setViewWidth] = useState(1000);
 
   const measure = useCallback((node: HTMLDivElement | null) => {
@@ -166,6 +169,87 @@ export function ContentCanvasEditor() {
   };
 
   const selected = ordered.find((m) => m.id === selectedMediaId) ?? null;
+
+  /** true when the layer sticks out of the canvas — that part is never mapped */
+  const overflows =
+    !!selected &&
+    (selected.x < 0 ||
+      selected.y < 0 ||
+      selected.x + selected.width > canvas.width ||
+      selected.y + selected.height > canvas.height);
+
+  const resizeSelected = (key: "width" | "height", raw: number) => {
+    if (!selected) return;
+    const value = Math.max(16, Math.round(raw));
+    if (!lockAspect) {
+      updateMedia(selected.id, { [key]: value });
+      return;
+    }
+    const ratio = selected.width / Math.max(1, selected.height);
+    updateMedia(
+      selected.id,
+      key === "width"
+        ? { width: value, height: Math.max(16, Math.round(value / ratio)) }
+        : { height: value, width: Math.max(16, Math.round(value * ratio)) },
+    );
+  };
+
+  /** stretch the layer to exactly cover the canvas (1:1 with processor source) */
+  const fillCanvas = () => {
+    if (!selected) return;
+    updateMedia(selected.id, {
+      x: 0,
+      y: 0,
+      width: canvas.width,
+      height: canvas.height,
+      fit: "cover",
+    });
+  };
+
+  /** scale the layer down/up to fit inside the canvas, keeping its aspect */
+  const fitCanvas = () => {
+    if (!selected) return;
+    const k = Math.min(canvas.width / selected.width, canvas.height / selected.height);
+    const width = Math.max(16, Math.round(selected.width * k));
+    const height = Math.max(16, Math.round(selected.height * k));
+    updateMedia(selected.id, {
+      width,
+      height,
+      x: Math.round((canvas.width - width) / 2),
+      y: Math.round((canvas.height - height) / 2),
+    });
+  };
+
+  const centerLayer = () => {
+    if (!selected) return;
+    updateMedia(selected.id, {
+      x: Math.round((canvas.width - selected.width) / 2),
+      y: Math.round((canvas.height - selected.height) / 2),
+    });
+  };
+
+  /** grow the canvas (and processor source) to the layer's own size */
+  const canvasToLayer = () => {
+    if (!selected) return;
+    setCanvas({
+      width: Math.max(16, Math.round(selected.width)),
+      height: Math.max(16, Math.round(selected.height)),
+    });
+    updateMedia(selected.id, { x: 0, y: 0 });
+  };
+
+  /** snap the layer onto one LED screen's mapped canvas region */
+  const fitToScreen = (screenId: string) => {
+    const screen = project.screens.find((s) => s.id === screenId);
+    if (!screen || !selected) return;
+    updateMedia(selected.id, {
+      x: screen.content.x,
+      y: screen.content.y,
+      width: screen.content.width,
+      height: screen.content.height,
+      fit: "cover",
+    });
+  };
 
   return (
     <div className="min-w-0 flex-1 overflow-y-auto bg-[#05070b] p-6">
@@ -377,8 +461,6 @@ export function ContentCanvasEditor() {
               [
                 ["X", "x"],
                 ["Y", "y"],
-                ["W", "width"],
-                ["H", "height"],
               ] as const
             ).map(([label, key]) => (
               <label key={key} className="flex items-center justify-between gap-2">
@@ -391,6 +473,88 @@ export function ContentCanvasEditor() {
                 />
               </label>
             ))}
+            {(
+              [
+                ["W", "width"],
+                ["H", "height"],
+              ] as const
+            ).map(([label, key]) => (
+              <label key={key} className="flex items-center justify-between gap-2">
+                {label}
+                <input
+                  type="number"
+                  value={selected[key]}
+                  onChange={(e) => resizeSelected(key, Number(e.target.value))}
+                  className="w-24 border border-border bg-input px-2 py-1 text-right text-foreground outline-none focus:border-ring"
+                />
+              </label>
+            ))}
+            <label className="flex items-center justify-between gap-2">
+              Lock aspect
+              <input
+                type="checkbox"
+                checked={lockAspect}
+                onChange={(e) => setLockAspect(e.target.checked)}
+                className="h-3 w-3 accent-primary"
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-1 pt-1">
+              <button
+                type="button"
+                onClick={fillCanvas}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Fill canvas
+              </button>
+              <button
+                type="button"
+                onClick={fitCanvas}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Fit canvas
+              </button>
+              <button
+                type="button"
+                onClick={centerLayer}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Centre
+              </button>
+              <button
+                type="button"
+                onClick={canvasToLayer}
+                className="border border-border py-1 hover:text-foreground"
+              >
+                Canvas → layer
+              </button>
+            </div>
+
+            {project.screens.length > 0 && (
+              <label className="flex items-center justify-between gap-2">
+                Fit to screen
+                <select
+                  value=""
+                  onChange={(e) => e.target.value && fitToScreen(e.target.value)}
+                  className="w-24 border border-border bg-input px-2 py-1 text-foreground outline-none"
+                >
+                  <option value="">Select…</option>
+                  {project.screens.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {overflows && (
+              <p className="border border-destructive/60 bg-destructive/10 p-2 text-[9px] leading-relaxed tracking-normal text-destructive">
+                Layer is {selected.width}×{selected.height} px but the canvas is {canvas.width}×
+                {canvas.height} px — anything outside the canvas is never mapped to the LED
+                surfaces. Use “Fit canvas”, or “Canvas → layer” to raise the source resolution.
+              </p>
+            )}
             <label className="flex items-center justify-between gap-2">
               Opacity
               <input

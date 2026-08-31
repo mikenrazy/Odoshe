@@ -3,7 +3,7 @@ import { useEditor } from "./store";
 import type { CanvasConfig, MediaItem } from "./types";
 
 /** Composite render resolution cap — keeps textures light for WebGL. */
-const MAX_COMPOSITE_WIDTH = 2048;
+const MAX_COMPOSITE_WIDTH = 4096;
 
 const imageCache = new Map<string, HTMLImageElement>();
 const videoCache = new Map<string, HTMLVideoElement>();
