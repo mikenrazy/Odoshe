@@ -704,7 +704,7 @@ export const useEditor = create<EditorState>((set, get) => {
       mutate((p) => {
         const ids = screenIds ?? [];
         const lead = p.screens.find((s) => ids.includes(s.id));
-        return {
+        const next: Project = {
           ...p,
           groups: [...(p.groups ?? []), { id, name: name || `LED Group ${(p.groups?.length ?? 0) + 1}`, continuous: true }],
           screens: p.screens.map((s) =>
@@ -719,7 +719,9 @@ export const useEditor = create<EditorState>((set, get) => {
               : s,
           ),
         };
+        return splitGroupInProject(next, id);
       });
+
       set({ status: "LED group created" });
     },
 
