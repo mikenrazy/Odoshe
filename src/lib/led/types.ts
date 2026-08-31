@@ -601,7 +601,7 @@ export function normalizeProject(project: Project): Project {
     return {
       ...p,
       name: p.name ?? `${p.brand} ${p.label}`,
-      modelKey: p.modelKey ?? catalog?.key,
+      modelKey: p.modelKey ?? catalog?.key ?? p.id,
       outputs: p.outputs ?? catalog?.outputs ?? 4,
       outputWidth: p.outputWidth ?? catalog?.outputWidth ?? 1920,
       outputHeight: p.outputHeight ?? catalog?.outputHeight ?? 1080,
@@ -646,6 +646,7 @@ export function normalizeProject(project: Project): Project {
     canvas,
     layers,
     processors,
+    groups: project.groups ?? [],
     screens,
     equipment: project.equipment ?? [],
     measurements: project.measurements ?? [],
