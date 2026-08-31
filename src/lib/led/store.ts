@@ -342,6 +342,7 @@ interface EditorState {
   removeGroup: (id: string) => void;
   setScreenGroup: (screenId: string, groupId: string | null) => void;
   splitGroupResolution: (groupId: string) => void;
+  autoDistributePorts: (processorId: string) => void;
   applyProcessorSourceToCanvas: (processorId: string) => void;
 
   deleteScreen: (id: string) => void;
@@ -897,6 +898,28 @@ export const useEditor = create<EditorState>((set, get) => {
     splitGroupResolution: (groupId) => {
       mutate((p) => splitGroupInProject(p, groupId));
       set({ status: "Group resolution split evenly" });
+    },
+
+    autoDistributePorts: (processorId) => {
+      const project = get().project;
+      const proc = project?.processors.find((p) => p.id === processorId);
+      if (!project || !proc) return;
+      const { plan, portsNeeded, fits } = planPortDistribution(project, proc);
+      if (plan.length === 0) return;
+      const byId = new Map(plan.map((entry) => [entry.screenId, entry]));
+      mutate((p) => ({
+        ...p,
+        screens: p.screens.map((s) => {
+          const entry = byId.get(s.id);
+          if (!entry) return s;
+          return { ...s, rj45Port: entry.rj45Port, portSpan: entry.portSpan };
+        }),
+      }));
+      set({
+        status: fits
+          ? `Distributed LED across ${portsNeeded} of ${proc.outputs} ports on ${proc.label}`
+          : `Needs ${portsNeeded} ports — ${proc.label} only has ${proc.outputs}. Add another processor.`,
+      });
     },
 
 
