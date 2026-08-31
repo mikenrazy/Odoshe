@@ -222,6 +222,8 @@ export function createSampleProject(): Project {
   return project;
 }
 
+const SEED_PROJECT_ID = "prj_seed_sample";
+
 /** Seed example project on first run so the app is never empty. */
 export function ensureSeed(): Project[] {
   const existing = loadProjects();
