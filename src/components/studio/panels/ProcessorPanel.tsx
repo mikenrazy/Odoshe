@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, Link2, Unlink } from "lucide-react";
-import { useEditor } from "@/lib/led/store";
+import { useEditor, groupResolution } from "@/lib/led/store";
 import {
   PROCESSOR_CATALOG,
   processorName,
