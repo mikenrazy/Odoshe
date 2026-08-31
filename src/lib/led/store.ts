@@ -25,6 +25,8 @@ import {
 
 } from "./types";
 import { createEquipment, EQUIPMENT_LIBRARY } from "./equipment";
+import { createRiser, STAGE_PRESETS } from "./stage-shapes";
+
 import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
 
 const STORAGE_KEY = "dx5ve.led-designer.projects.v1";
