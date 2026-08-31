@@ -5,26 +5,37 @@ import {
   Copy,
   Eye,
   EyeOff,
-  Lightbulb,
   Lock,
   LockOpen,
   Monitor,
   Package,
   Plus,
   Trash2,
+  Wrench,
 } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
 import { SCREEN_PRESETS } from "@/lib/led/presets";
-import { SCREEN_TYPE_LABELS } from "@/lib/led/types";
+import {
+  EQUIPMENT_CATEGORY_LABELS,
+  SCREEN_TYPE_LABELS,
+  type EquipmentCategory,
+} from "@/lib/led/types";
+
+const CATEGORIES = Object.keys(EQUIPMENT_CATEGORY_LABELS) as EquipmentCategory[];
 
 export function LeftSidebar() {
   const project = useEditor((s) => s.project);
   const selectedId = useEditor((s) => s.selectedId);
+  const selectedEquipmentId = useEditor((s) => s.selectedEquipmentId);
   const select = useEditor((s) => s.select);
+  const selectEquipment = useEditor((s) => s.selectEquipment);
   const addScreen = useEditor((s) => s.addScreen);
   const updateScreen = useEditor((s) => s.updateScreen);
   const deleteScreen = useEditor((s) => s.deleteScreen);
   const duplicateScreen = useEditor((s) => s.duplicateScreen);
+  const updateEquipment = useEditor((s) => s.updateEquipment);
+  const deleteEquipment = useEditor((s) => s.deleteEquipment);
+  const duplicateEquipment = useEditor((s) => s.duplicateEquipment);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [presetsOpen, setPresetsOpen] = useState(true);
 
@@ -52,7 +63,7 @@ export function LeftSidebar() {
           Screen Presets
         </button>
         {presetsOpen && (
-          <div className="grid gap-px bg-border/40 p-px">
+          <div className="grid max-h-56 gap-px overflow-y-auto bg-border/40 p-px">
             {SCREEN_PRESETS.map((preset) => (
               <button
                 key={preset.key}
@@ -79,7 +90,7 @@ export function LeftSidebar() {
             icon={<Package className="h-3.5 w-3.5" />}
             label="STAGE"
             depth={1}
-            active={selectedId === null}
+            active={selectedId === null && selectedEquipmentId === null}
             onClick={() => select(null)}
           />
           <TreeRow icon={<Monitor className="h-3.5 w-3.5" />} label="LED SCREENS" depth={1} />
@@ -148,20 +159,67 @@ export function LeftSidebar() {
               </IconBtn>
             </div>
           ))}
-          <TreeRow
-            icon={<Lightbulb className="h-3.5 w-3.5" />}
-            label="LIGHTING"
-            depth={1}
-            muted
-            hint="venue rig"
-          />
-          <TreeRow
-            icon={<Package className="h-3.5 w-3.5" />}
-            label="PROPS"
-            depth={1}
-            muted
-            hint="stairs / podium"
-          />
+
+          {CATEGORIES.map((category) => {
+            const items = project.equipment.filter((e) => e.category === category);
+            if (items.length === 0) return null;
+            return (
+              <div key={category}>
+                <TreeRow
+                  icon={<Wrench className="h-3.5 w-3.5" />}
+                  label={EQUIPMENT_CATEGORY_LABELS[category].toUpperCase()}
+                  depth={1}
+                  hint={`${items.length}`}
+                />
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`group flex items-center gap-1 pr-2 ${
+                      selectedEquipmentId === item.id ? "bg-primary/15" : "hover:bg-secondary/60"
+                    }`}
+                  >
+                    <button
+                      onClick={() => selectEquipment(item.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2 py-1 pl-12 text-left"
+                    >
+                      <span
+                        className="h-2 w-2 shrink-0"
+                        style={{ backgroundColor: item.visible ? item.color : "#3a3f4a" }}
+                      />
+                      <span className="truncate text-foreground/90">{item.name}</span>
+                      {item.quantity > 1 && (
+                        <span className="shrink-0 font-mono text-[9px] text-muted-foreground">
+                          ×{item.quantity}
+                        </span>
+                      )}
+                    </button>
+                    <IconBtn
+                      title={item.visible ? "Hide" : "Show"}
+                      onClick={() => updateEquipment(item.id, { visible: !item.visible })}
+                    >
+                      {item.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                    </IconBtn>
+                    <IconBtn
+                      title={item.locked ? "Unlock" : "Lock"}
+                      onClick={() => updateEquipment(item.id, { locked: !item.locked })}
+                    >
+                      {item.locked ? (
+                        <Lock className="h-3 w-3 text-primary" />
+                      ) : (
+                        <LockOpen className="h-3 w-3" />
+                      )}
+                    </IconBtn>
+                    <IconBtn title="Duplicate" onClick={() => duplicateEquipment(item.id)}>
+                      <Copy className="h-3 w-3" />
+                    </IconBtn>
+                    <IconBtn title="Delete" onClick={() => deleteEquipment(item.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </IconBtn>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
     </aside>
@@ -223,7 +281,9 @@ function TreeRow({
       >
         {label}
       </span>
-      {hint && <span className="ml-auto pr-3 font-mono text-[9px] text-muted-foreground/60">{hint}</span>}
+      {hint && (
+        <span className="ml-auto pr-3 font-mono text-[9px] text-muted-foreground/60">{hint}</span>
+      )}
     </button>
   );
 }
