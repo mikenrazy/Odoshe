@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  createMediaItem,
   createProject,
   defaultCanvas,
   defaultStage,
@@ -11,6 +12,7 @@ import {
   type LayerKey,
   type LedScreen,
   type Measurement,
+  type MediaItem,
   type ProcessorModel,
   type Project,
   type ProjectMeta,
@@ -151,6 +153,7 @@ interface EditorState {
   project: Project | null;
   selectedId: string | null;
   selectedEquipmentId: string | null;
+  selectedMediaId: string | null;
   mode: ViewportMode;
   workspace: Workspace;
   transformMode: TransformMode;
@@ -209,6 +212,12 @@ interface EditorState {
   selectEquipment: (id: string | null) => void;
 
   toggleLayer: (key: LayerKey, field: "visible" | "locked") => void;
+  addMedia: (patch?: Partial<MediaItem>) => void;
+  updateMedia: (id: string, patch: Partial<MediaItem>, options?: { history?: boolean }) => void;
+  deleteMedia: (id: string) => void;
+  selectMedia: (id: string | null) => void;
+  raiseMedia: (id: string, direction: 1 | -1) => void;
+
   addMeasurement: () => void;
   updateMeasurement: (id: string, patch: Partial<Measurement>) => void;
   deleteMeasurement: (id: string) => void;
@@ -260,6 +269,7 @@ export const useEditor = create<EditorState>((set, get) => {
     project: null,
     selectedId: null,
     selectedEquipmentId: null,
+    selectedMediaId: null,
     mode: "design",
     workspace: "stage",
     transformMode: "translate",
@@ -629,6 +639,39 @@ export const useEditor = create<EditorState>((set, get) => {
       mutate((p) => ({
         ...p,
         layers: { ...p.layers, [key]: { ...p.layers[key], [field]: !p.layers[key][field] } },
+      })),
+
+    addMedia: (patch) => {
+      const project = get().project;
+      if (!project) return;
+      const z = Math.max(0, ...project.media.map((m) => m.z)) + 1;
+      const item = createMediaItem({
+        width: Math.round(project.canvas.width / 3),
+        height: Math.round(project.canvas.height / 3),
+        z,
+        ...patch,
+      });
+      mutate((p) => ({ ...p, media: [...p.media, item] }));
+      set({ selectedMediaId: item.id, status: `Added ${item.name}` });
+    },
+
+    updateMedia: (id, patch, options) =>
+      mutate(
+        (p) => ({ ...p, media: p.media.map((m) => (m.id === id ? { ...m, ...patch } : m)) }),
+        options?.history !== false,
+      ),
+
+    deleteMedia: (id) => {
+      mutate((p) => ({ ...p, media: p.media.filter((m) => m.id !== id) }));
+      set((s) => ({ selectedMediaId: s.selectedMediaId === id ? null : s.selectedMediaId }));
+    },
+
+    selectMedia: (id) => set({ selectedMediaId: id }),
+
+    raiseMedia: (id, direction) =>
+      mutate((p) => ({
+        ...p,
+        media: p.media.map((m) => (m.id === id ? { ...m, z: m.z + direction } : m)),
       })),
 
     addMeasurement: () => {
