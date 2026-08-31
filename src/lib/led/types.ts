@@ -290,6 +290,12 @@ export interface LedScreen {
    * cabinet 10 or screen 10.
    */
   rj45Port: number;
+  /**
+   * How many consecutive RJ45 ports this screen consumes, starting at
+   * `rj45Port`. A wall wider than one port's capacity is split by cabinet
+   * columns across `portSpan` ports.
+   */
+  portSpan?: number;
   /** slice of the content canvas shown on this screen */
   content: ContentRegion;
   /** optional image (data URL) shown as content on the LED surface in 3D */
