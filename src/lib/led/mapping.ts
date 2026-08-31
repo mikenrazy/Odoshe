@@ -1,6 +1,7 @@
 import { cabinetCalc } from "./calc";
 import { derivedResolution, projectChains } from "./resolution";
 import { computeGridNumbers } from "./grid-numbering";
+import { processorPortMap } from "./ports";
 import type { LedScreen, Project, ProcessorModel } from "./types";
 
 /**
@@ -272,6 +273,39 @@ export function validateMapping(project: Project): MappingIssue[] {
         }`,
         detail: note,
       });
+    }
+  }
+
+  // per-port pixel load, port count and total processor capacity
+  for (const proc of project.processors) {
+    if (!project.screens.some((s) => s.processorId === proc.id)) continue;
+    const map = processorPortMap(project, proc);
+    for (const note of map.issues) {
+      issues.push({
+        id: `${proc.id}-portmap-${note.slice(0, 24)}`,
+        level: "error",
+        title: `${proc.name ?? proc.label}: port / capacity conflict`,
+        detail: `${note}${map.recommendations.length ? ` Recommended: ${map.recommendations[0]}` : ""}`,
+      });
+    }
+    for (const port of map.ports) {
+      if (port.status === "over") {
+        issues.push({
+          id: `${proc.id}-port${port.port}-over`,
+          level: "error",
+          title: `${proc.label} RJ45 Port ${port.port} over capacity`,
+          detail: `${port.pixels.toLocaleString()} px / ${port.maxPixels.toLocaleString()} px (${port.width} × ${port.height}). ${port.notes.join(" ")}`,
+          screenId: port.sections[0]?.screenId,
+        });
+      } else if (port.status === "warn") {
+        issues.push({
+          id: `${proc.id}-port${port.port}-warn`,
+          level: "warning",
+          title: `${proc.label} RJ45 Port ${port.port} at ${port.loadPct.toFixed(0)}%`,
+          detail: `${port.pixels.toLocaleString()} px of ${port.maxPixels.toLocaleString()} px used — ${port.remaining.toLocaleString()} px remaining.`,
+          screenId: port.sections[0]?.screenId,
+        });
+      }
     }
   }
 
