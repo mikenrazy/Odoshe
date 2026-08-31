@@ -54,6 +54,16 @@ export function ProcessorSection({ screen }: Props) {
           ["SCREEN LOAD", `${load.toFixed(1)}%`, load > 100 ? "text-destructive" : undefined],
           ["PHYSICAL PORT", `RJ45 Port ${screen.rj45Port}`, "text-right text-[#7fd4ff]"],
           ["OUTPUT MAX", `${active.outputWidth} × ${active.outputHeight}`],
+          ...(group
+            ? ([
+                [
+                  "GROUP RES",
+                  `${group.width} × ${group.height} px (${group.count} sections)`,
+                  "text-right text-primary",
+                ],
+                ["THIS SECTION", `${screen.pixelWidth} × ${screen.pixelHeight} px`],
+              ] as [string, string, string?][])
+            : []),
           [
             "GRID RANGE",
             assignment
