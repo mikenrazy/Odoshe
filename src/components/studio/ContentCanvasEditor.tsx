@@ -5,7 +5,8 @@ import { newAssetId, putAsset } from "@/lib/led/asset-store";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import type { LedScreen, MediaItem } from "@/lib/led/types";
 
-const MAX_UPLOAD_EDGE = 1920;
+// keep enough resolution for ultra-wide canvases (e.g. 3840 × 1080)
+const MAX_UPLOAD_EDGE = 3840;
 
 async function fileToDataUrl(file: File): Promise<{ src: string; width: number; height: number }> {
   const raw = await new Promise<string>((resolve, reject) => {
