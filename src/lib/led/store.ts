@@ -130,7 +130,7 @@ export type PersistResult = { ok: boolean; message?: string };
 function persist(projects: Project[]): PersistResult {
   if (!isBrowser()) return { ok: true };
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(forStorage(projects)));
     return { ok: true };
   } catch {
     // Most likely quota exceeded (uploaded images/videos are stored inline).
