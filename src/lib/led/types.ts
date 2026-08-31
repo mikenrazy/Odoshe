@@ -175,8 +175,17 @@ export interface LedScreen {
   color: string;
   /** id of the video processor driving this screen */
   processorId: string;
-  /** 1-based processor output/port this screen is patched to */
+  /**
+   * Logical output number on the processor's canvas/layer mapping.
+   * This is NOT the physical connector — see `rj45Port`.
+   */
   processorOutput: number;
+  /**
+   * Physical RJ45 / LAN port on the back of the processor that feeds this
+   * screen. `OUT 10` in the UI always means RJ45 Port 10 — never panel 10,
+   * cabinet 10 or screen 10.
+   */
+  rj45Port: number;
   /** slice of the content canvas shown on this screen */
   content: ContentRegion;
   /** optional image (data URL) shown as content on the LED surface in 3D */
