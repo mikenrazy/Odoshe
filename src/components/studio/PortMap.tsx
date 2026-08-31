@@ -23,6 +23,8 @@ export function PortMap({ project, processor, readOnly }: Props) {
   const plan = planPortDistribution(project, processor);
   const perPort = portMaxPixels(processor);
 
+  const compatible = map.status !== "over";
+
   return (
     <div className="mt-2 border-t border-border pt-2">
       <div className="mb-1 flex items-center justify-between">
@@ -30,9 +32,21 @@ export function PortMap({ project, processor, readOnly }: Props) {
           {processor.label} — {processor.outputs} ports
         </span>
         <span className="text-[10px] text-muted-foreground">
-          {perPort.toLocaleString()} px / port
+          {perPort.toLocaleString()} px / port · {map.maxPanelsPerPort} panels max
         </span>
       </div>
+
+      <div
+        className={`mb-2 border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+          compatible ? "border-[#4ade80]/50 text-[#4ade80]" : "border-destructive/60 text-destructive"
+        }`}
+      >
+        {compatible
+          ? `🟢 ${processor.label} configuration compatible`
+          : `🔴 ${processor.label} configuration exceeds capacity`}
+      </div>
+
+
 
       <div className="space-y-[3px]">
         {map.ports.map((p) => (
