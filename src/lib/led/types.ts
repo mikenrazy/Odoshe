@@ -576,6 +576,8 @@ export function createProject(name: string, overrides: Partial<Project> = {}): P
     measurements: [],
     media: [],
     processors: DEFAULT_PROCESSORS.map((p) => ({ ...p })),
+    groups: [],
+
     extensions: {},
     schemaVersion: SCHEMA_VERSION,
     ...overrides,
