@@ -226,7 +226,9 @@ export function createSampleProject(): Project {
 export function ensureSeed(): Project[] {
   const existing = loadProjects();
   if (existing.length > 0) return existing;
-  const project = createSampleProject();
+  // Stable id so a re-seed after a storage wipe merges with (not duplicates)
+  // the recovered copy from IndexedDB.
+  const project = { ...createSampleProject(), id: SEED_PROJECT_ID, updatedAt: 0 };
   // Seeding must not clobber the IndexedDB backup: hydrate() restores from it.
   persist([project], false);
   return [project];
