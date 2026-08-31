@@ -125,7 +125,73 @@ export function StagePanel() {
         />
       </Section>
 
+      {ELEMENT_KEYS.filter((k) => enabled[k]).map((key) => {
+        const s = elementSetup(stage, key);
+        return (
+          <Section key={key} title={`${STAGE_ELEMENT_LABELS[key]} — Style & Position`}>
+            <SelectField
+              label="Style"
+              value={s.style}
+              options={STAGE_ELEMENT_STYLES[key]}
+              onChange={(style) => patchElement(key, { style })}
+            />
+            <SelectField
+              label="Placement"
+              value={s.placement}
+              options={PLACEMENTS.map((p) => ({ value: p, label: STAGE_PLACEMENT_LABELS[p] }))}
+              onChange={(placement) => patchElement(key, { placement: placement as StagePlacement })}
+            />
+            <NumberField
+              label="Offset X"
+              suffix={suffix}
+              step={0.1}
+              value={num(s.offsetX)}
+              onChange={(v) => patchElement(key, { offsetX: back(v) })}
+            />
+            <NumberField
+              label="Offset Z"
+              suffix={suffix}
+              step={0.1}
+              value={num(s.offsetZ)}
+              onChange={(v) => patchElement(key, { offsetZ: back(v) })}
+            />
+            <NumberField
+              label="Elevation"
+              suffix={suffix}
+              step={0.1}
+              value={num(s.elevation)}
+              onChange={(v) => patchElement(key, { elevation: back(v) })}
+            />
+            <NumberField
+              label="Rotation"
+              suffix="°"
+              step={5}
+              value={s.rotation}
+              onChange={(rotation) => patchElement(key, { rotation })}
+            />
+            <NumberField
+              label="Scale"
+              suffix="×"
+              step={0.05}
+              min={0.2}
+              value={s.scale}
+              onChange={(scale) => patchElement(key, { scale })}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                patchElement(key, { offsetX: 0, offsetZ: 0, elevation: 0, rotation: 0, scale: 1 })
+              }
+              className="mt-1 w-full border border-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              Reset transform
+            </button>
+          </Section>
+        );
+      })}
+
       <Section title="Element Colours">
+
         <ColorField
           label="Stage Deck"
           value={stage.stageColor}
