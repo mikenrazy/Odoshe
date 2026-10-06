@@ -338,8 +338,8 @@ export async function downloadDesignPdf(project: Project) {
     );
 
     // Vertical clearance dimension: stage top to screen bottom.
-    const clearance = screen.position.y - screen.physicalHeight / 2 - stage.height;
-    if (clearance > 0.005) {
+    const clearance = Math.round((screen.position.y - screen.physicalHeight / 2 - stage.height) * 100) / 100;
+    if (clearance >= 0.05) {
       const dimX = screenLeft - 3;
       const screenBottom = screenTop + screenH;
       const stageTopY = worldToY(stage.height);
