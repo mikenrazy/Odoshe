@@ -606,10 +606,19 @@ export const useEditor = create<EditorState>((set, get) => {
     },
 
     save: () => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
       const project = get().project;
       if (!project) return;
-      commitProjects(project);
-      set({ status: "Project saved" });
+      const stamped = { ...project, updatedAt: Date.now() };
+      set({ project: stamped, status: "Saving…" });
+      commitProjects(stamped);
+      const st = get();
+      if (st.dirty) return; // commitProjects already set the failure message
+      const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      set({ status: st.status?.startsWith("Saved —") ? st.status : `Project saved at ${time}` });
     },
 
     setMeta: (patch) => mutate((p) => ({ ...p, meta: { ...p.meta, ...patch } })),
