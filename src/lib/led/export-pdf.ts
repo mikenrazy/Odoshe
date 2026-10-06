@@ -336,6 +336,25 @@ export async function downloadDesignPdf(project: Project) {
       screenTop + screenH / 2 + 2,
       { align: "center", maxWidth: Math.max(12, screenW - 3) },
     );
+
+    // Vertical clearance dimension: stage top to screen bottom.
+    const clearance = screen.position.y - screen.physicalHeight / 2 - stage.height;
+    if (clearance > 0.005) {
+      const dimX = screenLeft - 3;
+      const screenBottom = screenTop + screenH;
+      const stageTopY = worldToY(stage.height);
+      doc.setDrawColor(255, 157, 46);
+      doc.setLineWidth(0.25);
+      doc.line(dimX, screenBottom, dimX, stageTopY);
+      doc.line(dimX - 1.5, screenBottom, dimX + 1.5, screenBottom);
+      doc.line(dimX - 1.5, stageTopY, dimX + 1.5, stageTopY);
+      doc.setTextColor(35, 39, 47);
+      doc.setFontSize(6);
+      doc.text(`SPACE FROM STAGE ${clearance.toFixed(2)} m`, dimX - 1, (screenBottom + stageTopY) / 2, {
+        angle: 90,
+        align: "center",
+      });
+    }
   });
 
   // Overall stage dimensions.
