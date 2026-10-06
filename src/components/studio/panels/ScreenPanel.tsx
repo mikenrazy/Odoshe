@@ -479,7 +479,7 @@ export function ScreenPanel() {
           label="Space above stage"
           suffix="m"
           step={0.1}
-          value={Math.max(0, screen.position.y - screen.physicalHeight / 2 - project.stage.height)}
+          value={Math.round(Math.max(0, screen.position.y - screen.physicalHeight / 2 - project.stage.height) * 1000) / 1000}
           onChange={(gap) =>
             updateScreen(screen.id, {
               position: {
