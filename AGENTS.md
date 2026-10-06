@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Store user-uploaded project media as lightweight asset references with IndexedDB payloads, because project JSON must remain within browser storage limits.

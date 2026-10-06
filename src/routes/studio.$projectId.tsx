@@ -25,6 +25,8 @@ export const Route = createFileRoute("/studio/$projectId")({
         property: "og:description",
         content: "Design LED stages in a realistic 3D viewport with precise real-world units.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Studio,

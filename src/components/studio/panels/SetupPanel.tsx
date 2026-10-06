@@ -1,5 +1,6 @@
 import { useEditor } from "@/lib/led/store";
 import { DateField, Readout, Section, SelectField, TextAreaField, TextField } from "../Field";
+import { DocumentCoverSection } from "../DocumentCoverSection";
 
 export function SetupPanel() {
   const project = useEditor((s) => s.project);
@@ -41,6 +42,8 @@ export function SetupPanel() {
           onChange={(units) => setMeta({ units: units as "metric" | "imperial" })}
         />
       </Section>
+
+      <DocumentCoverSection />
 
       <Section title="Notes">
         <TextAreaField

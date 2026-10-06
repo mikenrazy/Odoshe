@@ -13,6 +13,38 @@ export async function downloadDesignPdf(project: Project) {
   const M = 12;
   const grids = computeGridNumbers(project);
   const screens = project.screens;
+  const coverImage =
+    project.meta.coverImage ??
+    (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null);
+
+  if (coverImage) {
+    doc.setFillColor(12, 16, 24);
+    doc.rect(0, 0, W, H, "F");
+    const imageProps = doc.getImageProperties(coverImage);
+    const imageAreaW = W - 2 * M;
+    const imageAreaH = H - 62;
+    const imageScale = Math.min(imageAreaW / imageProps.width, imageAreaH / imageProps.height);
+    const imageW = imageProps.width * imageScale;
+    const imageH = imageProps.height * imageScale;
+    const imageX = (W - imageW) / 2;
+    const imageY = 12 + (imageAreaH - imageH) / 2;
+    doc.addImage(coverImage, imageProps.fileType, imageX, imageY, imageW, imageH);
+    doc.setTextColor(255, 157, 46);
+    doc.setFontSize(18);
+    doc.text(project.name.toUpperCase(), M, H - 35);
+    doc.setTextColor(220, 226, 236);
+    doc.setFontSize(10);
+    doc.text("LED STAGE DESIGN SPECIFICATION", M, H - 27);
+    doc.setFontSize(8);
+    doc.text(
+      `Client: ${project.meta.client || "—"}  |  Venue: ${project.meta.venue || "—"}  |  Date: ${project.meta.eventDate || "—"}`,
+      M,
+      H - 19,
+    );
+    doc.setTextColor(140, 150, 165);
+    doc.text("DX5VE Studio", W - M, H - 19, { align: "right" });
+    doc.addPage("a3", "landscape");
+  }
 
   // Header
   doc.setFillColor(12, 16, 24);

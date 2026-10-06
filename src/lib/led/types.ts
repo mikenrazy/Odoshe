@@ -701,6 +701,10 @@ export interface ProjectMeta {
   eventDate: string;
   notes: string;
   units: UnitSystem;
+  /** optional first-page image for the exported design document */
+  coverAssetId?: string;
+  coverImage?: string;
+  coverImageName?: string;
 }
 
 export function defaultMeta(): ProjectMeta {
