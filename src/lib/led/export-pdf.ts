@@ -1,7 +1,7 @@
 import type { Project } from "./types";
 import { cabinetCalc } from "./calc";
 import { computeGridNumbers } from "./grid-numbering";
-import { renderComposite } from "./media";
+import { cropRegion, renderComposite } from "./media";
 import { getAsset } from "./asset-store";
 
 /** Builds and downloads an A3 landscape design spec PDF for the project. */
@@ -16,6 +16,14 @@ export async function downloadDesignPdf(project: Project) {
   const coverImage =
     project.meta.coverImage ??
     (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null);
+  const media = await Promise.all(
+    (project.media ?? []).map(async (item) =>
+      !item.src && item.assetId
+        ? { ...item, src: (await getAsset(item.assetId)) ?? undefined }
+        : item,
+    ),
+  );
+  const composite = await renderComposite(project.canvas, media);
 
   if (coverImage) {
     doc.setFillColor(12, 16, 24);
@@ -298,6 +306,15 @@ export async function downloadDesignPdf(project: Project) {
     doc.setDrawColor(30, 132, 185);
     doc.setLineWidth(0.45);
     doc.rect(screenLeft, screenTop, screenW, screenH, "FD");
+    const screenContent = composite
+      ? cropRegion(composite, project.canvas.width, screen.content)
+      : screen.contentImage;
+    if (screenContent) {
+      doc.addImage(screenContent, "JPEG", screenLeft, screenTop, screenW, screenH);
+      doc.setDrawColor(30, 132, 185);
+      doc.setLineWidth(0.45);
+      doc.rect(screenLeft, screenTop, screenW, screenH);
+    }
     doc.setDrawColor(74, 126, 156);
     doc.setLineWidth(0.1);
     for (let col = 1; col < calc.cols; col += 1) {
@@ -390,87 +407,6 @@ export async function downloadDesignPdf(project: Project) {
   doc.setTextColor(110, 118, 130);
   doc.text("Drawing: FP-01  ·  Not to scale  ·  DX5VE Studio", M, H - 7);
   doc.text(`Generated ${new Date().toLocaleString()}`, W - M, H - 7, { align: "right" });
-
-  // Final page — content canvas and uploaded media
-  doc.addPage("a3", "landscape");
-  doc.setFillColor(12, 16, 24);
-  doc.rect(0, 0, W, 22, "F");
-  doc.setTextColor(255, 157, 46);
-  doc.setFontSize(16);
-  doc.text(`CONTENT CANVAS — ${project.canvas.width} × ${project.canvas.height} px`, M, 14);
-
-  const media = await Promise.all(
-    (project.media ?? []).map(async (m) =>
-      !m.src && m.assetId ? { ...m, src: (await getAsset(m.assetId)) ?? undefined } : m,
-    ),
-  );
-  const boxW = W - 2 * M;
-  const boxH = 150;
-  const cs = Math.min(boxW / project.canvas.width, boxH / project.canvas.height);
-  const cw = project.canvas.width * cs;
-  const chh = project.canvas.height * cs;
-  const cx0 = M + (boxW - cw) / 2;
-  const cy0 = 30;
-  const comp = await renderComposite(project.canvas, media);
-  if (comp) doc.addImage(comp.toDataURL("image/jpeg", 0.9), "JPEG", cx0, cy0, cw, chh);
-  else {
-    doc.setFillColor(0, 0, 0);
-    doc.rect(cx0, cy0, cw, chh, "F");
-  }
-  doc.setDrawColor(150);
-  doc.rect(cx0, cy0, cw, chh);
-  screens.forEach((s) => {
-    doc.setDrawColor(255, 157, 46);
-    doc.setLineWidth(0.4);
-    doc.rect(cx0 + s.content.x * cs, cy0 + s.content.y * cs, s.content.width * cs, s.content.height * cs);
-    doc.setTextColor(255, 157, 46);
-    doc.setFontSize(7);
-    doc.text(
-      `${s.name.toUpperCase()} · ${s.content.x},${s.content.y} · ${s.content.width}×${s.content.height}`,
-      cx0 + s.content.x * cs + 1.5,
-      cy0 + s.content.y * cs + 4,
-    );
-  });
-  doc.setLineWidth(0.2);
-
-  y = cy0 + chh + 12;
-  doc.setTextColor(20, 20, 20);
-  doc.setFontSize(10);
-  doc.text("MEDIA LAYERS", M, y);
-  y += 4;
-  const mcols = [["Layer", 80], ["Type", 25], ["Position X,Y (px)", 40], ["Size W×H (px)", 40], ["Fit", 25], ["Opacity", 22], ["Visible", 20], ["On screens", 120]] as const;
-  const mrow = (vals: string[], header = false) => {
-    let x = M;
-    if (header) {
-      doc.setFillColor(230, 233, 238);
-      doc.rect(M, y - 4, W - 2 * M, 6, "F");
-    }
-    doc.setFontSize(8);
-    vals.forEach((v, i) => {
-      doc.text(v, x + 1, y);
-      x += mcols[i]![1];
-    });
-    y += 6;
-  };
-  mrow(mcols.map((c) => c[0]), true);
-  [...media].sort((a, b) => b.z - a.z).forEach((m) => {
-    if (y > H - 12) return;
-    const on = screens
-      .filter((s) => m.x < s.content.x + s.content.width && m.x + m.width > s.content.x && m.y < s.content.y + s.content.height && m.y + m.height > s.content.y)
-      .map((s) => s.name)
-      .join(", ");
-    mrow([
-      m.kind === "text" ? `${m.name} ("${(m.text ?? "").slice(0, 30)}")` : m.name.slice(0, 45),
-      m.kind,
-      `${m.x}, ${m.y}`,
-      `${m.width} × ${m.height}`,
-      m.fit,
-      `${Math.round(m.opacity * 100)}%`,
-      m.visible ? "Yes" : "No",
-      on || "—",
-    ]);
-  });
-  if (!media.length) mrow(["No media on the content canvas", "", "", "", "", "", "", ""]);
 
   doc.save(`${project.name.replace(/\s+/g, "-").toLowerCase()}-design-spec.pdf`);
 }
