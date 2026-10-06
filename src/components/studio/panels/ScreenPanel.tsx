@@ -475,6 +475,20 @@ export function ScreenPanel() {
           value={screen.position.z}
           onChange={(z) => updateScreen(screen.id, { position: { ...screen.position, z } })}
         />
+        <NumberField
+          label="Space above stage"
+          suffix="m"
+          step={0.1}
+          value={Math.max(0, screen.position.y - screen.physicalHeight / 2 - project.stage.height)}
+          onChange={(gap) =>
+            updateScreen(screen.id, {
+              position: {
+                ...screen.position,
+                y: project.stage.height + Math.max(0, gap) + screen.physicalHeight / 2,
+              },
+            })
+          }
+        />
         <div className="mt-2 flex items-center gap-px bg-border/60 p-px">
           {(
             [
