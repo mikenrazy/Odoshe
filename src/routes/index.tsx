@@ -19,6 +19,8 @@ export const Route = createFileRoute("/")({
         content:
           "Professional 3D LED stage design and screen configuration for live-event production teams.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Dashboard,

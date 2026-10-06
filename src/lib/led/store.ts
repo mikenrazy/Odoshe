@@ -93,6 +93,10 @@ export function loadProjects(): Project[] {
 function stripHeavyMedia(projects: Project[]): Project[] {
   return projects.map((p) => ({
     ...p,
+    meta:
+      p.meta.coverImage && p.meta.coverImage.length > 4000
+        ? { ...p.meta, coverImage: p.meta.coverAssetId ? undefined : p.meta.coverImage }
+        : p.meta,
     screens: p.screens.map((s) =>
       s.contentImage && s.contentImage.length > 4000
         ? { ...s, contentImage: s.contentAssetId ? undefined : s.contentImage }
@@ -108,6 +112,7 @@ function stripHeavyMedia(projects: Project[]): Project[] {
 function forStorage(projects: Project[]): Project[] {
   return projects.map((p) => ({
     ...p,
+    meta: p.meta.coverAssetId ? { ...p.meta, coverImage: undefined } : p.meta,
     screens: p.screens.map((s) => (s.contentAssetId ? { ...s, contentImage: undefined } : s)),
     media: (p.media ?? []).map((m) => (m.assetId ? { ...m, src: undefined } : m)),
   })) as Project[];
@@ -116,6 +121,7 @@ function forStorage(projects: Project[]): Project[] {
 /** Re-attach IndexedDB payloads to a project's media and screen content. */
 export async function rehydrateAssets(project: Project): Promise<Project> {
   const ids = [
+    ...(project.meta.coverAssetId && !project.meta.coverImage ? [project.meta.coverAssetId] : []),
     ...(project.media ?? []).filter((m) => m.assetId && !m.src).map((m) => m.assetId!),
     ...project.screens.filter((s) => s.contentAssetId && !s.contentImage).map((s) => s.contentAssetId!),
   ];
@@ -123,6 +129,10 @@ export async function rehydrateAssets(project: Project): Promise<Project> {
   const assets = await getAssets([...new Set(ids)]);
   return {
     ...project,
+    meta:
+      project.meta.coverAssetId && !project.meta.coverImage && assets[project.meta.coverAssetId]
+        ? { ...project.meta, coverImage: assets[project.meta.coverAssetId] }
+        : project.meta,
     media: (project.media ?? []).map((m) =>
       m.assetId && !m.src && assets[m.assetId] ? { ...m, src: assets[m.assetId] } : m,
     ),
@@ -527,6 +537,10 @@ export const useEditor = create<EditorState>((set, get) => {
             set({
               project: {
                 ...current,
+                meta:
+                  full.meta.coverImage && !current.meta.coverImage
+                    ? { ...current.meta, coverImage: full.meta.coverImage }
+                    : current.meta,
                 media: full.media,
                 screens: current.screens.map((s) => {
                   const restored = full.screens.find((f) => f.id === s.id);
