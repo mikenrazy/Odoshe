@@ -326,6 +326,7 @@ interface EditorState {
   renameProject: (id: string, name: string) => void;
   duplicateProject: (id: string) => void;
   deleteProject: (id: string) => void;
+  importProject: (project: Project) => Project;
   save: () => void;
 
   setMeta: (patch: Partial<ProjectMeta>) => void;
@@ -592,6 +593,20 @@ export const useEditor = create<EditorState>((set, get) => {
       const projects = [copy, ...get().projects];
       persist(projects);
       set({ projects, status: `Duplicated “${source.name}”` });
+    },
+
+    importProject: (incoming) => {
+      const project = normalizeProject({ ...incoming, updatedAt: Date.now() });
+      const projects = mergeProjects(loadProjects(), [
+        project,
+        ...get().projects.filter((p) => p.id !== project.id),
+      ]);
+      const result = persist(projects);
+      set({
+        projects,
+        status: result.ok ? `Imported “${project.name}”` : (result.message ?? "Import failed"),
+      });
+      return project;
     },
 
     deleteProject: (id) => {
