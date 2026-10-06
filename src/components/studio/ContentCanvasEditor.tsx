@@ -520,11 +520,9 @@ export function ContentCanvasEditor() {
             ).map(([label, key]) => (
               <label key={key} className="flex items-center justify-between gap-2">
                 {label}
-                <input
-                  type="number"
+                <PxInput
                   value={selected[key]}
-                  onChange={(e) => updateMedia(selected.id, { [key]: Number(e.target.value) })}
-                  className="w-24 border border-border bg-input px-2 py-1 text-right text-foreground outline-none focus:border-ring"
+                  onCommit={(v) => updateMedia(selected.id, { [key]: Math.round(v) })}
                 />
               </label>
             ))}
@@ -536,12 +534,7 @@ export function ContentCanvasEditor() {
             ).map(([label, key]) => (
               <label key={key} className="flex items-center justify-between gap-2">
                 {label}
-                <input
-                  type="number"
-                  value={selected[key]}
-                  onChange={(e) => resizeSelected(key, Number(e.target.value))}
-                  className="w-24 border border-border bg-input px-2 py-1 text-right text-foreground outline-none focus:border-ring"
-                />
+                <PxInput value={selected[key]} onCommit={(v) => resizeSelected(key, v)} />
               </label>
             ))}
             <label className="flex items-center justify-between gap-2">
@@ -713,5 +706,33 @@ export function ContentCanvasEditor() {
         )}
       </section>
     </div>
+  );
+}
+
+/** Number box that lets you type freely and applies on Enter / leaving the field. */
+function PxInput({ value, onCommit }: { value: number; onCommit: (v: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const commit = () => {
+    const n = Number(draft);
+    if (draft.trim() !== "" && Number.isFinite(n)) onCommit(n);
+    else setDraft(String(value));
+  };
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        type="number"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") setDraft(String(value));
+        }}
+        className="w-24 border border-border bg-input px-2 py-1 text-right text-foreground outline-none focus:border-ring"
+      />
+      <span className="normal-case">px</span>
+    </span>
   );
 }
