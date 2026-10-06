@@ -208,7 +208,190 @@ export async function downloadDesignPdf(project: Project) {
   doc.setTextColor(120);
   doc.text(`Generated ${new Date().toLocaleString()} · DX5VE LED Stage Designer`, M, H - 6);
 
-  // Page 2 — content canvas
+  // Production plan — dedicated, readable front elevation
+  doc.addPage("a3", "landscape");
+  doc.setFillColor(12, 16, 24);
+  doc.rect(0, 0, W, 24, "F");
+  doc.setTextColor(255, 157, 46);
+  doc.setFontSize(16);
+  doc.text("PRODUCTION PLAN · FRONT ELEVATION", M, 14);
+  doc.setTextColor(220, 226, 236);
+  doc.setFontSize(8);
+  doc.text(`${project.name} · ${project.meta.venue || "Venue TBC"} · ${project.meta.eventDate || "Date TBC"}`, W - M, 14, {
+    align: "right",
+  });
+
+  const planX = M;
+  const planY = 34;
+  const planW = 282;
+  const planH = 230;
+  const infoX = planX + planW + 8;
+  const infoW = W - M - infoX;
+  doc.setFillColor(247, 249, 252);
+  doc.setDrawColor(180, 190, 204);
+  doc.rect(planX, planY, planW, planH, "FD");
+
+  const stage = project.stage;
+  const leftExtent = Math.min(
+    -stage.width / 2,
+    ...screens.map((screen) => screen.position.x - screen.physicalWidth / 2),
+  );
+  const rightExtent = Math.max(
+    stage.width / 2,
+    ...screens.map((screen) => screen.position.x + screen.physicalWidth / 2),
+  );
+  const highestPoint = Math.max(
+    stage.height,
+    stage.backWall ? stage.backWallHeight : 0,
+    ...screens.map((screen) => screen.position.y + screen.physicalHeight / 2),
+  );
+  const worldWidth = Math.max(1, rightExtent - leftExtent);
+  const worldHeight = Math.max(1, highestPoint);
+  const planScale = Math.min((planW - 32) / worldWidth, (planH - 38) / worldHeight);
+  const worldToX = (value: number) =>
+    planX + 16 + (planW - 32 - worldWidth * planScale) / 2 + (value - leftExtent) * planScale;
+  const floorLineY = planY + planH - 19;
+  const worldToY = (value: number) => floorLineY - value * planScale;
+
+  // Metre grid, centre line and floor datum.
+  doc.setLineWidth(0.12);
+  doc.setDrawColor(224, 229, 236);
+  for (let metre = Math.ceil(leftExtent); metre <= Math.floor(rightExtent); metre += 1) {
+    doc.line(worldToX(metre), planY + 9, worldToX(metre), floorLineY);
+  }
+  for (let metre = 1; metre <= Math.floor(highestPoint); metre += 1) {
+    doc.line(planX + 8, worldToY(metre), planX + planW - 8, worldToY(metre));
+  }
+  doc.setDrawColor(255, 157, 46);
+  doc.setLineDashPattern([2, 2], 0);
+  doc.line(worldToX(0), planY + 8, worldToX(0), floorLineY);
+  doc.setLineDashPattern([], 0);
+  doc.setDrawColor(60, 70, 84);
+  doc.setLineWidth(0.45);
+  doc.line(planX + 7, floorLineY, planX + planW - 7, floorLineY);
+  doc.setTextColor(70, 80, 94);
+  doc.setFontSize(6.5);
+  doc.text("FLOOR DATUM 0.00 m", planX + 9, floorLineY - 2);
+  doc.text("CL", worldToX(0) + 1.5, planY + 13);
+
+  // Stage deck and back wall.
+  const stageLeft = worldToX(-stage.width / 2);
+  const stageRight = worldToX(stage.width / 2);
+  const stageTop = worldToY(stage.height);
+  doc.setFillColor(45, 52, 64);
+  doc.setDrawColor(24, 28, 36);
+  doc.rect(stageLeft, stageTop, stageRight - stageLeft, Math.max(2, stage.height * planScale), "FD");
+  if (stage.backWall) {
+    doc.setFillColor(228, 232, 239);
+    doc.setDrawColor(125, 135, 150);
+    doc.rect(stageLeft, worldToY(stage.backWallHeight), stageRight - stageLeft, (stage.backWallHeight - stage.height) * planScale, "FD");
+  }
+
+  screens.forEach((screen) => {
+    const calc = cabinetCalc(screen);
+    const grid = grids.get(screen.id);
+    const screenLeft = worldToX(screen.position.x - screen.physicalWidth / 2);
+    const screenTop = worldToY(screen.position.y + screen.physicalHeight / 2);
+    const screenW = screen.physicalWidth * planScale;
+    const screenH = screen.physicalHeight * planScale;
+    doc.setFillColor(18, 40, 58);
+    doc.setDrawColor(30, 132, 185);
+    doc.setLineWidth(0.45);
+    doc.rect(screenLeft, screenTop, screenW, screenH, "FD");
+    doc.setDrawColor(74, 126, 156);
+    doc.setLineWidth(0.1);
+    for (let col = 1; col < calc.cols; col += 1) {
+      doc.line(screenLeft + (col * screenW) / calc.cols, screenTop, screenLeft + (col * screenW) / calc.cols, screenTop + screenH);
+    }
+    for (let rowIndex = 1; rowIndex < calc.rows; rowIndex += 1) {
+      doc.line(screenLeft, screenTop + (rowIndex * screenH) / calc.rows, screenLeft + screenW, screenTop + (rowIndex * screenH) / calc.rows);
+    }
+    doc.setTextColor(20, 25, 32);
+    doc.setFontSize(7.5);
+    doc.text(screen.name.toUpperCase(), screenLeft + screenW / 2, screenTop - 7, { align: "center" });
+    doc.setFontSize(6.5);
+    doc.text(`${screen.physicalWidth.toFixed(2)} m`, screenLeft + screenW / 2, screenTop - 3, { align: "center" });
+    doc.text(`${screen.physicalHeight.toFixed(2)} m`, screenLeft + screenW + 2, screenTop + screenH / 2);
+    doc.setTextColor(118, 214, 255);
+    doc.text(
+      `${calc.cols} × ${calc.rows} · ${calc.total} panels${grid ? ` · grids ${grid.start}–${grid.start + grid.count - 1}` : ""}`,
+      screenLeft + screenW / 2,
+      screenTop + screenH / 2 + 2,
+      { align: "center", maxWidth: Math.max(12, screenW - 3) },
+    );
+  });
+
+  // Overall stage dimensions.
+  doc.setDrawColor(255, 157, 46);
+  doc.setLineWidth(0.3);
+  const widthDimY = floorLineY + 8;
+  doc.line(stageLeft, widthDimY, stageRight, widthDimY);
+  doc.line(stageLeft, widthDimY - 2, stageLeft, widthDimY + 2);
+  doc.line(stageRight, widthDimY - 2, stageRight, widthDimY + 2);
+  doc.setTextColor(35, 39, 47);
+  doc.setFontSize(7);
+  doc.text(`STAGE WIDTH ${stage.width.toFixed(2)} m`, (stageLeft + stageRight) / 2, widthDimY - 1.5, { align: "center" });
+  const heightDimX = planX + 9;
+  doc.line(heightDimX, worldToY(highestPoint), heightDimX, floorLineY);
+  doc.line(heightDimX - 2, worldToY(highestPoint), heightDimX + 2, worldToY(highestPoint));
+  doc.line(heightDimX - 2, floorLineY, heightDimX + 2, floorLineY);
+  doc.text(`MAX HEIGHT ${highestPoint.toFixed(2)} m`, heightDimX + 2, worldToY(highestPoint) + 4);
+
+  // Right-side production summary.
+  doc.setFillColor(238, 241, 246);
+  doc.setDrawColor(190, 198, 210);
+  doc.rect(infoX, planY, infoW, planH, "FD");
+  let infoY = planY + 10;
+  const infoHeading = (label: string) => {
+    doc.setFillColor(24, 31, 42);
+    doc.rect(infoX, infoY - 5.5, infoW, 8, "F");
+    doc.setTextColor(255, 157, 46);
+    doc.setFontSize(8);
+    doc.text(label, infoX + 4, infoY);
+    infoY += 9;
+  };
+  const infoLine = (label: string, value: string) => {
+    doc.setTextColor(88, 98, 113);
+    doc.setFontSize(6.5);
+    doc.text(label.toUpperCase(), infoX + 4, infoY);
+    doc.setTextColor(24, 29, 37);
+    doc.setFontSize(7.5);
+    const lines = doc.splitTextToSize(value, infoW - 42);
+    doc.text(lines, infoX + 38, infoY);
+    infoY += Math.max(6, lines.length * 4);
+  };
+
+  infoHeading("STAGE");
+  infoLine("Overall", `${stage.width} × ${stage.depth} × ${stage.height} m`);
+  infoLine("Shape", (stage.shape ?? "rectangle").replaceAll("-", " "));
+  infoLine("Deck", (stage.deckFinish ?? "matte").replaceAll("-", " "));
+  infoLine("Back wall", stage.backWall ? `${stage.backWallHeight} m high` : "Not included");
+  infoHeading("LED SUMMARY");
+  infoLine("Screens", String(screens.length));
+  infoLine("Panels", String(totalPanels));
+  infoLine("Canvas", `${project.canvas.width} × ${project.canvas.height} px`);
+  infoLine("Refresh", `${project.canvas.refreshRate} Hz`);
+  infoHeading("PROCESSING");
+  project.processors
+    .filter((processor) => screens.some((screen) => (screen.processorId ?? project.processors[0]?.id) === processor.id))
+    .forEach((processor) => {
+      const assigned = screens.filter((screen) => (screen.processorId ?? project.processors[0]?.id) === processor.id);
+      const pixels = assigned.reduce((sum, screen) => sum + screen.pixelWidth * screen.pixelHeight, 0);
+      infoLine(
+        processor.name || `${processor.brand} ${processor.label}`,
+        `${assigned.length} screen${assigned.length === 1 ? "" : "s"} · ${pixels.toLocaleString()} px · ${processor.outputs} ports`,
+      );
+    });
+  infoHeading("DRAWING NOTES");
+  infoLine("View", "Front elevation · dimensions in metres");
+  infoLine("Status", "For production coordination — verify site conditions before build");
+
+  doc.setFontSize(6.5);
+  doc.setTextColor(110, 118, 130);
+  doc.text("Drawing: FP-01  ·  Not to scale  ·  DX5VE Studio", M, H - 7);
+  doc.text(`Generated ${new Date().toLocaleString()}`, W - M, H - 7, { align: "right" });
+
+  // Final page — content canvas and uploaded media
   doc.addPage("a3", "landscape");
   doc.setFillColor(12, 16, 24);
   doc.rect(0, 0, W, 22, "F");
