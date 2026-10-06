@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import {
+  Download,
   Grid3x3,
   Move3d,
   Redo2,
@@ -16,6 +17,7 @@ import {
   type ViewportMode,
   type Workspace,
 } from "@/lib/led/store";
+import { downloadDesignPdf } from "@/lib/led/export-pdf";
 
 const WORKSPACES: Array<{ key: Workspace; label: string }> = [
   { key: "stage", label: "2D / 3D Preview" },
@@ -179,6 +181,13 @@ export function TopBar() {
         className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground"
       >
         <Redo2 className="h-4 w-4" />
+      </button>
+      <button
+        title="Download design spec (PDF)"
+        onClick={() => downloadDesignPdf(project)}
+        className="flex shrink-0 items-center gap-1.5 border border-border px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-foreground hover:bg-secondary"
+      >
+        <Download className="h-3.5 w-3.5" /> Download
       </button>
       <button
         onClick={save}
