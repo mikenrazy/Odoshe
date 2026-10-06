@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Copy, LayoutGrid, Monitor, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Download, LayoutGrid, Upload, Monitor, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
+import { exportProjectFile, readProjectFile } from "@/lib/led/project-transfer";
 import { ProjectSetupDialog } from "@/components/studio/ProjectSetupDialog";
 
 export const Route = createFileRoute("/")({
@@ -36,6 +37,19 @@ function Dashboard() {
   const deleteProject = useEditor((s) => s.deleteProject);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
+  const importProject = useEditor((s) => s.importProject);
+  const onImport = async (file?: File) => {
+    if (!file) return;
+    try {
+      const p = await readProjectFile(file);
+      const existing = useEditor.getState().projects.some((x) => x.id === p.id);
+      if (existing && !confirm(`“${p.name}” already exists here. Replace it with the imported file?`)) return;
+      importProject(p);
+      alert(`Imported “${p.name}”`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Could not read that file");
+    }
+  };
 
   useEffect(() => hydrate(), [hydrate]);
 
@@ -53,9 +67,21 @@ function Dashboard() {
             DX5VE Studio · Stage &amp; LED configuration
           </p>
         </div>
+        <label className="ml-auto flex cursor-pointer items-center gap-2 border border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
+          <Upload className="h-3.5 w-3.5" /> Import Project
+          <input
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={(e) => {
+              void onImport(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </label>
         <button
           onClick={() => open(createSample().id)}
-          className="ml-auto flex items-center gap-2 border border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-2 border border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
         >
           <Sparkles className="h-3.5 w-3.5" /> Sample Project
         </button>
@@ -131,6 +157,13 @@ function Dashboard() {
                   className="ml-auto p-1.5 text-muted-foreground hover:text-foreground"
                 >
                   <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  title="Export project file"
+                  onClick={() => void exportProjectFile(p)}
+                  className="p-1.5 text-muted-foreground hover:text-foreground"
+                >
+                  <Download className="h-3.5 w-3.5" />
                 </button>
                 <button
                   title="Duplicate"
