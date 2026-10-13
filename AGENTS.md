@@ -10,3 +10,6 @@
 <!-- LOVABLE:END -->
 
 - Store user-uploaded project media as lightweight asset references with IndexedDB payloads, because project JSON must remain within browser storage limits.
+- Keep Canvas snapping/intersection rules in a browser-safe pure module with concrete tests, so layout and output padding remain consistent.
+- Render monitor test windows from the editor's current shared media compositor at native logical resolution, with per-window animation and explicit user clicks, because permission and popup restrictions apply.
+- Export Canvas reports separately from stage production PDFs, so existing client delivery page order remains unchanged.

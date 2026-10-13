@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image as ImageIcon, Layers, Square, Trash2, Type, Video } from "lucide-react";
+import { Image as ImageIcon, Layers, Square, Trash2, Type, Video, Plus, Download, Grid2X2, Magnet } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CanvasScreenInspector } from "./CanvasScreenInspector";
+import { MonitorOutputs } from "./MonitorOutputs";
+import { downloadCanvasPdf } from "@/lib/led/export-canvas-pdf";
+import { snapRegion } from "@/lib/led/canvas-layout";
 import { useEditor } from "@/lib/led/store";
 import { newAssetId, putAsset } from "@/lib/led/asset-store";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
@@ -113,11 +118,27 @@ export function ContentCanvasEditor() {
   const [showRegions, setShowRegions] = useState(true);
   const [lockAspect, setLockAspect] = useState(true);
   const [viewWidth, setViewWidth] = useState(1000);
+  const [gridSnap, setGridSnap] = useState(false);
+  const [smartSnap, setSmartSnap] = useState(true);
+  const [gridSize, setGridSize] = useState(16);
+  const [guides, setGuides] = useState<{axis:"x"|"y";value:number}[]>([]);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+  const selected = orderedSelection(project?.media, selectedMediaId);
+  const natural = useNaturalSize(selected?.src, selected?.kind ?? "image");
 
   const measure = useCallback((node: HTMLDivElement | null) => {
     frameRef.current = node;
     if (node) setViewWidth(node.clientWidth);
   }, []);
+
+  useEffect(() => {
+    const node = frameRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(() => setViewWidth(node.clientWidth));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [project?.id]);
 
   const canvas = project?.canvas;
   const scale = canvas ? viewWidth / Math.max(1, canvas.width) : 1;
@@ -138,6 +159,7 @@ export function ContentCanvasEditor() {
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     selectMedia(item.id);
+    updateMedia(item.id, {}, { history: true });
     dragRef.current = {
       id: item.id,
       target: "media",
@@ -156,6 +178,7 @@ export function ContentCanvasEditor() {
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     select(screen.id);
+    updateScreen(screen.id, {}, { history: true });
     dragRef.current = {
       id: screen.id,
       target: "screen",
@@ -171,13 +194,13 @@ export function ContentCanvasEditor() {
     if (!drag) return;
     const dx = (e.clientX - drag.startX) / scale;
     const dy = (e.clientY - drag.startY) / scale;
-    const patch =
-      drag.mode === "move"
-        ? { x: Math.round(drag.origin.x + dx), y: Math.round(drag.origin.y + dy) }
-        : {
-            width: Math.max(16, Math.round(drag.origin.width + dx)),
-            height: Math.max(16, Math.round(drag.origin.height + dy)),
-          };
+    const proposed = drag.mode === "move"
+      ? {...drag.origin,x:Math.round(drag.origin.x+dx),y:Math.round(drag.origin.y+dy)}
+      : {...drag.origin,width:Math.max(1,Math.round(drag.origin.width+dx)),height:Math.max(1,Math.round(drag.origin.height+dy))};
+    const others = [...project.screens.filter(s=>s.id!==drag.id).map(s=>s.content),...project.media.filter(m=>m.id!==drag.id && m.visible)];
+    const snapped = snapRegion(proposed,drag.mode,others,canvas,gridSnap?gridSize:0,smartSnap,6/scale);
+    setGuides(snapped.guides);
+    const patch = snapped.region;
 
     if (drag.target === "media") {
       updateMedia(drag.id, patch, { history: false });
@@ -192,6 +215,7 @@ export function ContentCanvasEditor() {
 
   const endDrag = () => {
     dragRef.current = null;
+    setGuides([]);
   };
 
   const upload = async (files: FileList | null) => {
@@ -213,8 +237,6 @@ export function ContentCanvasEditor() {
     }
   };
 
-  const selected = ordered.find((m) => m.id === selectedMediaId) ?? null;
-  const natural = useNaturalSize(selected?.src, selected?.kind ?? "image");
   const painted = selected ? renderedSize(natural, selected) : null;
   /** contain-fitted media leaves black bars — the previews then look "smaller" */
   const letterboxed =
@@ -307,18 +329,20 @@ export function ContentCanvasEditor() {
   };
 
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto bg-[#05070b] p-6">
+    <div className="min-w-0 flex-1 overflow-y-auto bg-background p-4">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground">
             Content Canvas
           </h2>
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            {canvas.width} × {canvas.height} px digital canvas · media authored in logical pixels
+            {canvas.width} × {canvas.height} px · {project.screens.length} screens
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]">
+          <Button size="sm" variant="outline" onClick={() => useEditor.getState().addScreen()}><Plus/>Add screen</Button>
+          <Button size="sm" variant="outline" disabled={pdfBusy} onClick={async () => {setPdfBusy(true);setPdfError("");try{await downloadCanvasPdf(project);}catch{setPdfError("Could not generate the Canvas report. Please try again.");}finally{setPdfBusy(false);}}}><Download/>{pdfBusy ? "Generating…" : "Canvas PDF"}</Button>
           <label className="cursor-pointer border border-border px-3 py-1.5 text-muted-foreground hover:text-foreground">
             <ImageIcon className="mr-1 inline h-3 w-3" /> Upload media
             <input
@@ -354,6 +378,12 @@ export function ContentCanvasEditor() {
           </button>
         </div>
       </header>
+      {pdfError && <p role="alert" className="mb-2 text-xs text-destructive">{pdfError}</p>}
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <Button size="sm" variant={gridSnap?"secondary":"outline"} aria-pressed={gridSnap} onClick={()=>setGridSnap(v=>!v)}><Grid2X2/>Grid Snap</Button>
+        <label className="flex items-center gap-2">Grid size<input type="number" aria-label="Grid size" min={1} value={gridSize} onChange={e=>setGridSize(Math.max(1,Math.round(Number(e.target.value)||1)))} className="w-16 border border-border bg-input p-1 text-foreground"/>px</label>
+        <Button size="sm" variant={smartSnap?"secondary":"outline"} aria-pressed={smartSnap} onClick={()=>setSmartSnap(v=>!v)}><Magnet/>Smart Snap</Button>
+      </div>
 
       <div
         ref={measure}
@@ -361,7 +391,7 @@ export function ContentCanvasEditor() {
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
         onPointerDown={() => selectMedia(null)}
-        className="relative w-full select-none overflow-hidden border border-border bg-black"
+        className="canvas-surface relative w-full touch-none select-none overflow-hidden border border-border"
         style={{ height: canvas.height * scale }}
       >
         {ordered.map((item) => (
@@ -421,7 +451,7 @@ export function ContentCanvasEditor() {
                 key={screen.id}
                 onPointerDown={(e) => onScreenPointerDown(e, screen, "move")}
                 className={`absolute cursor-move border border-dashed ${
-                  screen.id === selectedId ? "border-primary bg-primary/5" : "border-[#7fd4ff]/70"
+                  screen.id === selectedId ? "border-primary bg-primary/5" : "border-accent/70"
                 }`}
                 style={{
                   left: screen.content.x * scale,
@@ -429,29 +459,33 @@ export function ContentCanvasEditor() {
                   width: screen.content.width * scale,
                   height: screen.content.height * scale,
                   zIndex: 999,
+                  borderColor: screen.color,
                 }}
               >
-                <span className="pointer-events-none absolute left-1 top-1 bg-[#7fd4ff]/15 px-1 font-mono text-[9px] uppercase leading-relaxed tracking-wider text-[#7fd4ff]">
+                <span className="pointer-events-none absolute left-1 top-1 max-w-[calc(100%-8px)] truncate bg-background/85 px-1 font-mono text-[9px] uppercase leading-relaxed text-accent">
                   {screen.name} · {proc ? `${proc.brand} ${proc.label}` : "UNPATCHED"} · RJ45 PORT{" "}
                   {screen.rj45Port} · OUT {screen.processorOutput}
                   {assignment
                     ? ` · GRID ${assignment.start}–${assignment.start + assignment.count - 1}`
                     : ""}
                 </span>
-                <span className="pointer-events-none absolute bottom-1 left-1 bg-black/40 px-1 font-mono text-[9px] text-muted-foreground">
+                <span className="pointer-events-none absolute bottom-1 left-1 max-w-[calc(100%-8px)] truncate bg-background/85 px-1 font-mono text-[9px] text-muted-foreground">
                   {screen.content.x},{screen.content.y} · {screen.content.width}×
                   {screen.content.height} px
                 </span>
                 <span
                   onPointerDown={(e) => onScreenPointerDown(e, screen, "resize")}
-                  className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-[#7fd4ff]"
+                  className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize bg-accent"
                 />
               </div>
             );
           })}
 
 
+        {guides.map((g,i)=><div key={i} className="pointer-events-none absolute z-[1001] bg-primary" style={g.axis==="x"?{left:g.value*scale,top:0,bottom:0,width:1}:{top:g.value*scale,left:0,right:0,height:1}}/>)}
       </div>
+
+      <CanvasScreenInspector />
 
       <section className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="border border-border bg-card">
@@ -705,8 +739,13 @@ export function ContentCanvasEditor() {
           </div>
         )}
       </section>
+      <MonitorOutputs />
     </div>
   );
+}
+
+function orderedSelection(media: MediaItem[] | undefined, id: string | null) {
+  return media?.find(m => m.id === id) ?? null;
 }
 
 /** Number box that lets you type freely and applies on Enter / leaving the field. */

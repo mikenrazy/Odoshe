@@ -5,7 +5,7 @@ interface NumberFieldProps {
   value: number;
   onChange: (value: number) => void;
   step?: number;
-  min?: number;
+  min?: number | undefined;
   max?: number;
   suffix?: string;
   disabled?: boolean;
