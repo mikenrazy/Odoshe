@@ -82,12 +82,15 @@ function drawFitted(
 export async function renderComposite(
   canvasConfig: CanvasConfig,
   media: MediaItem[],
+  options?: { target?: HTMLCanvasElement; nativeResolution?: boolean },
 ): Promise<HTMLCanvasElement | null> {
   if (typeof document === "undefined") return null;
-  const scale = Math.min(1, MAX_COMPOSITE_WIDTH / Math.max(1, canvasConfig.width));
-  const el = document.createElement("canvas");
-  el.width = Math.max(2, Math.round(canvasConfig.width * scale));
-  el.height = Math.max(2, Math.round(canvasConfig.height * scale));
+  const scale = options?.nativeResolution ? 1 : Math.min(1, MAX_COMPOSITE_WIDTH / Math.max(1, canvasConfig.width));
+  const el = options?.target ?? document.createElement("canvas");
+  const width = Math.max(2, Math.round(canvasConfig.width * scale));
+  const height = Math.max(2, Math.round(canvasConfig.height * scale));
+  if (el.width !== width) el.width = width;
+  if (el.height !== height) el.height = height;
   const ctx = el.getContext("2d");
   if (!ctx) return null;
 
