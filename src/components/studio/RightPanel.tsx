@@ -24,10 +24,18 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: "summary", label: "Summary" },
 ];
 
+const STEPS: Array<{ n: string; label: string; hint: string; tabs: Tab[] }> = [
+  { n: "01", label: "Stage", hint: "Design the LED stage — stage, walls, curves, wings, U-shapes, overhead", tabs: ["stage", "setup", "gear"] },
+  { n: "02", label: "Screens", hint: "Configure size, pitch, resolution, panels and processors", tabs: ["led", "video"] },
+  { n: "03", label: "Map", hint: "Map content on the canvas across screens", tabs: ["canvas"] },
+  { n: "04", label: "Preview", hint: "Upload media and preview the show from any camera angle", tabs: ["assets", "layers", "summary"] },
+];
+
 export function RightPanel() {
   const project = useEditor((s) => s.project);
   const selectedId = useEditor((s) => s.selectedId);
   const selectedEquipmentId = useEditor((s) => s.selectedEquipmentId);
+  const setCamera = useEditor((s) => s.setCamera);
   const [tab, setTab] = useState<Tab>("stage");
 
   useEffect(() => {
@@ -42,6 +50,29 @@ export function RightPanel() {
 
   return (
     <aside className="flex h-full w-[312px] shrink-0 flex-col border-l border-border bg-card">
+      <ol aria-label="Workflow" className="grid shrink-0 grid-cols-4 gap-px border-b border-border bg-border/60">
+        {STEPS.map((s) => {
+          const active = s.tabs.includes(tab);
+          return (
+            <li key={s.n}>
+              <button
+                type="button"
+                title={s.hint}
+                onClick={() => {
+                  setTab(s.tabs[0]!);
+                  if (s.n === "04") setCamera("perspective");
+                }}
+                className={`flex w-full flex-col items-start px-2 py-1.5 text-left transition-colors ${
+                  active ? "bg-secondary text-foreground" : "bg-card text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className={`font-mono text-[10px] ${active ? "text-primary" : ""}`}>{s.n}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em]">{s.label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
       <nav className="grid shrink-0 grid-cols-4 gap-px border-b border-border bg-border/60">
         {TABS.map((t) => (
           <button
