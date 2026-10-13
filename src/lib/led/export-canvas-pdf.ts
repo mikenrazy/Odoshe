@@ -20,19 +20,26 @@ export async function downloadCanvasPdf(project: Project) {
   const x=(W-w)/2,y=40+(210-h)/2;
   doc.setFillColor(0,0,0);doc.rect(x,y,w,h,"F");
   if(composite) doc.addImage(composite.toDataURL("image/jpeg",0.92),"JPEG",x,y,w,h);
+  const badgePositions: {x:number;y:number}[] = [];
   project.screens.forEach((screen,i) => {
     const r=screen.content;
     const left=Math.max(0,r.x),top=Math.max(0,r.y),right=Math.min(project.canvas.width,r.x+r.width),bottom=Math.min(project.canvas.height,r.y+r.height);
     if(right<=left || bottom<=top)return;
     doc.setDrawColor(screen.color);doc.setLineWidth(0.5);doc.rect(x+left*scale,y+top*scale,(right-left)*scale,(bottom-top)*scale);
-    doc.setFillColor(12,16,24);doc.rect(x+left*scale,y+top*scale,Math.min(12,(right-left)*scale),5,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(7);doc.text(String(i+1),x+left*scale+1,y+top*scale+3.5);
+    let badgeX=x+left*scale;
+    const badgeY=y+top*scale;
+    while(badgePositions.some(b=>Math.abs(b.x-badgeX)<12 && Math.abs(b.y-badgeY)<5)) badgeX+=12;
+    if(badgeX+10<=x+right*scale && badgeY+5<=y+bottom*scale) {
+      badgePositions.push({x:badgeX,y:badgeY});
+      doc.setFillColor(12,16,24);doc.rect(badgeX,badgeY,10,5,"F");
+      doc.setTextColor(255,255,255);doc.setFontSize(7);doc.text(String(i+1),badgeX+1,badgeY+3.5);
+    }
   });
   doc.setTextColor(40,45,52);doc.setFontSize(9);doc.text(`Canvas ${project.canvas.width} × ${project.canvas.height} px · ${project.screens.length} screens · ${project.canvas.refreshRate} Hz`,M,266);
   doc.setFontSize(7);doc.text(`Generated ${new Date().toLocaleString()} · DX5VE Studio`,M,H-9);
   doc.addPage();heading("CANVAS · SCREEN SCHEDULE");
   let rowY=39;
-  const widths=[14,68,55,55,54,62,70];
+  const widths=[14,68,55,55,54,62,64];
   const row=(values:string[],header=false) => {
     const lines=values.map((v,i)=>doc.splitTextToSize(v,(widths[i]??40)-4));
     const rh=Math.max(9,...lines.map(l=>l.length*4+3));
