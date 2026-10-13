@@ -30,6 +30,7 @@ import { createRiser, STAGE_PRESETS } from "./stage-shapes";
 import { planPortDistribution } from "./ports";
 
 import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
+import { buildLayout, type LayoutKind } from "./layouts";
 
 const STORAGE_KEY = "dx5ve.led-designer.projects.v1";
 
@@ -339,6 +340,7 @@ interface EditorState {
 
 
   addScreen: (presetKey?: string) => void;
+  addLayout: (kind: LayoutKind) => void;
   updateScreen: (id: string, patch: Partial<LedScreen>, options?: { history?: boolean }) => void;
   applyPreset: (id: string, presetKey: string) => void;
   /** re-derive the LED resolution from pixel pitch + cabinet grid */
@@ -685,6 +687,15 @@ export const useEditor = create<EditorState>((set, get) => {
       screen.gridOrder = Math.max(0, ...project.screens.map((s) => s.gridOrder ?? 0)) + 1;
       mutate((p) => ({ ...p, screens: [...p.screens, screen] }));
       set({ selectedId: screen.id, selectedEquipmentId: null, status: `Added ${screen.name}` });
+    },
+
+    addLayout: (kind) => {
+      const project = get().project;
+      if (!project) return;
+      let order = Math.max(0, ...project.screens.map((s) => s.gridOrder ?? 0));
+      const screens = buildLayout(kind, project.screens.length).map((s) => ({ ...s, gridOrder: ++order }));
+      mutate((p) => ({ ...p, screens: [...p.screens, ...screens] }));
+      set({ selectedId: screens[0]?.id ?? null, selectedEquipmentId: null, status: `Added ${screens.length} screens` });
     },
 
     updateScreen: (id, patch, options) =>
