@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LAYOUTS } from "@/lib/led/layouts";
 import {
   Boxes,
   ChevronRight,
@@ -50,6 +51,18 @@ export function LeftSidebar() {
         >
           <Plus className="h-3.5 w-3.5" /> Add LED Screen
         </button>
+        <div className="mt-2 grid grid-cols-2 gap-1">
+          {LAYOUTS.map((l) => (
+            <button
+              key={l.key}
+              title={l.description}
+              onClick={() => useEditor.getState().addLayout(l.key)}
+              className="border border-border bg-secondary/40 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-secondary"
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="border-b border-border">
