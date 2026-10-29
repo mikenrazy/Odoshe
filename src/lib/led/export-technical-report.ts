@@ -6,7 +6,8 @@ import { validateMapping } from "./mapping";
 import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
 import { getAsset } from "./asset-store";
 import { processorGuide } from "./processor-guide";
-import { vividColour } from "./pixel-map-export";
+import { screenPaint, vividColour } from "./pixel-map-export";
+let PAINT = new Map<string, [number, number, number]>();
 
 const W = 297, H = 210, M = 12;
 type C3 = [number, number, number];
@@ -132,7 +133,7 @@ function badge(doc: JsPDF, x: number, y: number, big: string, small: string, bg:
 /** Sample-style pixel map: checkerboard, numbers, test-card circles, name + resolution pill. */
 function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number, h: number, gridStart: number, opts: { badges?: boolean; logo?: boolean } = {}) {
   const c = cabinetCalc(screen);
-  const base = vividColour(screen.color);
+  const base = PAINT.get(screen.id) ?? vividColour(screen.color);
   const cw = w / c.cols, ch = h / c.rows;
   for (let r = 0; r < c.rows; r++) for (let col = 0; col < c.cols; col++) {
     doc.setFillColor(...((r + col) % 2 ? shade(base, 0.72) : base));
@@ -151,7 +152,7 @@ function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number
     doc.circle(x + w / 2, y + h / 2, R, "S");
     doc.setLineDashPattern([0.8, 0.8], 0);
     doc.circle(x + w / 2, y + h / 2, R * 0.6, "S");
-    if (w > h * 1.6) { doc.circle(x + w * 0.18, y + h / 2, R, "S"); doc.circle(x + w * 0.82, y + h / 2, R, "S"); }
+    if (w > h * 2.8) { doc.circle(x + w * 0.18, y + h / 2, R, "S"); doc.circle(x + w * 0.82, y + h / 2, R, "S"); }
     doc.rect(x, y, w, h, "S");
     doc.setLineDashPattern([], 0);
   });
@@ -166,7 +167,7 @@ function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number
   if (opts.logo) logo(doc, x + w / 2 - big * 1.2, y + h / 2 + big * 0.35, big * 2.4, big * 0.9);
   doc.setFont("helvetica", "normal");
   if (opts.badges !== false) {
-    const bs = Math.max(4, Math.min(9, h / 7));
+    const bs = Math.max(2.5, Math.min(9, h / 7, w / 9));
     badge(doc, x + 0.5, y + 0.5, `${c.area.toFixed(0)} m²`, `${+c.actualWidth.toFixed(2)} x ${+c.actualHeight.toFixed(2)} m`, [10, 10, 10], GREEN, "l", bs);
     badge(doc, x + w - 0.5, y + 0.5, `P${screen.pixelPitch}`, `${(c.cabinetWidth * 100).toFixed(0)} x ${(c.cabinetHeight * 100).toFixed(0)} cm`, GREEN, [10, 10, 10], "r", bs);
   }
@@ -328,6 +329,7 @@ export async function buildTechnicalReport(project: Project) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const grids = computeGridNumbers(project);
+  PAINT = screenPaint(project);
   const layout = globalLayout(project);
   const ps = powerSettings(project);
   const screens = project.screens.filter((s) => s.visible !== false);
