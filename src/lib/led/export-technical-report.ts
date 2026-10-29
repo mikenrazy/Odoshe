@@ -89,6 +89,12 @@ function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number
 }
 
 export async function downloadTechnicalReport(project: Project) {
+  const doc = await buildTechnicalReport(project);
+  return doc;
+}
+
+/** Builds the multipage report from saved project data. */
+export async function buildTechnicalReport(project: Project) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const grids = computeGridNumbers(project);
@@ -228,5 +234,5 @@ export async function downloadTechnicalReport(project: Project) {
   table(doc, M, vEnd + 6, [{ h: "ITEM", w: 90 }, { h: "MODEL", w: 55 }, { h: "QTY", w: 15 }, { h: "LOCATION", w: 45 }, { h: "SPEC", w: 68 }],
     billOfMaterials(project).slice(0, Math.max(3, Math.floor((H - vEnd - 22) / 5.2) - 1)).map((r) => [r.item, r.model, String(r.qty), r.location, r.spec]));
 
-  doc.save(`${project.name.replace(/[^\w\- ]+/g, "").trim() || "project"}-technical-report.pdf`);
+  return doc;
 }
