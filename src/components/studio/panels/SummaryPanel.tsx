@@ -2,6 +2,7 @@ import { useEditor } from "@/lib/led/store";
 import { aspectLabel, cabinetCalc, projectSummary } from "@/lib/led/calc";
 import { formatArea, formatLength } from "@/lib/led/units";
 import { Readout, Section } from "../Field";
+import { EngineeringSection } from "../EngineeringSection";
 
 export function SummaryPanel() {
   const project = useEditor((s) => s.project);
@@ -79,6 +80,7 @@ export function SummaryPanel() {
           );
         })}
       </Section>
+      <EngineeringSection />
     </>
   );
 }
