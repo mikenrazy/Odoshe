@@ -48,6 +48,9 @@ export function SetupPanel() {
 
       <ReportLogoSection />
 
+      <ReportLogoSection theme="light" />
+
+
 
       <Section title="Notes">
         <TextAreaField
