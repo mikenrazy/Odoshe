@@ -12,6 +12,7 @@ import {
 import { Readout, Section, SelectField } from "./Field";
 import { PortMap } from "./PortMap";
 import { processorPortMap, portsNeeded } from "@/lib/led/ports";
+import { screenChains } from "@/lib/led/engineering";
 
 interface Props {
   screen: LedScreen;
@@ -32,10 +33,13 @@ export function ProcessorSection({ screen }: Props) {
   const group = screen.groupId ? groupResolution(project, screen.groupId) : null;
   const chain = processorChain(project, active);
   const portMapData = processorPortMap(project, active);
-  const span = Math.max(1, Math.round(screen.portSpan ?? 1));
+  const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === active.id && s.groupId === g.id));
+  const chains = screenChains(project, screen);
+  const span = shared ? chains.length : Math.max(1, Math.round(screen.portSpan ?? 1));
+  const startPort = shared ? chains[0]?.port ?? screen.rj45Port : screen.rj45Port;
   const needed = portsNeeded(screen, active);
   const myPorts = portMapData.ports.filter(
-    (p) => p.port >= screen.rj45Port && p.port < screen.rj45Port + span,
+    (p) => p.port >= startPort && p.port < startPort + span,
   );
   const screenPixels = myPorts.reduce((sum, p) => sum + p.pixels, 0);
   const scalingLabel: Record<string, string> = {
@@ -54,7 +58,7 @@ export function ProcessorSection({ screen }: Props) {
         options={processors.map((p) => ({ value: p.id, label: processorName(p) }))}
         onChange={(processorId) => updateScreen(screen.id, { processorId })}
       />
-      <SelectField
+      {!shared && <SelectField
         label="RJ45 Port"
         value={String(screen.rj45Port)}
         options={Array.from({ length: active.outputs }, (_, i) => ({
@@ -62,7 +66,7 @@ export function ProcessorSection({ screen }: Props) {
           label: `RJ45 Port ${i + 1}`,
         }))}
         onChange={(v) => updateScreen(screen.id, { rj45Port: Number(v) })}
-      />
+      />}
       <SelectField
         label="Logical Output"
         value={String(screen.processorOutput)}
@@ -78,7 +82,7 @@ export function ProcessorSection({ screen }: Props) {
           ["SOURCE IN", `${active.inputWidth ?? 1920} × ${active.inputHeight ?? 1080} px`],
           ["CAPACITY", `${active.maxPixels.toLocaleString()} px`],
           ["SCREEN LOAD", `${load.toFixed(1)}%`, load > 100 ? "text-destructive" : undefined],
-          ["PHYSICAL PORT", `RJ45 Port ${screen.rj45Port}`, "text-right text-[#7fd4ff]"],
+          ["PHYSICAL PORT", `RJ45 Port ${startPort}`, "text-right text-primary"],
           ["OUTPUT MAX", `${active.outputWidth} × ${active.outputHeight}`],
           ...(group
             ? ([
@@ -93,8 +97,8 @@ export function ProcessorSection({ screen }: Props) {
           [
             "PORT SPAN",
             span > 1
-              ? `RJ45 ${screen.rj45Port}–${screen.rj45Port + span - 1} (${span} ports)`
-              : `RJ45 ${screen.rj45Port} (1 port)`,
+              ? `RJ45 ${startPort}–${startPort + span - 1} (${span} ports)`
+              : `RJ45 ${startPort} (1 port)`,
             needed > span ? "text-right text-destructive" : "text-right text-[#7fd4ff]",
           ],
           [

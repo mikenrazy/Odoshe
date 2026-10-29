@@ -1,6 +1,6 @@
 import type { LedScreen, Project, ProcessorModel } from "./types";
 import { PROCESSOR_CATALOG } from "./types";
-import { screenChains } from "./engineering";
+import { screenChains, processorLayout } from "./engineering";
 
 /** Max screen width/height a processor can load across all its ports (NovaStar manuals: 10,240 × 8,192 for VX1000 / VX Pro). */
 export function loadLimits(proc: ProcessorModel) {
@@ -242,7 +242,8 @@ export function processorChain(project: Project, processor: ProcessorModel): Pro
   const screens = project.screens.filter((s) => s.processorId === processor.id);
   const sourceWidth = processor.inputWidth ?? 1920;
   const sourceHeight = processor.inputHeight ?? 1080;
-  const box = boundingBox(screens);
+  const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && screens.some((s) => s.groupId === g.id));
+  const box = shared ? processorLayout(project, processor.id) : boundingBox(screens);
   const ledPixels = screens.reduce((sum, s) => sum + s.pixelWidth * s.pixelHeight, 0);
   const portsUsed = portsRequired(project, processor);
 

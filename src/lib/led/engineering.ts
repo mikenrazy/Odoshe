@@ -129,6 +129,19 @@ function portCapacity(project: Project, screen: LedScreen) {
   return { proc, max: Math.max(1, proc?.portMaxPixels ?? 650_000) };
 }
 
+/** Shared sets are ordered by stage X, but numbered independently for each processor. */
+export function processorScreens(project: Project, processorId: string) {
+  const screens = project.screens.filter((s) => s.processorId === processorId && s.visible !== false);
+  const emitted = new Set<string>();
+  return screens.flatMap((s) => {
+    const shared = project.groups?.some((g) => g.id === s.groupId && g.mappingMode === "shared-input");
+    if (!shared || !s.groupId) return [s];
+    if (emitted.has(s.groupId)) return [];
+    emitted.add(s.groupId);
+    return screens.filter((m) => m.groupId === s.groupId).sort((a, b) => a.position.x - b.position.x);
+  });
+}
+
 /** Columns each port can carry without exceeding its pixel capacity (whole columns only). */
 export function colsPerPortFor(project: Project, screen: LedScreen) {
   const c = cabinetCalc(screen);
@@ -169,7 +182,7 @@ export function screenChains(project: Project, screen: LedScreen): CabinetChain[
   const pxPerCab = (screen.pixelWidth / c.cols) * (screen.pixelHeight / c.rows);
   const per = cabinetsPerPortFor(project, screen);
   let firstPort = 1;
-  for (const other of project.screens) {
+  for (const other of processorScreens(project, screen.processorId)) {
     if (other.id === screen.id) break;
     if (other.processorId === screen.processorId && other.visible !== false)
       firstPort += Math.ceil(cabinetCalc(other).total / cabinetsPerPortFor(project, other));
@@ -181,6 +194,44 @@ export function screenChains(project: Project, screen: LedScreen): CabinetChain[
     const colsUsed = path.map((p) => p[0]);
     return { port, colStart: Math.min(...colsUsed), colEnd: Math.max(...colsUsed), cabinets, pixels, loadPct: (pixels / max) * 100, path, overflow: proc ? port > proc.outputs : false };
   });
+}
+
+/** Processor-local pixels are not global project-canvas coordinates or physical metres. */
+export function processorLayout(project: Project, processorId: string) {
+  const proc = project.processors.find((p) => p.id === processorId);
+  const screens = processorScreens(project, processorId);
+  const hasSet = screens.some((s) => project.groups?.some((g) => g.id === s.groupId && g.mappingMode === "shared-input"));
+  const minX = Math.min(...screens.map((s) => s.content.x), 0);
+  const originX = screens.length ? Math.min(...screens.map((s) => s.content.x)) : minX;
+  const originY = screens.length ? Math.min(...screens.map((s) => s.content.y)) : 0;
+  let cursor = 0;
+  const placements = screens.map((s) => {
+    const x = hasSet ? cursor : s.content.x - originX;
+    const y = hasSet ? 0 : s.content.y - originY;
+    if (hasSet) cursor += s.pixelWidth;
+    return { screenId: s.id, name: s.name, x, y, width: s.pixelWidth, height: s.pixelHeight, canvasRegion: { ...s.content }, chains: screenChains(project, s) };
+  });
+  const width = Math.max(0, ...placements.map((p) => p.x + p.width));
+  const height = Math.max(0, ...placements.map((p) => p.y + p.height));
+  const sourceWidth = proc?.inputWidth ?? 1920;
+  const sourceHeight = proc?.inputHeight ?? 1080;
+  const totalPixels = screens.reduce((n, s) => n + s.pixelWidth * s.pixelHeight, 0);
+  const issues: string[] = [];
+  if (!proc) issues.push("No processor assigned.");
+  if (proc && totalPixels > proc.maxPixels) issues.push(`LED load ${totalPixels} px exceeds ${proc.maxPixels} px.`);
+  if (proc && (sourceWidth > (proc.maxInputWidth ?? 1920) || sourceHeight > (proc.maxInputHeight ?? 1080) || sourceWidth < (proc.minInputWidth ?? 1) || sourceHeight < (proc.minInputHeight ?? 1))) issues.push("Source resolution is outside the processor input range.");
+  for (const p of placements) {
+    if (p.chains.some((c) => c.overflow || c.loadPct > 100)) issues.push(`${p.name}: data ports exceed capacity.`);
+  }
+  const exact = width === sourceWidth && height === sourceHeight;
+  return {
+    processor: proc, width, height, sourceWidth, sourceHeight, totalPixels, issues, exact,
+    placements: placements.map((p) => {
+      const x = width ? Math.round(p.x / width * sourceWidth) : 0;
+      const right = width ? Math.round((p.x + p.width) / width * sourceWidth) : 0;
+      return { ...p, sourceRegion: { x, y: height ? Math.round(p.y / height * sourceHeight) : 0, width: right - x, height: height ? Math.round(p.height / height * sourceHeight) : 0 } };
+    }),
+  };
 }
 
 /** Estimated CAT6 lengths: home run (operator-set) plus cabinet-to-cabinet jumpers along the chain. */

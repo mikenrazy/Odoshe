@@ -1,5 +1,6 @@
 import { derivedResolution } from "./resolution";
 import type { LedScreen, ProcessorModel, Project } from "./types";
+import { processorScreens, screenChains } from "./engineering";
 
 /**
  * Processor → Output Ports → LED Sections → LED Cabinets.
@@ -130,7 +131,8 @@ export function allocateScreenPorts(
   project: Project,
   processor: ProcessorModel,
 ): { allocations: ScreenAllocation[]; portsRequired: number; fits: boolean } {
-  const screens = [...project.screens.filter((s) => s.processorId === processor.id)].sort(
+  const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
+  const screens = shared ? processorScreens(project, processor.id) : [...project.screens.filter((s) => s.processorId === processor.id)].sort(
     (a, b) => (a.gridOrder ?? 0) - (b.gridOrder ?? 0),
   );
   const outputs = Math.max(1, processor.outputs);
@@ -147,7 +149,7 @@ export function allocateScreenPorts(
   let spare = outputs - portsRequired;
 
   // Spread spare ports so the busiest chain is relieved first.
-  while (spare > 0) {
+  while (!shared && spare > 0) {
     const target = allocations
       .filter((a) => a.ports < a.cabinets)
       .sort((a, b) => b.cabinets / b.ports - a.cabinets / a.ports)[0];
@@ -156,7 +158,7 @@ export function allocateScreenPorts(
     spare -= 1;
   }
 
-  for (const a of allocations) a.chunks = balancedChunks(a.cabinets, a.ports);
+  for (const a of allocations) a.chunks = shared ? screenChains(project, a.screen).map((c) => c.cabinets) : balancedChunks(a.cabinets, a.ports);
 
   return { allocations, portsRequired, fits: portsRequired <= outputs };
 }
@@ -234,9 +236,14 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
 
   let cursor = 1;
   for (const alloc of allocations) {
-    const slices = screenSlices(alloc.screen, processor, alloc.ports);
+    const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
+    const slices = shared ? screenChains(project, alloc.screen).map((ch) => {
+      const c = derivedResolution(alloc.screen);
+      const cols = ch.colEnd - ch.colStart + 1;
+      return { screenId: alloc.screen.id, screenName: alloc.screen.name, cabinetCols: cols, cabinetRows: c.rows, cabinets: ch.cabinets, width: cols * c.cabinetPixelWidth, height: c.rows * c.cabinetPixelHeight, pixels: ch.pixels };
+    }) : screenSlices(alloc.screen, processor, alloc.ports);
     // Honour the patched start port when it still leaves room for the chain.
-    const patched = Math.max(1, Math.round(alloc.screen.rj45Port || cursor));
+    const patched = shared ? screenChains(project, alloc.screen)[0]?.port ?? cursor : Math.max(1, Math.round(alloc.screen.rj45Port || cursor));
     let start = patched;
     if (fits) {
       if (patched < cursor || patched + slices.length - 1 > outputs) start = cursor;

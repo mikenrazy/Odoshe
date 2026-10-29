@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, Link2, Unlink } from "lucide-react";
-import { useEditor, groupResolution } from "@/lib/led/store";
+import { useEditor } from "@/lib/led/store";
 import {
   PROCESSOR_CATALOG,
   processorName,
@@ -11,6 +11,8 @@ import { aspectLabel } from "@/lib/led/calc";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { NumberField, Readout, Section, SelectField, TextField } from "../Field";
 import { PortMap } from "../PortMap";
+import { ScreenSetsSection } from "../ScreenSetsSection";
+import { screenChains } from "@/lib/led/engineering";
 
 function sourceOptions(proc: ProcessorModel) {
   const catalog = PROCESSOR_CATALOG.find((c) => c.key === (proc.modelKey ?? proc.id));
@@ -32,16 +34,11 @@ export function ProcessorPanel() {
   const updateProcessor = useEditor((s) => s.updateProcessor);
   const removeProcessor = useEditor((s) => s.removeProcessor);
   const updateScreen = useEditor((s) => s.updateScreen);
-  const addGroup = useEditor((s) => s.addGroup);
-  const removeGroup = useEditor((s) => s.removeGroup);
-  const updateGroup = useEditor((s) => s.updateGroup);
   const setScreenGroup = useEditor((s) => s.setScreenGroup);
-  const splitGroupResolution = useEditor((s) => s.splitGroupResolution);
   const applySource = useEditor((s) => s.applyProcessorSourceToCanvas);
   const select = useEditor((s) => s.select);
 
   const [model, setModel] = useState(PROCESSOR_CATALOG[0]!.key);
-  const [groupName, setGroupName] = useState("Side LED (L+R)");
 
   if (!project) return null;
   const groups = project.groups ?? [];
@@ -193,82 +190,7 @@ export function ProcessorPanel() {
         })}
       </Section>
 
-      <Section title="LED Groups">
-        <div className="mb-2 flex items-end gap-1">
-          <div className="flex-1">
-            <TextField label="Group Name" value={groupName} onChange={setGroupName} />
-          </div>
-          <button
-            type="button"
-            onClick={() => addGroup(groupName)}
-            className="mb-[6px] flex items-center gap-1 border border-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-primary"
-          >
-            <Plus className="h-3 w-3" /> Group
-          </button>
-        </div>
-        {groups.length === 0 && (
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Create a group to treat separate sections — e.g. the left and right side screens — as
-            one continuous logical screen on a single processor output.
-          </p>
-        )}
-        {groups.map((group) => {
-          const members = project.screens.filter((s) => s.groupId === group.id);
-          const px = members.reduce((sum, s) => sum + s.pixelWidth * s.pixelHeight, 0);
-          const lead = members[0];
-          const proc = project.processors.find((p) => p.id === lead?.processorId);
-          const res = groupResolution(project, group.id);
-          const perSection = members.length
-            ? `${Math.floor((proc?.inputWidth ?? project.canvas.width) / members.length)} × ${
-                proc?.inputHeight ?? project.canvas.height
-              }`
-            : "—";
-          return (
-            <div key={group.id} className="border-b border-border/60 py-2 last:border-0">
-              <div className="flex items-center justify-between gap-1">
-                <input
-                  value={group.name}
-                  onChange={(e) => updateGroup(group.id, { name: e.target.value })}
-                  className="w-full bg-transparent text-[11px] font-semibold uppercase tracking-wider text-foreground outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeGroup(group.id)}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Unlink className="h-3 w-3" />
-                </button>
-              </div>
-              <Readout
-                rows={[
-                  ["SECTIONS", members.length ? members.map((m) => m.name).join(" + ") : "None"],
-                  [
-                    "GROUP RES",
-                    res ? `${res.width} × ${res.height} px` : "—",
-                    "text-right text-primary",
-                  ],
-                  ["SOURCE IN", `${proc?.inputWidth ?? "—"} × ${proc?.inputHeight ?? "—"} px`],
-                  ["PER SECTION", perSection, "text-right text-[#7fd4ff]"],
-                  ["TOTAL PX", px.toLocaleString()],
-                  [
-                    "DRIVEN BY",
-                    proc ? `${processorName(proc)} · RJ45 ${lead?.rj45Port}` : "—",
-                    "text-right text-primary",
-                  ],
-                ]}
-              />
-              <button
-                type="button"
-                onClick={() => splitGroupResolution(group.id)}
-                className="mt-1 w-full border border-border px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
-              >
-                Split source equally across sections
-              </button>
-            </div>
-          );
-        })}
-
-      </Section>
+      <ScreenSetsSection />
 
       <Section title="Output Assignment">
         {project.screens.length === 0 && (
@@ -277,6 +199,8 @@ export function ProcessorPanel() {
         {project.screens.map((screen) => {
           const proc = project.processors.find((p) => p.id === screen.processorId);
           const assignment = grids.get(screen.id);
+          const shared = groups.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === screen.processorId));
+          const chains = screenChains(project, screen);
           return (
             <div key={screen.id} className="border-b border-border/60 py-2 last:border-0">
               <button
@@ -305,7 +229,7 @@ export function ProcessorPanel() {
                 }))}
                 onChange={(processorId) => updateScreen(screen.id, { processorId })}
               />
-              <SelectField
+              {!shared && <SelectField
                 label="RJ45 Port"
                 value={String(screen.rj45Port)}
                 options={Array.from({ length: proc?.outputs ?? 4 }, (_, i) => ({
@@ -313,7 +237,7 @@ export function ProcessorPanel() {
                   label: `RJ45 Port ${i + 1}`,
                 }))}
                 onChange={(v) => updateScreen(screen.id, { rj45Port: Number(v) })}
-              />
+              />}
               <SelectField
                 label="Logical Output"
                 value={String(screen.processorOutput)}
@@ -326,6 +250,7 @@ export function ProcessorPanel() {
               <Readout
                 rows={[
                   ["LED RES", `${screen.pixelWidth} × ${screen.pixelHeight} px`],
+                  ...(shared ? [["DATA CABLES", `P${chains[0]?.port ?? "—"}–P${chains.at(-1)?.port ?? "—"}`, "text-primary"] as [string, string, string]] : []),
                   [
                     "GRID",
                     assignment
