@@ -36,11 +36,23 @@ export function buildDxf(project: Project): string {
 
 /* ---------------------------------------------------- native pixel map */
 
-function hexToRgb(hex: string): [number, number, number] {
+/** Screen colour made vivid enough for a test card (pale/grey picks become saturated). */
+export function vividColour(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   const n = m ? parseInt(m[1]!, 16) : 0x1e88ff;
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  const l0 = (mx + mn) / 2, s0 = d ? d / (1 - Math.abs(2 * l0 - 1)) : 0;
+  if (s0 < 0.15) return [30, 136, 255];
+  const S = Math.max(s0, 0.85), L = Math.min(Math.max(l0, 0.45), 0.55);
+  const C = (1 - Math.abs(2 * L - 1)) * S, X = C * (1 - Math.abs(((h / 60) % 2) - 1)), M0 = L - C / 2;
+  const [a, bb, c] = h < 60 ? [C, X, 0] : h < 120 ? [X, C, 0] : h < 180 ? [0, C, X] : h < 240 ? [0, X, C] : h < 300 ? [X, 0, C] : [C, 0, X];
+  return [Math.round((a + M0) * 255), Math.round((bb + M0) * 255), Math.round((c + M0) * 255)];
 }
+const hexToRgb = vividColour;
 
 /** Draws the pixel map test card at the canvas' native resolution (browser only). */
 export async function renderPixelMap(project: Project, logo?: string | null): Promise<HTMLCanvasElement> {
@@ -82,7 +94,7 @@ export async function renderPixelMap(project: Project, logo?: string | null): Pr
     const pw = g.measureText(pill).width + big * 0.3;
     g.fillStyle = "#0a0a0a"; g.fillRect(p.x + p.width / 2 - pw / 2, p.y + p.height / 2 + big * 0.08, pw, big * 0.42);
     g.fillStyle = "#fff"; g.textBaseline = "middle"; g.fillText(pill, p.x + p.width / 2, p.y + p.height / 2 + big * 0.29);
-    if (img) { const h = big * 0.9, w = h * (img.width / img.height); g.drawImage(img, p.x + p.width / 2 - w / 2, p.y + p.height / 2 + big * 0.6, w, h); }
+    if (img && false) { const h = big * 0.9, w = h * (img.width / img.height); g.drawImage(img, p.x + p.width / 2 - w / 2, p.y + p.height / 2 + big * 0.6, w, h); }
     // area / pitch tags
     const c = cabinetCalc(s); const ts = Math.max(10, p.height / 18);
     g.font = `800 ${ts}px sans-serif`; g.textBaseline = "top"; g.textAlign = "left";

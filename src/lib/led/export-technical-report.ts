@@ -6,6 +6,7 @@ import { validateMapping } from "./mapping";
 import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
 import { getAsset } from "./asset-store";
 import { processorGuide } from "./processor-guide";
+import { vividColour } from "./pixel-map-export";
 
 const W = 297, H = 210, M = 12;
 type C3 = [number, number, number];
@@ -131,7 +132,7 @@ function badge(doc: JsPDF, x: number, y: number, big: string, small: string, bg:
 /** Sample-style pixel map: checkerboard, numbers, test-card circles, name + resolution pill. */
 function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number, h: number, gridStart: number, opts: { badges?: boolean; logo?: boolean } = {}) {
   const c = cabinetCalc(screen);
-  const base = rgb(screen.color);
+  const base = vividColour(screen.color);
   const cw = w / c.cols, ch = h / c.rows;
   for (let r = 0; r < c.rows; r++) for (let col = 0; col < c.cols; col++) {
     doc.setFillColor(...((r + col) % 2 ? shade(base, 0.72) : base));
@@ -353,7 +354,7 @@ export async function buildTechnicalReport(project: Project) {
     page(doc, s.name.toUpperCase(), "", project);
     const f = fit(c.actualWidth, c.actualHeight, 30, 48, W - 48, 92);
     const w = c.actualWidth * f.s, h = c.actualHeight * f.s;
-    pixelMap(doc, s, f.x, f.y, w, h, grids.get(s.id)?.start ?? 1, { logo: true });
+    pixelMap(doc, s, f.x, f.y, w, h, grids.get(s.id)?.start ?? 1);
     dimH(doc, f.x, f.x + w, f.y - 6, `${c.actualWidth.toFixed(2)} m`);
     dimV(doc, f.x - 8, f.y, f.y + h, `${c.actualHeight.toFixed(2)} m`);
     sectionTitle(doc, 15, 157, "Screen Details");
@@ -372,7 +373,7 @@ export async function buildTechnicalReport(project: Project) {
     doc.setFillColor(0, 0, 0); doc.rect(f.x, f.y, layout.canvasWidth * f.s, layout.canvasHeight * f.s, "F");
     for (const p of layout.placements) {
       const s = screens.find((x) => x.id === p.screenId)!;
-      pixelMap(doc, s, f.x + p.x * f.s, f.y + p.y * f.s, p.width * f.s, p.height * f.s, grids.get(s.id)?.start ?? 1, { logo: true });
+      pixelMap(doc, s, f.x + p.x * f.s, f.y + p.y * f.s, p.width * f.s, p.height * f.s, grids.get(s.id)?.start ?? 1);
     }
   }
   sectionTitle(doc, 15, 160, "Global Layout");
