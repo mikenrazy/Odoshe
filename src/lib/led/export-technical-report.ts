@@ -1,15 +1,12 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
-import { computeGridNumbers } from "./grid-numbering";
-import { validateMapping } from "./mapping";
-import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
+import { chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
 import { getAsset } from "./asset-store";
-import { processorGuide } from "./processor-guide";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
 
-const W = 297, H = 210, M = 12;
+const W = 297, H = 210;
 type C3 = [number, number, number];
 const BG: C3 = [17, 17, 17];
 const PANEL: C3 = [20, 25, 34];
@@ -19,7 +16,6 @@ const TEXT: C3 = [236, 238, 242];
 const MUTED: C3 = [150, 156, 166];
 const GREEN: C3 = [38, 222, 140];
 const AMBER: C3 = [245, 190, 40];
-const ACCENT = GREEN;
 const PALETTE: C3[] = [[38, 222, 140], [24, 196, 240], [245, 180, 30], [190, 110, 250], [250, 110, 160], [255, 140, 60], [45, 212, 191], [248, 113, 113], [132, 204, 22], [96, 165, 250]];
 
 function rgb(hex: string): C3 {
@@ -311,14 +307,6 @@ function summaryCard(doc: JsPDF, title: string, heading: string, tint: C3, stats
   return y;
 }
 
-/** Serpentine path (column-wise, starting bottom-left) through a block of columns. */
-function serpentine(colStart: number, colEnd: number, rows: number): Array<[number, number]> {
-  const p: Array<[number, number]> = [];
-  for (let col = colStart, k = 0; col <= colEnd; col++, k++)
-    for (let i = 0; i < rows; i++) p.push([col, k % 2 === 0 ? rows - 1 - i : i]);
-  return p;
-}
-
 export async function downloadTechnicalReport(project: Project) {
   const doc = await buildTechnicalReport(project);
   doc.save(`${project.name.replace(/[^\w\- ]+/g, "").trim() || "project"}-technical-report.pdf`);
@@ -328,7 +316,6 @@ export async function downloadTechnicalReport(project: Project) {
 export async function buildTechnicalReport(project: Project) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const grids = computeGridNumbers(project);
   PAINT = screenPaint(project);
   const layout = globalLayout(project);
   const ps = powerSettings(project);
@@ -356,7 +343,7 @@ export async function buildTechnicalReport(project: Project) {
     page(doc, s.name.toUpperCase(), "", project);
     const f = fit(c.actualWidth, c.actualHeight, 30, 48, W - 48, 92);
     const w = c.actualWidth * f.s, h = c.actualHeight * f.s;
-    pixelMap(doc, s, f.x, f.y, w, h, grids.get(s.id)?.start ?? 1);
+    pixelMap(doc, s, f.x, f.y, w, h, 1, { logo: true });
     dimH(doc, f.x, f.x + w, f.y - 6, `${c.actualWidth.toFixed(2)} m`);
     dimV(doc, f.x - 8, f.y, f.y + h, `${c.actualHeight.toFixed(2)} m`);
     sectionTitle(doc, 15, 157, "Screen Details");
@@ -375,7 +362,7 @@ export async function buildTechnicalReport(project: Project) {
     doc.setFillColor(0, 0, 0); doc.rect(f.x, f.y, layout.canvasWidth * f.s, layout.canvasHeight * f.s, "F");
     for (const p of layout.placements) {
       const s = screens.find((x) => x.id === p.screenId)!;
-      pixelMap(doc, s, f.x + p.x * f.s, f.y + p.y * f.s, p.width * f.s, p.height * f.s, grids.get(s.id)?.start ?? 1);
+      pixelMap(doc, s, f.x + p.x * f.s, f.y + p.y * f.s, p.width * f.s, p.height * f.s, 1, { logo: true });
     }
   }
   sectionTitle(doc, 15, 160, "Global Layout");
@@ -390,31 +377,8 @@ export async function buildTechnicalReport(project: Project) {
   for (const [k, v, x, y, g] of gl) { doc.setTextColor(...MUTED); doc.text(k, x, y); doc.setTextColor(...(g ? GREEN : TEXT)); doc.text(v, x + 36, y); }
   doc.setFont("helvetica", "normal");
 
-  /* master elevation */
-  page(doc, "Master Stage Elevation & Rigging", "Front elevation · screen trim heights above floor", project);
-  {
-    const stage = project.stage;
-    let x0 = -stage.width / 2, x1 = stage.width / 2, top = stage.height + 1;
-    for (const s of screens) { const c = cabinetCalc(s); x0 = Math.min(x0, s.position.x - c.actualWidth / 2); x1 = Math.max(x1, s.position.x + c.actualWidth / 2); top = Math.max(top, s.position.y + c.actualHeight / 2); }
-    doc.setFillColor(...CARD); doc.setDrawColor(...LINE); doc.roundedRect(12, 34, 190, 150, 1.5, 1.5, "FD");
-    doc.setFont("courier", "bold"); doc.setFontSize(5.5); doc.setTextColor(...GREEN); doc.text("VIEW 01 // FRONT ELEVATION (TRIM HEIGHTS)", 16, 40);
-    const f = fit(x1 - x0, top, 30, 48, 160, 118);
-    const X = (m: number) => f.x + (m - x0) * f.s, Y = (m: number) => f.y + (top - m) * f.s;
-    doc.setDrawColor(...MUTED); doc.setLineWidth(0.3); doc.line(X(x0) - 5, Y(0), X(x1) + 5, Y(0));
-    doc.setFillColor(40, 46, 56); doc.rect(X(-stage.width / 2), Y(stage.height), stage.width * f.s, stage.height * f.s, "F");
-    dimH(doc, X(-stage.width / 2), X(stage.width / 2), Y(0) + 7, `Stage ${stage.width.toFixed(2)} m`);
-    dimV(doc, X(x0) - 8, Y(stage.height), Y(0), `${stage.height.toFixed(2)} m`);
-    for (const s of screens) {
-      const c = cabinetCalc(s);
-      const left = s.position.x - c.actualWidth / 2, bottom = s.position.y - c.actualHeight / 2;
-      pixelMap(doc, s, X(left), Y(bottom + c.actualHeight), c.actualWidth * f.s, c.actualHeight * f.s, grids.get(s.id)?.start ?? 1, { badges: false });
-    }
-    doc.setFont("helvetica", "normal");
-    table(doc, 206, 34, [{ h: "SCREEN", w: 28 }, { h: "BOTTOM", w: 18 }, { h: "TOP", w: 18 }, { h: "SIZE", w: 16 }],
-      screens.map((s) => { const c = cabinetCalc(s); const b = s.position.y - c.actualHeight / 2; return [s.name, `${b.toFixed(2)} m`, `${(b + c.actualHeight).toFixed(2)} m`, `${c.actualWidth}×${c.actualHeight}`]; }));
-    doc.setFontSize(6.5); doc.setTextColor(...MUTED);
-    doc.text(doc.splitTextToSize("Heights are measured from venue floor to the LED's bottom and top edges using the saved screen positions. Rigging points, loads and structure must be verified on site by a qualified rigger.", 78), 206, 150);
-  }
+  /* master stage sheet */
+  masterSheet(doc, project, screens, ps);
 
   /* per-screen data and power sheets */
   for (const s of screens) {
@@ -424,7 +388,7 @@ export async function buildTechnicalReport(project: Project) {
     const pxCab = Math.round(s.pixelWidth / c.cols) * Math.round(s.pixelHeight / c.rows);
     const portMax = proc?.portMaxPixels ?? 650000;
     sheetFrame(doc, s, "data", "SIGNAL WIRING DIAGRAM (CAT6 RJ45 · DAISY-CHAIN)", project);
-    const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}-C${ch2.colEnd + 1})` }));
+    const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}→C${ch2.colEnd + 1})` }));
     wiringDrawing(doc, s, dRuns, "P");
     const yEnd = summaryCard(doc, `DATA SIGNAL SUMMARY — ${s.name.toUpperCase()}`, `${chains.length} RJ45 PORTS (CAT6)`, GREEN, [
       ["Total RJ45 Lines:", `${chains.length} Cat6 lines`],
@@ -435,7 +399,7 @@ export async function buildTechnicalReport(project: Project) {
     ], ["PORT", "ROUTE (IN-OUT)", "CABS", "PIXELS", "LOAD"],
       chains.map((ch2, i) => {
         const a = ch2.path[0]!, b = ch2.path[ch2.path.length - 1]!;
-        return { colour: PALETTE[i % PALETTE.length]!, pct: ch2.loadPct, cells: [`P${ch2.port}${ch2.overflow ? "*" : ""}`, `C${a[0] + 1}-R${a[1] + 1}-C${b[0] + 1}`, `${ch2.cabinets}c`, `${Math.round(ch2.pixels / 1000)}k px`, `${ch2.loadPct.toFixed(0)}%`] };
+        return { colour: PALETTE[i % PALETTE.length]!, pct: ch2.loadPct, cells: [`P${ch2.port}${ch2.overflow ? "*" : ""}`, `C${a[0] + 1}·R${a[1] + 1}→C${b[0] + 1}`, `${ch2.cabinets}c`, `${Math.round(ch2.pixels / 1000)}k px`, `${ch2.loadPct.toFixed(0)}%`] };
       }));
     doc.setFontSize(5); doc.setTextColor(...MUTED);
     const jm = chains.reduce((n, ch2) => n + chainCableM(s, ch2, 0).jumpersM, 0);
@@ -443,7 +407,7 @@ export async function buildTechnicalReport(project: Project) {
 
     const pw = screenPower(s, ps);
     sheetFrame(doc, s, "power", `POWER DISTRIBUTION DIAGRAM (${ps.voltage}V · POWERCON)`, project, ps.voltage);
-    const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: serpentine(cir.colStart, cir.colEnd, c.rows), tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}-C${cir.colEnd + 1})` }));
+    const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: cir.path, tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}→C${cir.colEnd + 1})` }));
     wiringDrawing(doc, s, pRuns, "C");
     if (pw.status === "missing") {
       summaryCard(doc, `POWER DISTRIBUTION SUMMARY — ${s.name.toUpperCase()}`, "POWER DATA MISSING", AMBER, [], [], []);
@@ -456,39 +420,11 @@ export async function buildTechnicalReport(project: Project) {
         ["Total Current:", `${pw.totalAmps.toFixed(1)} A (${ps.phases}-phase)`],
         ["Max Cabinets / Circuit:", `${pw.cabinetsPerCircuit} cabinets`],
       ], ["CIRC.", "FEED-P / ROUTE", "CABS", "POWER", "AMP"],
-        pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.colStart + 1}-C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
+        pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.path[0]![0] + 1}·R${cir.path[0]![1] + 1}→C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
       doc.setFontSize(5); doc.setTextColor(...MUTED);
       doc.text(doc.splitTextToSize(`Based on ${ps.cabinetMaxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
     }
   }
-
-  /* processor setup worksheets */
-  for (const proc of project.processors.filter((p) => screens.some((s) => s.processorId === p.id))) {
-    const g = processorGuide(project, proc);
-    if (!g.supported) continue;
-    page(doc, `${proc.name ?? proc.label} · Setup Guide`, "Front-panel Quick Configuration worksheet (from NovaStar user manual) — a plan, not a programmed device", project);
-    let y = 32;
-    doc.setFontSize(8);
-    g.steps.forEach((s, i) => { doc.setTextColor(...ACCENT); doc.text(`${i + 1}.`, M, y); doc.setTextColor(...TEXT); doc.text(s, M + 5, y); y += 5.5; });
-    y += 2;
-    for (const sc of g.screens) {
-      y = table(doc, M, y, [{ h: `${sc.screenName.toUpperCase()} · ROWS ${sc.rows} · COLUMNS ${sc.cols}`, w: 70 }, ...sc.ports.slice(0, 13).map((p) => ({ h: `P${p.port}`, w: 15.5 }))],
-        [["Cabinets", ...sc.ports.slice(0, 13).map((p) => String(p.cabinets))], ["Pixels (k)", ...sc.ports.slice(0, 13).map((p) => String(Math.round(p.pixels / 1000)))]]) + 2;
-      doc.setFontSize(6.5); doc.setTextColor(248, 113, 113);
-      for (const pr of sc.problems.slice(0, 3)) { doc.text(pr, M, y + 2); y += 4; }
-      y += 3;
-    }
-    doc.setFontSize(6.8); doc.setTextColor(...MUTED);
-    for (const n of g.notes) { const lines = doc.splitTextToSize(`• ${n}`, W - 2 * M); doc.text(lines, M, y + 2); y += lines.length * 3.6; }
-  }
-
-  /* validation & equipment */
-  page(doc, "Validation & Equipment", "Engineering warnings and bill of materials (quantities only — no prices)", project);
-  const issues = validateMapping(project).slice(0, 14);
-  const vEnd = table(doc, M, 30, [{ h: "STATE", w: 20 }, { h: "ISSUE", w: 85 }, { h: "DETAIL", w: 168 }],
-    issues.length ? issues.map((i) => [i.level === "error" ? "Blocked" : "Warning", i.title, i.detail]) : [["Passed", "No issues", "All configured checks passed."]]);
-  table(doc, M, vEnd + 6, [{ h: "ITEM", w: 90 }, { h: "MODEL", w: 55 }, { h: "QTY", w: 15 }, { h: "LOCATION", w: 45 }, { h: "SPEC", w: 68 }],
-    billOfMaterials(project).slice(0, Math.max(3, Math.floor((H - vEnd - 22) / 5.2) - 1)).map((r) => [r.item, r.model, String(r.qty), r.location, r.spec]));
 
   return doc;
 }

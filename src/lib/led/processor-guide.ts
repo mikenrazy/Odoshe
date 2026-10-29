@@ -37,7 +37,7 @@ export function processorGuide(project: Project, processor: ProcessorModel): Pro
     const problems: string[] = [];
     if (ports[0] && ports[0].pixels > PORT1_LIMIT) problems.push(`Port ${ports[0].port} carries ${ports[0].pixels.toLocaleString()} px — the manual limits Ethernet port 1 to 650,000 px.`);
     for (let i = 1; i < ports.length; i++) if (ports[i]!.cabinets > ports[i - 1]!.cabinets) problems.push(`Port ${ports[i]!.port} has more cabinets than port ${ports[i - 1]!.port}; the manual requires port 1 ≥ port 2 ≥ … .`);
-    for (const pt of ports) if (pt.cabinets % c.rows !== 0 && pt.cabinets % c.cols !== 0) problems.push(`Port ${pt.port}: ${pt.cabinets} cabinets is not a multiple of the row (${c.rows}) or column (${c.cols}) quantity.`);
+    if (ports.some((pt) => pt.cabinets % c.rows !== 0 && pt.cabinets % c.cols !== 0)) problems.push(`Some ports end part-way up a column — front-panel Quick Configuration cannot do this; send the layout from NovaLCT (Screen Configuration).`);
     for (const ch of chains) if (ch.overflow) problems.push(`Port ${ch.port} does not exist on the ${processor.label} (${processor.outputs} Ethernet ports).`);
     return { screenName: s.name, rows: c.rows, cols: c.cols, ports, problems };
   });
