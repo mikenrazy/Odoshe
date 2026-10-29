@@ -285,7 +285,7 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string, sh
 }
 
 function summaryCard(doc: JsPDF, title: string, heading: string, tint: C3, stats: Array<[string, string]>, head: string[], rows: Array<{ colour: C3; cells: string[]; pct?: number }>) {
-  doc.setFillColor(...mix(CARD, tint, 0.18)); doc.setDrawColor(...mix(CARD, tint, 0.45)); doc.roundedRect(220, 41, 64, 16, 1, 1, "FD");
+  doc.setFillColor(...PANEL); doc.setDrawColor(...mix(CARD, tint, 0.45)); doc.roundedRect(220, 41, 64, 16, 1, 1, "FD");
   doc.setFont("helvetica", "bold"); doc.setFontSize(5); doc.setTextColor(...tint); doc.text(title, 222.5, 46);
   doc.setFontSize(10); doc.setTextColor(255, 255, 255); doc.text(heading, 222.5, 53.5);
   let y = 63;

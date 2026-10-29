@@ -15,6 +15,7 @@
 - [x] Verify screen-set setup, saved settings, and report download.
 
 # VDWall LVP615
-- [ ] Add manual-based LVP615 settings and sender-aware validation.
-- [ ] Add explicit native P2 cabinet matrix entry without guessing dimensions.
-- [ ] Include VDWall-specific configuration in the guide and technical report; verify tests and downloads.
+- [x] Add manual-based LVP615 settings and sender-aware validation.
+- [x] Add explicit native P2 cabinet matrix entry without guessing dimensions.
+- [x] Include VDWall-specific configuration in the guide and technical report; verify tests and downloads.
+- [ ] Finalize the user's actual P2/VDWall configuration — awaiting measured cabinet dimensions, native matrix and fitted sending-card model/capacities.

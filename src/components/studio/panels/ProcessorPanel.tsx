@@ -207,7 +207,7 @@ export function ProcessorPanel() {
         {project.screens.map((screen) => {
           const proc = project.processors.find((p) => p.id === screen.processorId);
           const assignment = grids.get(screen.id);
-          const shared = groups.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === screen.processorId));
+          const shared = isLvp615(proc) || groups.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === screen.processorId));
           const chains = screenChains(project, screen);
           return (
             <div key={screen.id} className="border-b border-border/60 py-2 last:border-0">
