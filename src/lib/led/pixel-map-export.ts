@@ -60,7 +60,10 @@ export function vividColour(hex: string): [number, number, number] {
 export function screenPaint(project: Project): Map<string, [number, number, number]> {
   const vis = project.screens.filter((s) => s.visible !== false);
   const out = new Map<string, [number, number, number]>();
-  const dup = new Set(vis.map((s) => s.color.toLowerCase())).size < vis.length;
+  const cols = vis.map((s) => vividColour(s.color));
+  let dup = false;
+  for (let i = 0; i < cols.length; i++) for (let j = i + 1; j < cols.length; j++)
+    if (Math.hypot(cols[i]![0] - cols[j]![0], cols[i]![1] - cols[j]![1], cols[i]![2] - cols[j]![2]) < 90) dup = true;
   if (!dup) { for (const s of vis) out.set(s.id, vividColour(s.color)); return out; }
   const biggest = vis.reduce<typeof vis[number] | undefined>((a, s) => (!a || s.pixelWidth * s.pixelHeight > a.pixelWidth * a.pixelHeight ? s : a), undefined);
   for (const s of vis) out.set(s.id, s === biggest ? [30, 136, 255] : [239, 43, 43]);
@@ -112,7 +115,7 @@ export async function renderPixelMap(project: Project, logo?: string | null): Pr
     const c = cabinetCalc(s);
     const a = `${c.area.toFixed(0)} m²  ${+c.actualWidth.toFixed(2)} x ${+c.actualHeight.toFixed(2)} m`;
     const t = `P${s.pixelPitch}  ${(c.cabinetWidth * 100).toFixed(0)} x ${(c.cabinetHeight * 100).toFixed(0)} cm`;
-    let ts = Math.max(8, Math.min(p.height / 22, 40));
+    let ts = Math.max(6, Math.min(p.height / 26, p.width / 22, 36));
     g.font = `800 ${ts}px sans-serif`;
     const need = g.measureText(a).width + g.measureText(t).width + ts * 2.4;
     if (need > p.width * 0.95) { ts *= (p.width * 0.95) / need; g.font = `800 ${ts}px sans-serif`; }
