@@ -39,8 +39,8 @@ export function EngineeringSection() {
         ]} />
       </Section>
       <Section title="Power Planning">
-        <p className="mb-2 text-[10px] text-muted-foreground">Don't have the datasheet? Fill typical P2.6 indoor figures, then correct them when you get the real ones from your supplier.</p>
-        <Button size="sm" variant="outline" className="mb-2 w-full" onClick={() => setPower({ ...TYPICAL_LED_FIGURES, cabinetMaxW: undefined, cabinetTypW: undefined })}>Fill typical values (estimate)</Button>
+        <p className="mb-2 text-[10px] text-muted-foreground">Don't have the datasheet? Fill typical P2.5 indoor figures, then correct them when you get the real ones from your supplier.</p>
+        <Button size="sm" variant="outline" className="mb-2 w-full" onClick={() => setPower({ ...TYPICAL_LED_FIGURES, cabinetMaxW: undefined, cabinetTypW: undefined })}>Fill typical P2.5 values (estimate)</Button>
         <NumberField label="LED max power per m²" suffix="W" min={0} value={ps.maxWPerM2 ?? 0} onChange={(v) => setPower({ maxWPerM2: v > 0 ? v : undefined })} />
         <NumberField label="LED typical power per m²" suffix="W" min={0} value={ps.typWPerM2 ?? 0} onChange={(v) => setPower({ typWPerM2: v > 0 ? v : undefined })} />
         <NumberField label="Or: cabinet max power" suffix="W" min={0} value={ps.cabinetMaxW ?? 0} onChange={(v) => setPower({ cabinetMaxW: v > 0 ? v : undefined })} />

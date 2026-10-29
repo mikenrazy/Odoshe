@@ -251,7 +251,7 @@ export interface ScreenPower {
  * Circuits follow the same serpentine as data, each filled with as many cabinets as the
  * configured usable capacity allows (floor(usable W ÷ cabinet max W)).
  */
-/** Typical P2.6 indoor rental figures — a starting point the operator applies with one click, then corrects from the datasheet. */
+/** Typical P2.5 indoor rental figures — a starting point the operator applies with one click, then corrects from the datasheet. */
 export const TYPICAL_LED_FIGURES = { maxWPerM2: 600, typWPerM2: 200, kgPerM2: 30, circuitAmps: 16, hoistKg: 1000 } as const;
 
 /** Per-cabinet watts: explicit cabinet figure, else per-m² figure × cabinet area. */
