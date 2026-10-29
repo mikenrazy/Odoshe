@@ -72,7 +72,10 @@ export async function renderPixelMap(project: Project, logo?: string | null): Pr
     g.beginPath(); g.arc(p.x + p.width / 2, p.y + p.height / 2, R, 0, Math.PI * 2); g.stroke();
     g.setLineDash([R / 30, R / 30]); g.beginPath(); g.arc(p.x + p.width / 2, p.y + p.height / 2, R * 0.6, 0, Math.PI * 2); g.stroke();
     g.strokeRect(p.x + 0.5, p.y + 0.5, p.width - 1, p.height - 1); g.restore();
-    const big = Math.min(p.width / 6, p.height / 4);
+    let big = Math.min(p.width / 6, p.height / 4);
+    g.font = `800 ${big}px sans-serif`;
+    const nw = g.measureText(s.name.toUpperCase()).width;
+    if (nw > p.width * 0.86) big *= (p.width * 0.86) / nw;
     g.fillStyle = "#fff"; g.font = `800 ${big}px sans-serif`; g.textAlign = "center"; g.textBaseline = "alphabetic";
     g.fillText(s.name.toUpperCase(), p.x + p.width / 2, p.y + p.height / 2 - big * 0.1);
     const pill = `W ${p.width} x H ${p.height}`; g.font = `700 ${big * 0.3}px sans-serif`;
