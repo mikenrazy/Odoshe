@@ -317,7 +317,7 @@ export function ScreenPanel() {
       </Section>
 
       <Section title="LED Cabinet Calculator">
-        <div className="grid grid-cols-2 gap-2">
+        <div>
           <NumberField label="Native cabinet W" suffix="px" min={0} step={1} value={screen.panelConfiguration.nativePixelWidth ?? 0} onChange={(v) => updateScreen(screen.id, { cabinetKey: undefined, panelConfiguration: { ...screen.panelConfiguration, nativePixelWidth: Math.round(v) || undefined } })} />
           <NumberField label="Native cabinet H" suffix="px" min={0} step={1} value={screen.panelConfiguration.nativePixelHeight ?? 0} onChange={(v) => updateScreen(screen.id, { cabinetKey: undefined, panelConfiguration: { ...screen.panelConfiguration, nativePixelHeight: Math.round(v) || undefined } })} />
         </div>

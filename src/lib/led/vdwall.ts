@@ -3,7 +3,7 @@ import type { ProcessorModel, Project } from "./types";
 /** LVP615 supplied manual, pp. 7, 10–11 and 27–31. These are video timings, not LED data ports. */
 export const LVP615_TIMINGS = [[1024, 768], [1280, 1024], [1600, 1200], [1920, 1080], [1366, 768], [1440, 900], [2048, 1152], [2560, 816], [2304, 1152], [1920, 1200], [1200, 1600], [1080, 1920], [1536, 1536]] as const;
 export function isLvp615(p: ProcessorModel | undefined) {
-  return Boolean(p && p.brand.toLowerCase() === "vdwall" && (p.modelKey === "vdwall" || /LVP615/i.test(p.label)));
+  return Boolean(p && p.brand?.toLowerCase() === "vdwall" && (p.modelKey === "vdwall" || /LVP615/i.test(p.label)));
 }
 export function senderReady(p: ProcessorModel | undefined) {
   return Boolean(p && (!isLvp615(p) || (p.senderModel?.trim() && p.outputs > 0 && (p.portMaxPixels ?? 0) > 0 && p.maxPixels > 0)));
