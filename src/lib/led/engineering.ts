@@ -205,6 +205,13 @@ export interface PowerSettings {
   /** usable fraction of circuit rating (operator-set planning margin) */
   loadLimitPct: number;
   phases: 1 | 3;
+  /** datasheet power per square metre — used when no per-cabinet watts are entered (handles mixed cabinet sizes) */
+  maxWPerM2?: number | undefined;
+  typWPerM2?: number | undefined;
+  /** LED weight per square metre (cabinets + frame), kg */
+  kgPerM2?: number | undefined;
+  /** working load limit of one hoist, kg */
+  hoistKg?: number | undefined;
   /** estimated processor-to-first-cabinet cable run, metres */
   dataHomeRunM?: number | undefined;
 }
@@ -244,10 +251,35 @@ export interface ScreenPower {
  * Circuits follow the same serpentine as data, each filled with as many cabinets as the
  * configured usable capacity allows (floor(usable W ÷ cabinet max W)).
  */
-export function screenPower(screen: LedScreen, ps: PowerSettings, prefix = "C"): ScreenPower {
+/** Typical P2.6 indoor rental figures — a starting point the operator applies with one click, then corrects from the datasheet. */
+export const TYPICAL_LED_FIGURES = { maxWPerM2: 600, typWPerM2: 200, kgPerM2: 30, circuitAmps: 16, hoistKg: 1000 } as const;
+
+/** Per-cabinet watts: explicit cabinet figure, else per-m² figure × cabinet area. */
+export function cabinetWatts(screen: LedScreen, ps: PowerSettings) {
   const c = cabinetCalc(screen);
+  const area = c.cabinetWidth * c.cabinetHeight;
+  return {
+    maxW: ps.cabinetMaxW ?? (ps.maxWPerM2 ? Math.round(ps.maxWPerM2 * area) : undefined),
+    typW: ps.cabinetTypW ?? (ps.typWPerM2 ? Math.round(ps.typWPerM2 * area) : undefined),
+  };
+}
+
+export interface ScreenRigging { weightKg: number | undefined; hoists: number | undefined }
+
+/** Weight from kg/m² × area; hoists = max(2, weight at 50% of hoist WLL, one per 3 m of width). */
+export function screenRigging(screen: LedScreen, ps: PowerSettings): ScreenRigging {
+  const c = cabinetCalc(screen);
+  const weightKg = ps.kgPerM2 ? +(c.area * ps.kgPerM2).toFixed(1) : undefined;
+  const hoists = weightKg !== undefined && ps.hoistKg ? Math.max(2, Math.ceil((weightKg * 2) / ps.hoistKg), Math.ceil(c.actualWidth / 3)) : undefined;
+  return { weightKg, hoists };
+}
+
+export function screenPower(screen: LedScreen, psIn: PowerSettings, prefix = "C"): ScreenPower {
+  const c = cabinetCalc(screen);
+  const cw = cabinetWatts(screen, psIn);
+  const ps = { ...psIn, cabinetMaxW: cw.maxW, cabinetTypW: cw.typW };
   if (!ps.cabinetMaxW || !ps.circuitAmps || !ps.voltage)
-    return { status: "missing", message: "Enter cabinet max watts, voltage and circuit rating (from manufacturer and venue data) to calculate power.", cabinetsPerCircuit: 0, circuits: [], totalMaxW: 0, totalTypW: undefined, totalAmps: 0 };
+    return { status: "missing", message: "Enter LED power (per cabinet or per m²), voltage and circuit rating (from manufacturer and venue data) to calculate power.", cabinetsPerCircuit: 0, circuits: [], totalMaxW: 0, totalTypW: undefined, totalAmps: 0 };
   const usableW = ps.voltage * ps.circuitAmps * (ps.loadLimitPct / 100);
   const perCircuit = Math.floor(usableW / ps.cabinetMaxW);
   if (perCircuit < 1)

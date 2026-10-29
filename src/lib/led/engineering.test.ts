@@ -42,6 +42,21 @@ describe("Power planning", () => {
   });
 });
 
+describe("Per-m² figures and rigging", () => {
+  it("600 W/m² gives 300 W per 0.5×1 m cabinet (as in the sample)", async () => {
+    const { cabinetWatts } = await import("./engineering");
+    expect(cabinetWatts(centre, { ...DEFAULT_POWER, maxWPerM2: 600 }).maxW).toBe(300);
+  });
+  it("centre 39 m² at 30 kg/m² weighs 1170 kg on 5 one-tonne hoists", async () => {
+    const { screenRigging } = await import("./engineering");
+    expect(screenRigging(centre, { ...DEFAULT_POWER, kgPerM2: 30, hoistKg: 1000 })).toEqual({ weightKg: 1170, hoists: 5 });
+  });
+  it("side screen gets the 2-hoist minimum", async () => {
+    const { screenRigging } = await import("./engineering");
+    expect(screenRigging(left, { ...DEFAULT_POWER, kgPerM2: 30, hoistKg: 1000 }).hoists).toBe(2);
+  });
+});
+
 describe("Data chains respect port capacity", () => {
   const proj = { ...project, processors: [{ id: "p", outputs: 10, portMaxPixels: 650_000 }] } as unknown as Project;
   it("CIO100 side screen uses 3 ports of 17, 17 and 6 cabinets (as in the sample report)", async () => {

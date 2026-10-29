@@ -1,7 +1,7 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
-import { chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
+import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging } from "./engineering";
 import { getAsset } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
@@ -454,13 +454,14 @@ function masterSheet(doc: JsPDF, project: Project, screens: LedScreen[], ps: Ret
     y += 2; doc.setDrawColor(...shade(CYAN, 0.5)); doc.setLineWidth(0.5); doc.line(195, y, 280, y); y += 4;
   };
   head("1. RIGGING & SCREEN SCHEDULE");
-  const cols = [195, 222, 240, 255, 268];
+  const cols = [195, 218, 233, 246, 258, 272];
   doc.setFont("courier", "bold"); doc.setFontSize(4.6); doc.setTextColor(...TEXT);
-  ["SCREEN", "DIMENSIONS", "BOT TRIM", "TOP", "PANELS"].forEach((h, i) => doc.text(h, cols[i]!, y)); y += 3.6;
+  ["SCREEN", "DIMENSIONS", "BOT TRIM", "PANELS", "WEIGHT", "HOISTS"].forEach((h, i) => doc.text(h, cols[i]!, y)); y += 3.6;
   doc.setFont("courier", "normal");
   for (const s of screens.slice(0, 12)) {
     const c = cabinetCalc(s); const b = s.position.y - c.actualHeight / 2;
-    [doc.splitTextToSize(s.name.toUpperCase(), 26)[0] ?? "", `${m2(c.actualWidth)}x${m2(c.actualHeight)}m`, `+${m2(b)}m`, `+${m2(b + c.actualHeight)}m`, `${c.total}`].forEach((v, i) => doc.text(v, cols[i]!, y));
+    const rg = screenRigging(s, ps);
+    [doc.splitTextToSize(s.name.toUpperCase(), 22)[0] ?? "", `${m2(c.actualWidth)}x${m2(c.actualHeight)}m`, `+${m2(b)}m`, `${c.total}`, rg.weightKg !== undefined ? `${rg.weightKg}kg` : "—", rg.hoists !== undefined ? `${rg.hoists}x ${(ps.hoistKg ?? 0) / 1000}T` : "—"].forEach((v, i) => doc.text(v, cols[i]!, y));
     y += 3.6;
   }
   y += 5;
