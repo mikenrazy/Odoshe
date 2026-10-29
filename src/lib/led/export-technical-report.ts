@@ -264,7 +264,7 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
     doc.setFillColor(...run.colour); doc.roundedRect(cx(sa) - lw / 2, cy(sb) - 2, lw, 4, 0.5, 0.5, "F");
     doc.setTextColor(10, 10, 10); doc.text(lab, cx(sa), cy(sb) + 0.8, { align: "center" });
     // bottom input tag
-    const t = `▲ ${run.label}${run.feed ? ` [${run.feed}]` : " IN"} (C${sa + 1}·R${sb + 1})`; doc.setFontSize(4.6); const tw = doc.getTextWidth(t) + 3;
+    const t = `${run.label}${run.feed ? ` [${run.feed}]` : " IN"} (C${sa + 1}·R${sb + 1})`; doc.setFontSize(4.6); const tw = doc.getTextWidth(t) + 3;
     const ty = f.y + h + 4 + (ri % 2) * 6;
     doc.setDrawColor(...run.colour); doc.setLineWidth(0.25); doc.line(cx(sa), f.y + h, cx(sa), ty);
     doc.setFillColor(...CARD); doc.roundedRect(cx(sa) - tw / 2, ty, tw, 4, 0.5, 0.5, "FD");
@@ -388,7 +388,7 @@ export async function buildTechnicalReport(project: Project) {
     const pxCab = Math.round(s.pixelWidth / c.cols) * Math.round(s.pixelHeight / c.rows);
     const portMax = proc?.portMaxPixels ?? 650000;
     sheetFrame(doc, s, "data", "SIGNAL WIRING DIAGRAM (CAT6 RJ45 · DAISY-CHAIN)", project);
-    const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}→C${ch2.colEnd + 1})` }));
+    const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}–C${ch2.colEnd + 1})` }));
     wiringDrawing(doc, s, dRuns, "P");
     const yEnd = summaryCard(doc, `DATA SIGNAL SUMMARY — ${s.name.toUpperCase()}`, `${chains.length} RJ45 PORTS (CAT6)`, GREEN, [
       ["Total RJ45 Lines:", `${chains.length} Cat6 lines`],
@@ -399,7 +399,7 @@ export async function buildTechnicalReport(project: Project) {
     ], ["PORT", "ROUTE (IN-OUT)", "CABS", "PIXELS", "LOAD"],
       chains.map((ch2, i) => {
         const a = ch2.path[0]!, b = ch2.path[ch2.path.length - 1]!;
-        return { colour: PALETTE[i % PALETTE.length]!, pct: ch2.loadPct, cells: [`P${ch2.port}${ch2.overflow ? "*" : ""}`, `C${a[0] + 1}·R${a[1] + 1}→C${b[0] + 1}`, `${ch2.cabinets}c`, `${Math.round(ch2.pixels / 1000)}k px`, `${ch2.loadPct.toFixed(0)}%`] };
+        return { colour: PALETTE[i % PALETTE.length]!, pct: ch2.loadPct, cells: [`P${ch2.port}${ch2.overflow ? "*" : ""}`, `C${a[0] + 1}·R${a[1] + 1}–C${b[0] + 1}`, `${ch2.cabinets}c`, `${Math.round(ch2.pixels / 1000)}k px`, `${ch2.loadPct.toFixed(0)}%`] };
       }));
     doc.setFontSize(5); doc.setTextColor(...MUTED);
     const jm = chains.reduce((n, ch2) => n + chainCableM(s, ch2, 0).jumpersM, 0);
@@ -407,7 +407,7 @@ export async function buildTechnicalReport(project: Project) {
 
     const pw = screenPower(s, ps);
     sheetFrame(doc, s, "power", `POWER DISTRIBUTION DIAGRAM (${ps.voltage}V · POWERCON)`, project, ps.voltage);
-    const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: cir.path, feed: cir.phase, tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}→C${cir.colEnd + 1})` }));
+    const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: cir.path, feed: cir.phase, tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}–C${cir.colEnd + 1})` }));
     wiringDrawing(doc, s, pRuns, "C");
     if (pw.status === "missing") {
       summaryCard(doc, `POWER DISTRIBUTION SUMMARY — ${s.name.toUpperCase()}`, "POWER DATA MISSING", AMBER, [], [], []);
@@ -420,7 +420,7 @@ export async function buildTechnicalReport(project: Project) {
         ["Total Current:", `${pw.totalAmps.toFixed(1)} A (${ps.phases}-phase)`],
         ["Max Cabinets / Circuit:", `${pw.cabinetsPerCircuit} cabinets`],
       ], ["CIRC.", "FEED-P / ROUTE", "CABS", "POWER", "AMP"],
-        pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.path[0]![0] + 1}·R${cir.path[0]![1] + 1}→C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
+        pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.path[0]![0] + 1}·R${cir.path[0]![1] + 1}–C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
       doc.setFontSize(5); doc.setTextColor(...MUTED);
       doc.text(doc.splitTextToSize(`Based on ${ps.cabinetMaxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
     }
