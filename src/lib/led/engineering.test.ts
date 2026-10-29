@@ -51,7 +51,8 @@ describe("Equipment list", () => {
     expect(jumpers.qty).toBe(72);
     const feeds = rows.find((r) => r.item === "Power circuit / feed" && r.location === "CENTER")!;
     expect(feeds.qty).toBe(6);
-    expect(rows.find((r) => r.item === "Power jumper — cabinet to cabinet" && r.location === "LEFT-1")).toBeUndefined();
+    const leftJumpers = rows.find((r) => r.item === "Power jumper — cabinet to cabinet" && r.location === "LEFT-1")!;
+    expect(leftJumpers.qty).toBe(37); // 40 cabinets, 3 circuits
   });
 });
 
