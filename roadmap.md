@@ -15,6 +15,7 @@
 - [x] Verify screen-set setup, saved settings, and report download.
 
 # VDWall LVP615
+- [ ] Verify manual sender pixel limits and display per-screen capacity warnings in the Processor panel.
 - [x] Add manual-based LVP615 settings and sender-aware validation.
 - [x] Add explicit native P2 cabinet matrix entry without guessing dimensions.
 - [x] Include VDWall-specific configuration in the guide and technical report; verify tests and downloads.
