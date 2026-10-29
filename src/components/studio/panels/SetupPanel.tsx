@@ -44,6 +44,8 @@ export function SetupPanel() {
         />
       </Section>
 
+      <DocumentCoverSection />
+
       <ReportLogoSection />
 
 
