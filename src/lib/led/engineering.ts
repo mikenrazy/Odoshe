@@ -21,6 +21,8 @@ export interface CanvasPlacement {
 
 export interface GlobalLayout {
   placements: CanvasPlacement[];
+  /** true when the saved canvas regions overlapped and screens were laid side by side instead */
+  packed: boolean;
   /** bounding box of every screen's canvas region */
   canvasWidth: number;
   canvasHeight: number;
@@ -34,15 +36,36 @@ export interface GlobalLayout {
   footprintHeightM: number;
 }
 
+/** True when two visible screens claim overlapping canvas pixels. */
+export function hasCanvasOverlap(project: Project): boolean {
+  const r = project.screens.filter((s) => s.visible !== false).map((s) => ({ x: s.content.x, y: s.content.y, w: s.pixelWidth, h: s.pixelHeight }));
+  for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+    const a = r[i]!, b = r[j]!;
+    if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) return true;
+  }
+  return false;
+}
+
+/** Side-by-side canvas slots (left→right by stage position, top aligned) — the LEDMapper layout. */
+export function packedCanvas(project: Project): Map<string, { x: number; y: number }> {
+  const out = new Map<string, { x: number; y: number }>();
+  let x = 0;
+  for (const s of project.screens.filter((v) => v.visible !== false).sort((a, b) => a.position.x - b.position.x)) {
+    out.set(s.id, { x, y: 0 }); x += s.pixelWidth;
+  }
+  return out;
+}
+
 export function globalLayout(project: Project): GlobalLayout {
   const screens = project.screens.filter((s) => s.visible !== false);
+  const packed = hasCanvasOverlap(project) ? packedCanvas(project) : null;
   const placements = screens.map((s) => {
     const c = cabinetCalc(s);
     return {
       screenId: s.id,
       name: s.name,
-      x: s.content.x,
-      y: s.content.y,
+      x: packed?.get(s.id)?.x ?? s.content.x,
+      y: packed?.get(s.id)?.y ?? s.content.y,
       width: s.pixelWidth,
       height: s.pixelHeight,
       cols: c.cols,
@@ -69,8 +92,10 @@ export function globalLayout(project: Project): GlobalLayout {
     fy0 = Math.min(fy0, s.position.y - c.actualHeight / 2);
     fy1 = Math.max(fy1, s.position.y + c.actualHeight / 2);
   }
+  for (const p of placements) { p.x -= minX; p.y -= minY; }
   return {
     placements,
+    packed: !!packed,
     canvasWidth,
     canvasHeight,
     occupiedPixels,

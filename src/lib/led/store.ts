@@ -1,4 +1,5 @@
 import { mirroredScreen } from "./mirror";
+import { packedCanvas } from "./engineering";
 import { create } from "zustand";
 import { getAssets, backupProjects, restoreProjects } from "./asset-store";
 import {
@@ -365,6 +366,8 @@ interface EditorState {
   duplicateScreen: (id: string) => void;
   /** mirrored copy across the stage centre axis (x = 0) */
   mirrorScreen: (id: string) => void;
+  /** place every screen side by side on the content canvas (no overlaps) */
+  arrangeCanvasSideBySide: () => void;
   alignScreens: (axis: "left" | "centerX" | "right" | "top" | "middleY" | "bottom") => void;
   spaceScreens: (gap: number, direction: "horizontal" | "vertical") => void;
   setGapBetween: (aId: string, bId: string, gap: number) => void;
@@ -1056,6 +1059,15 @@ export const useEditor = create<EditorState>((set, get) => {
       };
       mutate((p) => ({ ...p, screens: [...p.screens, copy] }));
       set({ selectedId: copy.id });
+    },
+
+    arrangeCanvasSideBySide: () => {
+      const project = get().project;
+      if (!project) return;
+      const slots = packedCanvas(project);
+      const width = Math.max(project.canvas.width, ...project.screens.map((s) => (slots.get(s.id)?.x ?? 0) + s.pixelWidth));
+      const height = Math.max(project.canvas.height, ...project.screens.map((s) => s.pixelHeight));
+      mutate((p) => ({ ...p, canvas: { ...p.canvas, width, height }, screens: p.screens.map((s) => { const t = slots.get(s.id); return t ? { ...s, content: { ...s.content, x: t.x, y: t.y, width: s.pixelWidth, height: s.pixelHeight } } : s; }) }));
     },
 
     mirrorScreen: (id) => {
