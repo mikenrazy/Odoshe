@@ -13,3 +13,8 @@
 - [x] Add LEFT/RIGHT set configuration without changing cabinet resolution or stage positions.
 - [x] Use separate, consistent data-port paths in the editor and technical report.
 - [x] Verify screen-set setup, saved settings, and report download.
+
+# VDWall LVP615
+- [ ] Add manual-based LVP615 settings and sender-aware validation.
+- [ ] Add explicit native P2 cabinet matrix entry without guessing dimensions.
+- [ ] Include VDWall-specific configuration in the guide and technical report; verify tests and downloads.
