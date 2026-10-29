@@ -8,6 +8,7 @@ import {
   processorPortMap,
 } from "@/lib/led/ports";
 import type { ProcessorModel, Project } from "@/lib/led/types";
+import { isLvp615, senderReady } from "@/lib/led/vdwall";
 
 interface Props {
   project: Project;
@@ -24,6 +25,7 @@ export function PortMap({ project, processor, readOnly }: Props) {
   const perPort = portMaxPixels(processor);
 
   const compatible = map.status !== "over";
+  if (isLvp615(processor) && !senderReady(processor)) return <div className="mt-2 border-t border-border pt-2 text-[11px] text-destructive">Sender capacity unconfirmed — no LED port allocation. DVI OUT1 / OUT2 carry the same image; LAN is control only.</div>;
 
   return (
     <div className="mt-2 border-t border-border pt-2">

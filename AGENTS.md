@@ -18,3 +18,5 @@
 - The technical report keeps the sample's page set (cover, screen pages, full canvas, Sheet 01, data/power sheets) and ends with the equipment list page (added by user request); only the setup guide stays a separate download.
 - Pixel-map PNG and DXF exports live in src/lib/led/pixel-map-export.ts and read only globalLayout/cabinetCalc, so exports match the report figures.
 - Shared-input screen sets preserve native LED pixels and stage positions; engineering screenChains is authoritative for their separate physical ports, while source crops and processor-local output offsets remain distinct from the project canvas.
+- Model LVP615 video timings separately from operator-confirmed downstream sending-card capacity; never allocate LED chains with unknown sender limits, because DVI and control LAN are not LED RJ45 outputs.
+- Derive custom cabinet resolutions from a complete operator-entered native matrix before pitch estimates, so cabinet grid maths stays consistent across mapping and reports.

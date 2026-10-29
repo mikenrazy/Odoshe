@@ -13,6 +13,7 @@ import { NumberField, Readout, Section, SelectField, TextField } from "../Field"
 import { PortMap } from "../PortMap";
 import { ScreenSetsSection } from "../ScreenSetsSection";
 import { screenChains } from "@/lib/led/engineering";
+import { isLvp615, LVP615_TIMINGS } from "@/lib/led/vdwall";
 
 function sourceOptions(proc: ProcessorModel) {
   const catalog = PROCESSOR_CATALOG.find((c) => c.key === (proc.modelKey ?? proc.id));
@@ -147,20 +148,27 @@ export function ProcessorPanel() {
                 {isCanvasSource ? "Canvas source (active)" : "Use as canvas source"}
               </button>
               <NumberField
-                label="Outputs"
+                label={isLvp615(proc) ? "Sender RJ45 ports" : "Outputs"}
                 step={1}
-                min={1}
+                min={isLvp615(proc) ? 0 : 1}
                 max={32}
                 value={proc.outputs}
                 onChange={(v) => updateProcessor(proc.id, { outputs: Math.round(v) })}
               />
               <NumberField
-                label="Max Pixels"
+                label={isLvp615(proc) ? "Sender total pixels" : "Max Pixels"}
                 step={100000}
-                min={1000}
+                min={isLvp615(proc) ? 0 : 1000}
                 value={proc.maxPixels}
                 onChange={(v) => updateProcessor(proc.id, { maxPixels: Math.round(v) })}
               />
+              {isLvp615(proc) && <>
+                <TextField label="Sender model" value={proc.senderModel ?? ""} onChange={(senderModel) => updateProcessor(proc.id, { senderModel })} />
+                <NumberField label="Sender px / port" min={0} step={1000} value={proc.portMaxPixels ?? 0} onChange={(v) => updateProcessor(proc.id, { portMaxPixels: Math.round(v) })} />
+                <SelectField label="Input socket" value={proc.inputConnector ?? "HDMI"} options={["HDMI", "DVI", "DP", "VGA"].map((value) => ({ value, label: value }))} onChange={(v) => updateProcessor(proc.id, { inputConnector: v as ProcessorModel["inputConnector"], maxInputWidth: v === "DVI" ? 2304 : v === "VGA" ? 2048 : 1920, maxInputHeight: v === "DVI" || v === "VGA" ? 1152 : 1080 })} />
+                <SelectField label="DVI output (60 Hz)" value={`${proc.videoOutputWidth ?? 1920}x${proc.videoOutputHeight ?? 1080}`} options={LVP615_TIMINGS.map(([w, h]) => ({ value: `${w}x${h}`, label: `${w} × ${h}` }))} onChange={(v) => { const [w, h] = v.split("x").map(Number); updateProcessor(proc.id, { videoOutputWidth: w, videoOutputHeight: h }); }} />
+                <Readout rows={[["VIDEO OUT", "2 mirrored DVI outputs"], ["LED DATA", proc.senderModel || "Sender unconfirmed"], ["CONTROL", "LAN / USB / RS232"]]} />
+              </>}
               <Readout
                 rows={[
                   [
@@ -170,7 +178,7 @@ export function ProcessorPanel() {
                     } × ${proc.maxInputHeight ?? 1080}`,
                   ],
                   ["SOURCE ASPECT", aspectLabel(inW, inH)],
-                  ["PORT MAX", `${proc.outputWidth} × ${proc.outputHeight}`],
+                  [isLvp615(proc) ? "CUSTOM TIMING LIMIT" : "PORT MAX", `${proc.outputWidth} × ${proc.outputHeight}`],
                   ["LED LOAD", `${load.toLocaleString()} px`],
                   [
                     "UTILISATION",
@@ -229,7 +237,7 @@ export function ProcessorPanel() {
                 }))}
                 onChange={(processorId) => updateScreen(screen.id, { processorId })}
               />
-              {!shared && <SelectField
+              {!shared && (!isLvp615(proc) || (proc?.outputs ?? 0) > 0) && <SelectField
                 label="RJ45 Port"
                 value={String(screen.rj45Port)}
                 options={Array.from({ length: proc?.outputs ?? 4 }, (_, i) => ({
@@ -238,7 +246,7 @@ export function ProcessorPanel() {
                 }))}
                 onChange={(v) => updateScreen(screen.id, { rj45Port: Number(v) })}
               />}
-              <SelectField
+              {!isLvp615(proc) && <SelectField
                 label="Logical Output"
                 value={String(screen.processorOutput)}
                 options={Array.from({ length: proc?.outputs ?? 4 }, (_, i) => ({
@@ -246,7 +254,7 @@ export function ProcessorPanel() {
                   label: `Output ${i + 1}`,
                 }))}
                 onChange={(v) => updateScreen(screen.id, { processorOutput: Number(v) })}
-              />
+              />}
               <Readout
                 rows={[
                   ["LED RES", `${screen.pixelWidth} × ${screen.pixelHeight} px`],
@@ -285,6 +293,7 @@ export function ProcessorPanel() {
                       <span className="text-foreground/70">MAC</span>
                       <span>→</span>
                       <span className="text-foreground/70">{proc.label}</span>
+                      {isLvp615(proc) && <span className="text-primary">→ DVI → {proc.senderModel || "sender unconfirmed"}</span>}
                       <span>→</span>
                       <span className="text-primary">OUT {s.processorOutput}</span>
                       <span>→</span>

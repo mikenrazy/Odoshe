@@ -1,6 +1,7 @@
 import { cabinetCalc } from "./calc";
 import { screenChains, processorLayout } from "./engineering";
 import type { Project, ProcessorModel } from "./types";
+import { isLvp615, senderReady, lvp615Issues } from "./vdwall";
 
 /**
  * Manual configuration worksheet for NovaStar VX1000 / VX Pro series front-panel
@@ -29,6 +30,25 @@ export function isNovaVx(p: ProcessorModel) {
 }
 
 export function processorGuide(project: Project, processor: ProcessorModel): ProcessorGuide {
+  if (isLvp615(processor)) {
+    const cfg = processorLayout(project, processor.id);
+    const issues = lvp615Issues(project, processor);
+    const w = processor.videoOutputWidth ?? 1920, h = processor.videoOutputHeight ?? 1080;
+    return { processor, supported: true,
+      steps: [
+        `Connect playback ${processor.inputWidth ?? 1920} x ${processor.inputHeight ?? 1080} at 60 Hz to ${processor.inputConnector ?? "HDMI"}; select that input on the LVP615.`,
+        "Connect DVI OUT1 (or its mirrored DVI OUT2) to the installed/external LED sending card or sending box, then its LED RJ45 ports to receiving cards. Do not use the LVP615 control LAN for LED data.",
+        `Setup > 1. Out Image > 1.1 Resolution: select ${w} x ${h} at 60 Hz. Press OK, confirm and allow the automatic restart (manual pp. 27–28).`,
+        `Set 1.2 Out Width=${cfg.width}, 1.3 Out Height=${cfg.height}, 1.4 Out H_Start=0 and 1.5 Out V_Start=0 only when this image area fits ${w} x ${h}. Press OK to save (p. 29).`,
+        ...(processor.inputConnector === "DVI" ? ["For verified custom DVI 1:1 timings: Setup > 2. Input Video Signal > 2.1 DVI EDID; match custom width, height and V frequency to the output timing and Apply. Re-detect the laptop display (p. 31)."] : ["HDMI/DP standard input is limited to 1920 x 1080 at 60 Hz. A different LED raster requires source scaling, not a change to cabinet pixels."]),
+        "In the sending-card manufacturer's configuration software, load the supplier's receiving-card file and enter the native cabinet matrix. NovaLCT is appropriate only if the installed sender/receivers are NovaStar.",
+        ...cfg.placements.map((p) => `${p.name}: sender section X=${p.x}, Y=${p.y}, native ${p.width} x ${p.height} px; ${senderReady(processor) ? `LED ports P${p.chains[0]?.port ?? "?"}–P${p.chains.at(-1)?.port ?? "?"}, follow the data sheet's bottom-left column serpentine` : "port route pending sender specifications"}.`),
+        "With a valid input connected, use 1.6 Test Pattern to check every cabinet and seam (p. 30). Turn the pattern off and save the receiving-card mapping with the sender software.",
+      ],
+      screens: project.screens.filter((s) => s.processorId === processor.id).map((s) => ({ screenName: s.name, rows: s.panelConfiguration.rows, cols: s.panelConfiguration.cols, ports: screenChains(project, s).map((c) => ({ port: c.port, cabinets: c.cabinets, pixels: c.pixels })), problems: issues })),
+      notes: ["Source: supplied LVP615 series manual pp. 7, 10–11, 27–31. DVI outputs are identical, not two independent LED canvases.", "The manual does not establish the fitted sending-card model, LED RJ45 count or per-port capacity. Enter those from the sender label/datasheet; do not assume 650,000 pixels per port.", "P2 identifies pixel pitch, not cabinet size. Confirm the measured cabinet dimensions and native matrix before issuing a final configuration.", ...issues],
+    };
+  }
   const isPro = /pro/i.test(processor.label);
   const screens = project.screens.filter((s) => s.processorId === processor.id && s.visible !== false).map((s) => {
     const c = cabinetCalc(s);
