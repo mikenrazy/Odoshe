@@ -2,7 +2,7 @@ import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
 import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
-import { getAsset, getAssets } from "./asset-store";
+import { getAssets } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
 
