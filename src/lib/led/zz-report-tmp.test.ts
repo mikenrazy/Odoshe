@@ -11,7 +11,7 @@ function screen(id: string, x: number, w: number, h: number, cols: number, rows:
 it("writes report", async () => {
   const project = { name: "CIO100 Symposium", meta: {}, stage: { width: 12, depth: 6, height: 1 },
     screens: [screen("LEFT-1", -8.5, 4, 2.5, 8, 5, 0.5, 0.5, 1536, 960, 0, "#ef4444"), screen("CENTER", 0, 13, 3, 26, 3, 0.5, 1, 4992, 1152, 1536, "#3b82f6"), screen("RIGHT-1", 8.5, 4, 2.5, 8, 5, 0.5, 0.5, 1536, 960, 6528, "#ef4444")],
-    processors: [{ id: "p", brand: "NovaStar", label: "VX1000", model: "VX1000", outputs: 10, portMaxPixels: 650000 }], extensions: {}, mediaItems: [] } as unknown as Project;
+    processors: [{ id: "p", brand: "NovaStar", label: "VX1000", model: "VX1000", outputs: 10, portMaxPixels: 650000 }], extensions: {}, mediaItems: [], canvas: { width: 8064, height: 1152 }, sources: [] } as unknown as Project;
   const doc = await buildTechnicalReport(project);
   writeFileSync("/tmp/cmp/ours/r.pdf", Buffer.from(doc.output("arraybuffer")));
 });
