@@ -211,7 +211,7 @@ function sheetFrame(doc: JsPDF, s: LedScreen, kind: "data" | "power", subtitle: 
   doc.setFont("helvetica", "normal");
 }
 
-interface Run { label: string; colour: C3; path: Array<[number, number]>; tag: string }
+interface Run { label: string; colour: C3; path: Array<[number, number]>; tag: string; feed?: string }
 
 function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
   const c = cabinetCalc(s);
@@ -244,7 +244,7 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
   dimV(doc, f.x - 11, f.y, f.y + h, `${c.actualHeight.toFixed(2)}m`);
   const cx = (a: number) => f.x + (a + 0.5) * cw, cy = (b: number) => f.y + (b + 0.5) * ch;
   const box = Math.min(2.6, cw * 0.32, ch * 0.32);
-  runs.forEach((run) => {
+  runs.forEach((run, ri) => {
     doc.setDrawColor(...run.colour); doc.setLineWidth(Math.min(0.7, cw * 0.06));
     for (let k = 1; k < run.path.length; k++) { const [a, b] = run.path[k - 1]!, [x2, y2] = run.path[k]!; doc.line(cx(a), cy(b), cx(x2), cy(y2)); }
     if (box > 1.2) {
@@ -264,8 +264,8 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
     doc.setFillColor(...run.colour); doc.roundedRect(cx(sa) - lw / 2, cy(sb) - 2, lw, 4, 0.5, 0.5, "F");
     doc.setTextColor(10, 10, 10); doc.text(lab, cx(sa), cy(sb) + 0.8, { align: "center" });
     // bottom input tag
-    const t = `${run.label} IN (C${sa + 1}-R${sb + 1})`; doc.setFontSize(4.6); const tw = doc.getTextWidth(t) + 3;
-    const ty = f.y + h + 6;
+    const t = `▲ ${run.label}${run.feed ? ` [${run.feed}]` : " IN"} (C${sa + 1}·R${sb + 1})`; doc.setFontSize(4.6); const tw = doc.getTextWidth(t) + 3;
+    const ty = f.y + h + 4 + (ri % 2) * 6;
     doc.setDrawColor(...run.colour); doc.setLineWidth(0.25); doc.line(cx(sa), f.y + h, cx(sa), ty);
     doc.setFillColor(...CARD); doc.roundedRect(cx(sa) - tw / 2, ty, tw, 4, 0.5, 0.5, "FD");
     doc.setTextColor(...run.colour); doc.text(t, cx(sa), ty + 2.8, { align: "center" });
@@ -407,7 +407,7 @@ export async function buildTechnicalReport(project: Project) {
 
     const pw = screenPower(s, ps);
     sheetFrame(doc, s, "power", `POWER DISTRIBUTION DIAGRAM (${ps.voltage}V · POWERCON)`, project, ps.voltage);
-    const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: cir.path, tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}→C${cir.colEnd + 1})` }));
+    const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: cir.path, feed: cir.phase, tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}→C${cir.colEnd + 1})` }));
     wiringDrawing(doc, s, pRuns, "C");
     if (pw.status === "missing") {
       summaryCard(doc, `POWER DISTRIBUTION SUMMARY — ${s.name.toUpperCase()}`, "POWER DATA MISSING", AMBER, [], [], []);
