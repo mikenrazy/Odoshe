@@ -562,10 +562,15 @@ export const useEditor = create<EditorState>((set, get) => {
             set({
               project: {
                 ...current,
-                meta:
-                  full.meta.coverImage && !current.meta.coverImage
-                    ? { ...current.meta, coverImage: full.meta.coverImage }
-                    : current.meta,
+                meta: {
+                  ...current.meta,
+                  ...(full.meta.coverImage && !current.meta.coverImage
+                    ? { coverImage: full.meta.coverImage }
+                    : {}),
+                  ...(full.meta.reportLogo && !current.meta.reportLogo
+                    ? { reportLogo: full.meta.reportLogo }
+                    : {}),
+                },
                 media: full.media,
                 screens: current.screens.map((s) => {
                   const restored = full.screens.find((f) => f.id === s.id);
