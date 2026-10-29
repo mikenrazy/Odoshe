@@ -1,0 +1,62 @@
+import { useState } from "react";
+import { FileText, Sheet } from "lucide-react";
+import { useEditor } from "@/lib/led/store";
+import { billOfMaterials, bomCsv, globalLayout, powerSettings } from "@/lib/led/engineering";
+import { downloadTechnicalReport } from "@/lib/led/export-technical-report";
+import { Button } from "@/components/ui/button";
+import { NumberField, Readout, Section } from "./Field";
+
+export function EngineeringSection() {
+  const project = useEditor((s) => s.project);
+  const setPower = useEditor((s) => s.setPower);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!project) return null;
+  const ps = powerSettings(project);
+  const layout = globalLayout(project);
+
+  const downloadBom = () => {
+    const blob = new Blob([bomCsv(billOfMaterials(project))], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${project.name}-equipment-list.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <>
+      <Section title="Global Pixel Canvas">
+        <Readout rows={[
+          ["CANVAS", `${layout.canvasWidth} × ${layout.canvasHeight} px`],
+          ["ACTIVE PANELS", `${layout.totalCabinets}`],
+          ["ACTIVE AREA", `${layout.activeAreaM2.toFixed(2)} m²`],
+          ["FOOTPRINT", `${layout.footprintWidthM.toFixed(2)} × ${layout.footprintHeightM.toFixed(2)} m`],
+          ["UNUSED CANVAS", `${layout.unusedPixels.toLocaleString()} px`],
+        ]} />
+      </Section>
+      <Section title="Power Planning">
+        <p className="mb-2 text-[10px] text-muted-foreground">Enter figures from the cabinet datasheet and venue supply. Nothing is assumed.</p>
+        <NumberField label="Cabinet max power" suffix="W" min={0} value={ps.cabinetMaxW ?? 0} onChange={(v) => setPower({ cabinetMaxW: v > 0 ? v : undefined })} />
+        <NumberField label="Cabinet typical power" suffix="W" min={0} value={ps.cabinetTypW ?? 0} onChange={(v) => setPower({ cabinetTypW: v > 0 ? v : undefined })} />
+        <NumberField label="Supply voltage" suffix="V" min={1} value={ps.voltage} onChange={(v) => setPower({ voltage: v })} />
+        <NumberField label="Circuit rating" suffix="A" min={0} value={ps.circuitAmps ?? 0} onChange={(v) => setPower({ circuitAmps: v > 0 ? v : undefined })} />
+        <NumberField label="Usable load limit" suffix="%" min={1} value={ps.loadLimitPct} onChange={(v) => setPower({ loadLimitPct: Math.min(100, v) })} />
+        <div className="mt-1 flex gap-1">
+          {([1, 3] as const).map((n) => (
+            <Button key={n} size="sm" variant={ps.phases === n ? "secondary" : "ghost"} onClick={() => setPower({ phases: n })}>{n}-phase</Button>
+          ))}
+        </div>
+      </Section>
+      <Section title="Reports">
+        <div className="flex flex-col gap-2">
+          <Button size="sm" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await downloadTechnicalReport(project); } catch { setError("Could not create the report. Please try again."); } finally { setBusy(false); } }}>
+            <FileText /> {busy ? "Generating…" : "Technical report (PDF)"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={downloadBom}><Sheet /> Equipment list (CSV)</Button>
+          {error && <p className="text-[10px] text-destructive">{error}</p>}
+        </div>
+      </Section>
+    </>
+  );
+}
