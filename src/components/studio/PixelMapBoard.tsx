@@ -10,6 +10,7 @@ export function PixelMapBoard() {
   const project = useEditor((s) => s.project);
   const selectedId = useEditor((s) => s.selectedId);
   const mirrorScreen = useEditor((s) => s.mirrorScreen);
+  const arrange = useEditor((s) => s.arrangeCanvasSideBySide);
   const [src, setSrc] = useState<string | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -72,6 +73,12 @@ export function PixelMapBoard() {
         </div>
       </div>
 
+      {L.packed && (
+        <div className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/50 bg-accent/10 px-3 py-2 text-xs text-foreground">
+          <span>Some screens overlap on your Content Canvas. The pixel map and report show them side by side.</span>
+          <button onClick={arrange} className="rounded-md bg-accent px-3 py-1 font-bold text-accent-foreground">Fix Content Canvas too</button>
+        </div>
+      )}
       <div className="relative h-[340px] overflow-auto px-6 pb-6">
         <div className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-primary/50" />
         {src ? (

@@ -16,3 +16,13 @@ it("DXF has one cabinet rectangle per panel in millimetres", () => {
   expect(dxf.split("\nLED_CABINETS\n").length - 1).toBeGreaterThanOrEqual(40);
   expect(dxf).toContain("\n-2000\n");
 });
+
+import { globalLayout } from "./engineering";
+it("overlapping canvas regions are laid side by side, left to right by stage position", () => {
+  const mk = (id: string, x: number, cx: number, w: number) => ({ id, name: id, visible: true, position: { x, y: 1, z: 0 }, pixelWidth: w, pixelHeight: 1000, physicalWidth: 4, physicalHeight: 2.5, pixelPitch: 2.5,
+    panelConfiguration: { cols: 8, rows: 5, show: true, panelWidth: 0.5, panelHeight: 0.5, sizeKey: "custom" }, content: { x: cx, y: 0, width: w, height: 1000 } }) as unknown as LedScreen;
+  const g = globalLayout({ screens: [mk("C", 0, 1000, 5200), mk("L", -8, 0, 1600), mk("R", 8, 4900, 1600)] } as unknown as Project);
+  expect(g.packed).toBe(true);
+  expect(g.placements.map((p) => [p.name, p.x])).toEqual([["C", 1600], ["L", 0], ["R", 6800]]);
+  expect(g.canvasWidth).toBe(8400);
+});
