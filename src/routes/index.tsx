@@ -56,7 +56,7 @@ function Dashboard() {
   const open = (id: string) => navigate({ to: "/studio/$projectId", params: { projectId: id } });
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-grid">
       <header className="flex items-center gap-3 border-b border-border bg-card px-6 py-4">
         <LayoutGrid className="h-5 w-5 text-primary" />
         <div>
