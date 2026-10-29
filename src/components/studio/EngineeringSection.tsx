@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { FileText, Sheet } from "lucide-react";
+import { FileText, Sheet, Image as ImageIcon, PenTool } from "lucide-react";
+import { downloadDxf, downloadPixelMapPng } from "@/lib/led/pixel-map-export";
+import { getAsset } from "@/lib/led/asset-store";
 import { useEditor } from "@/lib/led/store";
 import { billOfMaterials, bomCsv, globalLayout, graphicsSpec, graphicsSpecCsv, powerSettings } from "@/lib/led/engineering";
 import { downloadTechnicalReport } from "@/lib/led/export-technical-report";
@@ -58,6 +60,8 @@ export function EngineeringSection() {
           </Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(bomCsv(billOfMaterials(project)), "equipment-list")}><Sheet /> Equipment list (CSV)</Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(graphicsSpecCsv(graphicsSpec(project)), "graphics-spec")}><Sheet /> Graphics spec for designer (CSV)</Button>
+          <Button size="sm" variant="outline" onClick={async () => { setError(""); try { const logo = project.meta.coverImage ?? (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null); await downloadPixelMapPng(project, logo); } catch { setError("Could not create the pixel map image."); } }}><ImageIcon /> Pixel map image (PNG, {layout.canvasWidth}×{layout.canvasHeight})</Button>
+          <Button size="sm" variant="outline" onClick={() => downloadDxf(project)}><PenTool /> AutoCAD drawing (DXF, 1:1 mm)</Button>
           {error && <p className="text-[10px] text-destructive">{error}</p>}
         </div>
       </Section>

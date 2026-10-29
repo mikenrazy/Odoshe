@@ -4,6 +4,7 @@ import {
   Boxes,
   ChevronRight,
   Copy,
+  FlipHorizontal2,
   Eye,
   EyeOff,
   Lock,
@@ -34,6 +35,7 @@ export function LeftSidebar() {
   const updateScreen = useEditor((s) => s.updateScreen);
   const deleteScreen = useEditor((s) => s.deleteScreen);
   const duplicateScreen = useEditor((s) => s.duplicateScreen);
+  const mirrorScreen = useEditor((s) => s.mirrorScreen);
   const updateEquipment = useEditor((s) => s.updateEquipment);
   const deleteEquipment = useEditor((s) => s.deleteEquipment);
   const duplicateEquipment = useEditor((s) => s.duplicateEquipment);
@@ -166,6 +168,9 @@ export function LeftSidebar() {
               </IconBtn>
               <IconBtn title="Duplicate" onClick={() => duplicateScreen(screen.id)}>
                 <Copy className="h-3 w-3" />
+              </IconBtn>
+              <IconBtn title="Mirror to other side" onClick={() => mirrorScreen(screen.id)}>
+                <FlipHorizontal2 className="h-3 w-3" />
               </IconBtn>
               <IconBtn title="Delete" onClick={() => deleteScreen(screen.id)}>
                 <Trash2 className="h-3 w-3" />

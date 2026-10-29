@@ -14,3 +14,4 @@
 - Render monitor test windows from the editor's current shared media compositor at native logical resolution, with per-window animation and explicit user clicks, because permission and popup restrictions apply.
 - Export Canvas reports separately from stage production PDFs, so existing client delivery page order remains unchanged.
 - Keep engineering maths (global canvas, data chains, power circuits, equipment list) in src/lib/led/engineering.ts with tests, and build the technical report only from it, so report figures match the app; power uses only operator-entered ratings.
+- Pixel-map PNG and DXF exports live in src/lib/led/pixel-map-export.ts and read only globalLayout/cabinetCalc, so exports match the report figures.

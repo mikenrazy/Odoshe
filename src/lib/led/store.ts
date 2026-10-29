@@ -1,3 +1,4 @@
+import { mirroredScreen } from "./mirror";
 import { create } from "zustand";
 import { getAssets, backupProjects, restoreProjects } from "./asset-store";
 import {
@@ -362,6 +363,8 @@ interface EditorState {
 
   deleteScreen: (id: string) => void;
   duplicateScreen: (id: string) => void;
+  /** mirrored copy across the stage centre axis (x = 0) */
+  mirrorScreen: (id: string) => void;
   alignScreens: (axis: "left" | "centerX" | "right" | "top" | "middleY" | "bottom") => void;
   spaceScreens: (gap: number, direction: "horizontal" | "vertical") => void;
   setGapBetween: (aId: string, bId: string, gap: number) => void;
@@ -1051,6 +1054,15 @@ export const useEditor = create<EditorState>((set, get) => {
         gridOrder: Math.max(0, ...(project?.screens ?? []).map((s) => s.gridOrder ?? 0)) + 1,
         position: { ...source.position, x: source.position.x + 1 },
       };
+      mutate((p) => ({ ...p, screens: [...p.screens, copy] }));
+      set({ selectedId: copy.id });
+    },
+
+    mirrorScreen: (id) => {
+      const project = get().project;
+      const source = project?.screens.find((s) => s.id === id);
+      if (!project || !source) return;
+      const copy = { ...mirroredScreen(source, project.canvas.width), id: uid("led"), gridOrder: Math.max(0, ...project.screens.map((s) => s.gridOrder ?? 0)) + 1 };
       mutate((p) => ({ ...p, screens: [...p.screens, copy] }));
       set({ selectedId: copy.id });
     },

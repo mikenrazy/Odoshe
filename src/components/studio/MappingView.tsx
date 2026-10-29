@@ -3,6 +3,7 @@ import { cabinetCalc } from "@/lib/led/calc";
 import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { signalChain, validateMapping } from "@/lib/led/mapping";
 import { PortMap } from "./PortMap";
+import { PixelMapBoard } from "./PixelMapBoard";
 
 /** LED Mapping Mode — physical layout (metres) vs content canvas (pixels). */
 export function MappingView() {
@@ -26,15 +27,17 @@ export function MappingView() {
   const canvasScale = 880 / Math.max(1, project.canvas.width);
 
   return (
-    <div className="min-w-0 flex-1 overflow-y-auto bg-[#05070b] p-6">
+    <div className="min-w-0 flex-1 overflow-y-auto bg-background p-6">
       <header className="mb-4">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground">
-          LED Mapping
+          2D Pixel Map
         </h2>
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
           Physical LED layout · processor mapping · canvas coordinates
         </p>
       </header>
+
+      <PixelMapBoard />
 
       <section className="mb-6 border border-border bg-card p-4">
         <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
