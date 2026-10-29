@@ -310,7 +310,11 @@ export function billOfMaterials(project: Project): BomRow[] {
     rows.push({ item: "Data cable (CAT6) — processor to first cabinet", model: "CAT6", qty: chains.length, location: s.name, spec: run ? `${run} m each (estimate)` : "Length to be measured on site", notes: chains.some((ch) => ch.overflow) ? "Needs more processor ports than available" : "" });
     rows.push({ item: "Data jumper (CAT6) — cabinet to cabinet", model: "CAT6", qty: Math.max(0, c.total - chains.length), location: s.name, spec: "Short jumper", notes: "" });
     const p = screenPower(s, powerSettings(project));
-    if (p.status === "ok") rows.push({ item: "Power circuit / feed", model: "", qty: p.circuits.length, location: s.name, spec: `${powerSettings(project).circuitAmps} A @ ${powerSettings(project).voltage} V`, notes: "Verify with a qualified electrician" });
+    if (p.status === "ok") {
+      const ps = powerSettings(project);
+      rows.push({ item: "Power circuit / feed", model: "", qty: p.circuits.length, location: s.name, spec: `${ps.circuitAmps} A @ ${ps.voltage} V`, notes: "Verify with a qualified electrician" });
+      rows.push({ item: "Power jumper — cabinet to cabinet", model: "PowerCON in–out", qty: Math.max(0, c.total - p.circuits.length), location: s.name, spec: "Short power jumper, one per remaining cabinet", notes: p.circuits.map((ci) => ci.cabinets).join(" + ") + " cabinets per circuit" });
+    }
   }
   const used = new Set(project.screens.map((s) => s.processorId));
   for (const proc of project.processors.filter((p) => used.has(p.id)))
