@@ -1,7 +1,7 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
-import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
+import { graphicsSpec, billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
 import { getAssets } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
@@ -347,6 +347,62 @@ function dimLine(doc: JsPDF, x0: number, y0: number, x1: number, y1: number, lab
 
 const m2 = (n: number) => `${+n.toFixed(2)}`;
 
+
+/** Graphics spec page for content designers: canvas template, per-screen pixel regions and delivery rules. */
+function graphicsSheet(doc: JsPDF, project: Project, screens: LedScreen[]) {
+  const g = globalLayout(project);
+  const rows = graphicsSpec(project);
+  page(doc, "GRAPHICS SPECIFICATION — FOR CONTENT DESIGNERS", `Build ONE file at ${g.canvasWidth} × ${g.canvasHeight} px. Each coloured box below is a screen; place artwork for that screen exactly inside its box.`, project);
+  // canvas template drawing
+  const ax = 15, ay = 34, aw = W - 30, ah = 62;
+  const f = fit(g.canvasWidth, g.canvasHeight, ax, ay, aw, ah);
+  const cw = g.canvasWidth * f.s, ch = g.canvasHeight * f.s;
+  doc.setFillColor(0, 0, 0); doc.rect(f.x, f.y, cw, ch, "F");
+  doc.setDrawColor(...MUTED); doc.setLineWidth(0.3); doc.rect(f.x, f.y, cw, ch, "S");
+  g.placements.forEach((p, i) => {
+    const col = PAINT.get(p.screenId) ?? PALETTE[i % PALETTE.length]!;
+    const x = f.x + p.x * f.s, y = f.y + p.y * f.s, w = p.width * f.s, h = p.height * f.s;
+    withOpacity(doc, 0.35, () => { doc.setFillColor(...col); doc.rect(x, y, w, h, "F"); });
+    doc.setDrawColor(...col); doc.setLineWidth(0.5); doc.rect(x, y, w, h, "S");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(w > 40 ? 7 : 5); doc.setTextColor(...TEXT);
+    doc.text(p.name.toUpperCase(), x + w / 2, y + h / 2 - 2, { align: "center", maxWidth: w - 1 });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(w > 40 ? 6 : 4.5);
+    doc.text(`${p.width} × ${p.height} px`, x + w / 2, y + h / 2 + 1.5, { align: "center", maxWidth: w - 1 });
+    doc.text(`X ${p.x}  Y ${p.y}`, x + w / 2, y + h / 2 + 4.5, { align: "center", maxWidth: w - 1 });
+  });
+  doc.setFontSize(6.5); doc.setTextColor(...MUTED);
+  doc.text(`0,0 (top-left)`, f.x, f.y - 1.2);
+  doc.text(`${g.canvasWidth} × ${g.canvasHeight} px full canvas — black = not shown on any LED`, f.x + cw, f.y + ch + 3.5, { align: "right" });
+  // table
+  const ty = Math.max(f.y + ch + 8, 100);
+  sectionTitle(doc, 15, ty, "Screen Regions (pixels)");
+  const byId = new Map(screens.map((s) => [s.id, s]));
+  const body = rows.map((r, i) => {
+    const pl = i === 0 ? null : g.placements[i - 1]!;
+    const s = pl ? byId.get(pl.screenId) : undefined;
+    const size = s ? `${s.width.toFixed(2)} × ${s.height.toFixed(2)} m` : `${g.activeAreaM2.toFixed(1)} m2 total`;
+    const safe = `${Math.round(r.width * 0.9)} × ${Math.round(r.height * 0.9)}`;
+    return [r.screen, `${r.x}`, `${r.y}`, `${r.width}`, `${r.height}`, r.aspect, r.panels, r.pitch ? `P${r.pitch}` : "—", size, safe];
+  });
+  const endY = table(doc, 15, ty + 7, [
+    { h: "SCREEN", w: 50 }, { h: "X px", w: 18 }, { h: "Y px", w: 18 }, { h: "WIDTH px", w: 22 }, { h: "HEIGHT px", w: 22 },
+    { h: "ASPECT", w: 22 }, { h: "PANELS", w: 20 }, { h: "PITCH", w: 18 }, { h: "PHYSICAL SIZE", w: 40 }, { h: "90% SAFE AREA", w: 37 },
+  ], body, 5);
+  // designer notes
+  const ny = Math.min(endY + 7, H - 48);
+  sectionTitle(doc, 15, ny, "Designer Notes");
+  const notes = [
+    `1. Artboard / comp size: ${g.canvasWidth} × ${g.canvasHeight} px, square pixels, 72 ppi is fine (only pixels matter). Work at 1:1 — do not resize.`,
+    "2. X / Y = top-left corner of each screen inside the artboard. Keep the screen's artwork exactly within its WIDTH × HEIGHT box.",
+    "3. Anything outside the coloured boxes (black areas, gaps between screens) is never displayed — do not put text or logos there.",
+    "4. Keep logos and text inside the 90% safe area (5% margin each side); edges of LED walls are hard to read from the audience.",
+    "5. Video: H.264 or HAP MP4/MOV, 25 or 50 fps, Rec.709, RGB full range. Stills: PNG or JPG. Avoid thin 1 px lines and small text (pitch makes them blur).",
+    `6. File naming: ${project.name.replace(/\s+/g, "_")}_${g.canvasWidth}x${g.canvasHeight}_<content>_v01. Use the Pixel Map PNG export as a template layer.`,
+  ];
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...TEXT);
+  notes.forEach((n, i) => doc.text(n, 15, ny + 9 + i * 5, { maxWidth: W - 30 }));
+}
+
 function masterSheet(doc: JsPDF, project: Project, screens: LedScreen[], ps: ReturnType<typeof powerSettings>) {
   doc.addPage("a4", "landscape");
   doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
@@ -644,6 +700,9 @@ export async function buildTechnicalReport(project: Project, theme: ReportTheme 
 
   /* master stage sheet */
   masterSheet(doc, project, screens, ps);
+
+  /* graphics specification for content designers */
+  graphicsSheet(doc, project, screens);
 
   /* per-screen data and power sheets */
   for (const s of screens) {
