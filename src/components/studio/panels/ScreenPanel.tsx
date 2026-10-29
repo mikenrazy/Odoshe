@@ -263,6 +263,11 @@ export function ScreenPanel() {
             ],
           ]}
         />
+        {resStatus.notes.length > 0 && (
+          <ul className="mt-1 space-y-0.5 text-[10px] leading-relaxed text-muted-foreground">
+            {resStatus.notes.map((n) => <li key={n}>• {n}</li>)}
+          </ul>
+        )}
         <ToggleField
           label="Manual resolution override"
           value={!!screen.resolutionOverride}

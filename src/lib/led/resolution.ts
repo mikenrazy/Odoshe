@@ -1,4 +1,36 @@
 import type { LedScreen, Project, ProcessorModel } from "./types";
+import { PROCESSOR_CATALOG } from "./types";
+import { screenChains } from "./engineering";
+
+/** Max screen width/height a processor can load across all its ports (NovaStar manuals: 10,240 × 8,192 for VX1000 / VX Pro). */
+export function loadLimits(proc: ProcessorModel) {
+  if (proc.brand === "NovaStar" && /^VX(1000|600)/i.test(proc.label)) return { width: 10240, height: 8192 };
+  return { width: proc.outputWidth, height: proc.outputHeight };
+}
+
+/** Ports a processor needs for all its screens, using whole-column chains within port capacity. */
+export function portsRequired(project: Project, proc: ProcessorModel) {
+  return project.screens
+    .filter((s) => s.processorId === proc.id && s.visible !== false)
+    .reduce((n, s) => n + screenChains(project, s).length, 0);
+}
+
+/**
+ * Best source (laptop → processor input) resolution for a processor's LED canvas:
+ * the exact canvas when the input accepts it (1:1), otherwise the supported preset with the
+ * closest aspect ratio, then the most pixels.
+ */
+export function recommendedSource(proc: ProcessorModel, ledW: number, ledH: number) {
+  const maxW = proc.maxInputWidth ?? 1920, maxH = proc.maxInputHeight ?? 1080;
+  const minW = proc.minInputWidth ?? 0, minH = proc.minInputHeight ?? 0;
+  if (ledW > 0 && ledH > 0 && ledW <= maxW && ledH <= maxH && ledW >= minW && ledH >= minH)
+    return { width: ledW, height: ledH, exact: true };
+  const entry = PROCESSOR_CATALOG.find((e) => e.key === proc.modelKey || e.label === proc.label);
+  const presets = [...(entry?.inputPresets ?? []), { width: maxW, height: maxH }].filter((p) => p.width <= maxW && p.height <= maxH);
+  const target = ledW > 0 && ledH > 0 ? ledW / ledH : 16 / 9;
+  const best = presets.sort((a, b) => Math.abs(a.width / a.height - target) - Math.abs(b.width / b.height - target) || b.width * b.height - a.width * a.height)[0] ?? { width: maxW, height: maxH };
+  return { width: best.width, height: best.height, exact: false };
+}
 
 /* -------------------------------------------------------------- catalogue */
 
@@ -205,7 +237,7 @@ export function processorChain(project: Project, processor: ProcessorModel): Pro
   const sourceHeight = processor.inputHeight ?? 1080;
   const box = boundingBox(screens);
   const ledPixels = screens.reduce((sum, s) => sum + s.pixelWidth * s.pixelHeight, 0);
-  const ports = new Set(screens.map((s) => s.rj45Port));
+  const portsUsed = portsRequired(project, processor);
 
   const notes: string[] = [];
   let status: ChainStatus = "ok";
@@ -227,9 +259,9 @@ export function processorChain(project: Project, processor: ProcessorModel): Pro
       `LED load ${ledPixels.toLocaleString()} px exceeds the ${processor.label} capacity of ${processor.maxPixels.toLocaleString()} px.`,
     );
   }
-  if (ports.size > processor.outputs) {
+  if (portsUsed > processor.outputs) {
     raise("error");
-    notes.push(`${ports.size} ports patched but the ${processor.label} has ${processor.outputs}.`);
+    notes.push(`These screens need ${portsUsed} Ethernet ports (650,000 px each) but the ${processor.label} has ${processor.outputs}. Add a second processor or move a screen.`);
   }
 
   let scaling: ProcessorChain["scaling"] = "1:1";
@@ -263,11 +295,10 @@ export function processorChain(project: Project, processor: ProcessorModel): Pro
         `${s.name} uses a manual resolution (${s.pixelWidth}×${s.pixelHeight}) instead of the cabinet-derived ${d.pixelWidth}×${d.pixelHeight}.`,
       );
     }
-    if (s.pixelWidth > processor.outputWidth || s.pixelHeight > processor.outputHeight) {
+    const lim = loadLimits(processor);
+    if (s.pixelWidth > lim.width || s.pixelHeight > lim.height) {
       raise("error");
-      notes.push(
-        `${s.name} (${s.pixelWidth}×${s.pixelHeight}) exceeds a single ${processor.label} port (${processor.outputWidth}×${processor.outputHeight}).`,
-      );
+      notes.push(`${s.name} (${s.pixelWidth}×${s.pixelHeight}) exceeds the ${processor.label} maximum of ${lim.width}×${lim.height}.`);
     }
   }
 
@@ -279,7 +310,7 @@ export function processorChain(project: Project, processor: ProcessorModel): Pro
     ledHeight: box.height,
     ledPixels,
     screens: screens.length,
-    portsUsed: ports.size,
+    portsUsed,
     status,
     notes,
     scaling,
@@ -308,9 +339,15 @@ export function screenStatus(
   if (screen.pixelWidth * screen.pixelHeight > proc.maxPixels) {
     status = "error";
     notes.push(`Exceeds ${proc.label} capacity.`);
-  } else if (screen.pixelWidth > proc.outputWidth || screen.pixelHeight > proc.outputHeight) {
+  } else if (screen.pixelWidth > loadLimits(proc).width || screen.pixelHeight > loadLimits(proc).height) {
     status = "error";
-    notes.push(`Needs more than one ${proc.label} port.`);
+    notes.push(`Wider or taller than the ${proc.label} can load (${loadLimits(proc).width}×${loadLimits(proc).height}).`);
+  } else {
+    const chains = screenChains(project, screen);
+    if (chains.some((c) => c.overflow)) {
+      status = "error";
+      notes.push(`Needs ports ${chains[0]!.port}–${chains[chains.length - 1]!.port}, but the ${proc.label} has ${proc.outputs}. Move this screen to another processor.`);
+    } else notes.push(`Uses ${chains.length} Ethernet port${chains.length > 1 ? "s" : ""} (${chains.map((c) => c.port).join(", ")}).`);
   }
   if (d.overridden) {
     if (status === "ok") status = "scaling";
