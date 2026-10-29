@@ -11,7 +11,7 @@ export function senderReady(p: ProcessorModel | undefined) {
 export function lvp615Issues(project: Project, p: ProcessorModel): string[] {
   if (!isLvp615(p)) return [];
   const issues: string[] = [];
-  if (!senderReady(p)) issues.push("Sending-card model, total LED RJ45 ports, pixels per port and total sender pixel capacity are unconfirmed. LVP615 DVI OUT1/OUT2 mirror the same image; LAN is for control.");
+  if (!senderReady(p)) issues.push(`${p.outputs} sender LED RJ45 ports configured; sending-card model, pixels per port and total pixel capacity remain unconfirmed. LVP615 DVI OUT1/OUT2 mirror the same image; LAN is for control.`);
   const input = p.inputConnector ?? "HDMI";
   const maxW = input === "DVI" ? 2304 : input === "VGA" ? 2048 : 1920;
   const maxH = input === "DVI" || input === "VGA" ? 1152 : 1080;
