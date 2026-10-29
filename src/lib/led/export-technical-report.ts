@@ -531,11 +531,10 @@ export async function buildTechnicalReport(project: Project) {
   const today = new Date().toLocaleDateString();
 
   /* 1 — cover (logo, title, subtitle, date) */
-  const cover = project.meta.coverImage ?? (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null);
   const reportLogo = project.meta.reportLogo ?? (project.meta.reportLogoAssetId ? await getAsset(project.meta.reportLogoAssetId) : null);
-  LOGO = reportLogo ?? cover ?? null;
+  LOGO = reportLogo;
   doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
-  if (cover || reportLogo) logo(doc, 50, 30, W - 100, 75, cover ?? reportLogo);
+  if (reportLogo) logo(doc, 50, 30, W - 100, 75, reportLogo);
   doc.setTextColor(...TEXT); doc.setFont("helvetica", "normal"); doc.setFontSize(22);
   doc.text(project.name.toUpperCase(), W / 2, 125, { align: "center" });
   doc.setFontSize(9); doc.setTextColor(...MUTED);
