@@ -11,6 +11,7 @@ export function MappingView() {
   const select = useEditor((s) => s.select);
   const updateScreen = useEditor((s) => s.updateScreen);
   const fixOutside = (id: string) => {
+    if (!project) return;
     const sc = project.screens.find((x) => x.id === id);
     if (!sc) return;
     const c = sc.content;
