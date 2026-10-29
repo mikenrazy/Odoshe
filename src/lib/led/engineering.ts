@@ -136,39 +136,51 @@ export function colsPerPortFor(project: Project, screen: LedScreen) {
   return Math.max(1, Math.floor(portCapacity(project, screen).max / Math.max(1, colPx)));
 }
 
+/** Cabinets one port can carry: floor(port pixel capacity ÷ pixels per cabinet). */
+export function cabinetsPerPortFor(project: Project, screen: LedScreen) {
+  const c = cabinetCalc(screen);
+  const pxPerCab = (screen.pixelWidth / c.cols) * (screen.pixelHeight / c.rows);
+  return Math.max(1, Math.floor(portCapacity(project, screen).max / Math.max(1, pxPerCab)));
+}
+
+/** One continuous column serpentine through the whole screen, starting bottom-left. */
+export function screenSerpentine(cols: number, rows: number): Array<[number, number]> {
+  const p: Array<[number, number]> = [];
+  for (let col = 0; col < cols; col++) for (let i = 0; i < rows; i++) p.push([col, col % 2 === 0 ? rows - 1 - i : i]);
+  return p;
+}
+
+/** Cuts the serpentine into consecutive runs of at most `per` cabinets. */
+function chunkPath(path: Array<[number, number]>, per: number) {
+  const out: Array<Array<[number, number]>> = [];
+  for (let i = 0; i < path.length; i += per) out.push(path.slice(i, i + per));
+  return out;
+}
+
 /**
- * Splits a screen into whole-column serpentine chains, each within one port's pixel capacity,
- * balanced so no port carries more than one extra column. Ports are numbered continuously per
- * processor in screen order; numbers above the processor's output count are flagged.
+ * Splits a screen into data chains like the LEDMapper report: one serpentine (bottom-left start,
+ * up/down by column) filled port by port with as many cabinets as the port's pixel capacity allows.
+ * Ports are numbered continuously per processor in screen order; numbers above the processor's
+ * output count are flagged.
  */
 export function screenChains(project: Project, screen: LedScreen): CabinetChain[] {
   const c = cabinetCalc(screen);
   const { proc, max } = portCapacity(project, screen);
   const pxPerCab = (screen.pixelWidth / c.cols) * (screen.pixelHeight / c.rows);
-  const per = colsPerPortFor(project, screen);
-  const ports = Math.ceil(c.cols / per);
+  const per = cabinetsPerPortFor(project, screen);
   let firstPort = 1;
   for (const other of project.screens) {
     if (other.id === screen.id) break;
     if (other.processorId === screen.processorId && other.visible !== false)
-      firstPort += Math.ceil(cabinetCalc(other).cols / colsPerPortFor(project, other));
+      firstPort += Math.ceil(cabinetCalc(other).total / cabinetsPerPortFor(project, other));
   }
-  const chains: CabinetChain[] = [];
-  let col = 0;
-  for (let i = 0; i < ports; i++) {
-    const cols = Math.floor(c.cols / ports) + (i < c.cols % ports ? 1 : 0);
-    const path: Array<[number, number]> = [];
-    for (let k = 0; k < cols; k++) {
-      const cc = col + k;
-      for (let r = 0; r < c.rows; r++) path.push([cc, k % 2 === 0 ? c.rows - 1 - r : r]);
-    }
-    const cabinets = cols * c.rows;
+  return chunkPath(screenSerpentine(c.cols, c.rows), per).map((path, i) => {
+    const cabinets = path.length;
     const pixels = Math.round(cabinets * pxPerCab);
     const port = firstPort + i;
-    chains.push({ port, colStart: col, colEnd: col + cols - 1, cabinets, pixels, loadPct: (pixels / max) * 100, path, overflow: proc ? port > proc.outputs : false });
-    col += cols;
-  }
-  return chains;
+    const colsUsed = path.map((p) => p[0]);
+    return { port, colStart: Math.min(...colsUsed), colEnd: Math.max(...colsUsed), cabinets, pixels, loadPct: (pixels / max) * 100, path, overflow: proc ? port > proc.outputs : false };
+  });
 }
 
 /** Estimated CAT6 lengths: home run (operator-set) plus cabinet-to-cabinet jumpers along the chain. */
@@ -205,6 +217,7 @@ export function powerSettings(project: Project): PowerSettings {
 
 export interface PowerCircuit {
   id: string;
+  /** feed label, e.g. "T1·L2" on 3-phase (tie-in 1, line 2) or "L1" on single phase */
   phase: string;
   colStart: number;
   colEnd: number;
@@ -213,6 +226,8 @@ export interface PowerCircuit {
   typW: number | undefined;
   amps: number;
   loadPct: number;
+  /** cabinets in serpentine order, bottom-left start */
+  path: Array<[number, number]>;
 }
 
 export interface ScreenPower {
@@ -225,7 +240,10 @@ export interface ScreenPower {
   totalAmps: number;
 }
 
-/** Circuits are filled by whole cabinet columns, never exceeding the configured usable capacity. */
+/**
+ * Circuits follow the same serpentine as data, each filled with as many cabinets as the
+ * configured usable capacity allows (floor(usable W ÷ cabinet max W)).
+ */
 export function screenPower(screen: LedScreen, ps: PowerSettings, prefix = "C"): ScreenPower {
   const c = cabinetCalc(screen);
   if (!ps.cabinetMaxW || !ps.circuitAmps || !ps.voltage)
@@ -234,18 +252,16 @@ export function screenPower(screen: LedScreen, ps: PowerSettings, prefix = "C"):
   const perCircuit = Math.floor(usableW / ps.cabinetMaxW);
   if (perCircuit < 1)
     return { status: "missing", message: `One cabinet (${ps.cabinetMaxW} W) exceeds the usable circuit capacity (${Math.round(usableW)} W).`, cabinetsPerCircuit: 0, circuits: [], totalMaxW: 0, totalTypW: undefined, totalAmps: 0 };
-  const colsPerCircuit = Math.max(1, Math.floor(perCircuit / c.rows));
-  const phaseNames = ps.phases === 3 ? ["L1", "L2", "L3"] : ["L1"];
-  const circuits: PowerCircuit[] = [];
-  for (let col = 0, i = 0; col < c.cols; col += colsPerCircuit, i++) {
-    const cols = Math.min(colsPerCircuit, c.cols - col);
-    const cabinets = cols * c.rows;
-    const maxW = cabinets * ps.cabinetMaxW;
+  const circuits: PowerCircuit[] = chunkPath(screenSerpentine(c.cols, c.rows), perCircuit).map((path, i) => {
+    const cabinets = path.length;
+    const maxW = cabinets * ps.cabinetMaxW!;
     const amps = maxW / ps.voltage;
-    circuits.push({ id: `${prefix}${i + 1}`, phase: phaseNames[i % phaseNames.length]!, colStart: col, colEnd: col + cols - 1, cabinets, maxW, typW: ps.cabinetTypW ? cabinets * ps.cabinetTypW : undefined, amps, loadPct: (amps / ps.circuitAmps) * 100 });
-  }
+    const colsUsed = path.map((p) => p[0]);
+    const phase = ps.phases === 3 ? `T${Math.floor(i / 3) + 1}·L${(i % 3) + 1}` : "L1";
+    return { id: `${prefix}${i + 1}`, phase, colStart: Math.min(...colsUsed), colEnd: Math.max(...colsUsed), cabinets, maxW, typW: ps.cabinetTypW ? cabinets * ps.cabinetTypW : undefined, amps, loadPct: (amps / ps.circuitAmps!) * 100, path };
+  });
   const totalMaxW = c.total * ps.cabinetMaxW;
-  return { status: "ok", cabinetsPerCircuit: colsPerCircuit * c.rows, circuits, totalMaxW, totalTypW: ps.cabinetTypW ? c.total * ps.cabinetTypW : undefined, totalAmps: totalMaxW / ps.voltage };
+  return { status: "ok", cabinetsPerCircuit: perCircuit, circuits, totalMaxW, totalTypW: ps.cabinetTypW ? c.total * ps.cabinetTypW : undefined, totalAmps: totalMaxW / ps.voltage };
 }
 
 /* -------------------------------------------------------- bill of materials */
