@@ -105,6 +105,9 @@ function stripHeavyMedia(projects: Project[]): Project[] {
       ...(p.meta.reportLogo && p.meta.reportLogo.length > 4000 && p.meta.reportLogoAssetId
         ? { reportLogo: undefined }
         : {}),
+      ...(p.meta.reportLogoLight && p.meta.reportLogoLight.length > 4000 && p.meta.reportLogoLightAssetId
+        ? { reportLogoLight: undefined }
+        : {}),
     },
     screens: p.screens.map((s) =>
       s.contentImage && s.contentImage.length > 4000
@@ -125,6 +128,7 @@ function forStorage(projects: Project[]): Project[] {
       ...p.meta,
       ...(p.meta.coverAssetId ? { coverImage: undefined } : {}),
       ...(p.meta.reportLogoAssetId ? { reportLogo: undefined } : {}),
+      ...(p.meta.reportLogoLightAssetId ? { reportLogoLight: undefined } : {}),
     },
     screens: p.screens.map((s) => (s.contentAssetId ? { ...s, contentImage: undefined } : s)),
     media: (p.media ?? []).map((m) => (m.assetId ? { ...m, src: undefined } : m)),
@@ -136,6 +140,7 @@ export async function rehydrateAssets(project: Project): Promise<Project> {
   const ids = [
     ...(project.meta.coverAssetId && !project.meta.coverImage ? [project.meta.coverAssetId] : []),
     ...(project.meta.reportLogoAssetId && !project.meta.reportLogo ? [project.meta.reportLogoAssetId] : []),
+    ...(project.meta.reportLogoLightAssetId && !project.meta.reportLogoLight ? [project.meta.reportLogoLightAssetId] : []),
     ...(project.media ?? []).filter((m) => m.assetId && !m.src).map((m) => m.assetId!),
     ...project.screens.filter((s) => s.contentAssetId && !s.contentImage).map((s) => s.contentAssetId!),
   ];
@@ -150,6 +155,9 @@ export async function rehydrateAssets(project: Project): Promise<Project> {
         : {}),
       ...(project.meta.reportLogoAssetId && !project.meta.reportLogo && assets[project.meta.reportLogoAssetId]
         ? { reportLogo: assets[project.meta.reportLogoAssetId] }
+        : {}),
+      ...(project.meta.reportLogoLightAssetId && !project.meta.reportLogoLight && assets[project.meta.reportLogoLightAssetId]
+        ? { reportLogoLight: assets[project.meta.reportLogoLightAssetId] }
         : {}),
     },
     media: (project.media ?? []).map((m) =>
@@ -571,6 +579,9 @@ export const useEditor = create<EditorState>((set, get) => {
                     : {}),
                   ...(full.meta.reportLogo && !current.meta.reportLogo
                     ? { reportLogo: full.meta.reportLogo }
+                    : {}),
+                  ...(full.meta.reportLogoLight && !current.meta.reportLogoLight
+                    ? { reportLogoLight: full.meta.reportLogoLight }
                     : {}),
                 },
                 media: full.media,
