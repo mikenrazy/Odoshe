@@ -33,9 +33,10 @@ describe("Power planning", () => {
   it("refuses to calculate without manufacturer data", () => expect(screenPower(centre, DEFAULT_POWER).status).toBe("missing"));
   it("never exceeds the usable circuit capacity", () => {
     const p = screenPower(centre, { ...DEFAULT_POWER, cabinetMaxW: 200, circuitAmps: 16 });
-    // 230 V × 16 A × 80% = 2944 W → 14 cabinets → 4 whole columns of 3 = 12 per circuit
-    expect(p.cabinetsPerCircuit).toBe(12);
-    expect(p.circuits).toHaveLength(7);
+    // 230 V × 16 A × 80% = 2944 W → 14 cabinets per circuit → 78 cabinets = 5 × 14 + 8
+    expect(p.cabinetsPerCircuit).toBe(14);
+    expect(p.circuits.map((c) => c.cabinets)).toEqual([14, 14, 14, 14, 14, 8]);
+    expect(p.circuits.map((c) => c.phase).slice(0, 4)).toEqual(["T1·L1", "T1·L2", "T1·L3", "T2·L1"]);
     expect(Math.max(...p.circuits.map((c) => c.maxW))).toBeLessThanOrEqual(2944);
     expect(p.totalMaxW).toBe(15600);
   });
@@ -43,9 +44,18 @@ describe("Power planning", () => {
 
 describe("Data chains respect port capacity", () => {
   const proj = { ...project, processors: [{ id: "p", outputs: 10, portMaxPixels: 650_000 }] } as unknown as Project;
-  it("CIO100 side screen uses 3 ports (3+3+2 columns)", async () => {
+  it("CIO100 side screen uses 3 ports of 17, 17 and 6 cabinets (as in the sample report)", async () => {
     const { screenChains } = await import("./engineering");
-    expect(screenChains(proj, left).map((c) => c.colEnd - c.colStart + 1)).toEqual([3, 3, 2]);
+    expect(screenChains(proj, left).map((c) => c.cabinets)).toEqual([17, 17, 6]);
+  });
+  it("CIO100 centre uses 10 ports of 8 cabinets, last one 6", async () => {
+    const { screenChains } = await import("./engineering");
+    const solo = { ...proj, screens: [centre] } as unknown as Project;
+    expect(screenChains(solo, centre).map((c) => c.cabinets)).toEqual([8, 8, 8, 8, 8, 8, 8, 8, 8, 6]);
+  });
+  it("first port starts bottom-left and runs up column 1", async () => {
+    const { screenChains } = await import("./engineering");
+    expect(screenChains(proj, centre)[0]!.path.slice(0, 4)).toEqual([[0, 2], [0, 1], [0, 0], [1, 0]]);
   });
   it("no port exceeds 650,000 px", async () => {
     const { screenChains } = await import("./engineering");
@@ -62,9 +72,9 @@ describe("VX1000 quick configuration guide", () => {
     const { processorGuide } = await import("./processor-guide");
     const proc = { id: "p", brand: "NovaStar", label: "VX1000", outputs: 10, portMaxPixels: 650_000 };
     const g = processorGuide({ ...project, screens: [centre], processors: [proc] } as unknown as Project, proc as never);
-    expect(g.screens[0]!.ports.length).toBe(13);
-    expect(g.screens[0]!.problems.some((p) => p.includes("does not exist"))).toBe(true);
-    expect(g.screens[0]!.ports.every((p) => p.pixels <= 650_000 && p.cabinets % 3 === 0)).toBe(true);
+    expect(g.screens[0]!.ports.length).toBe(10);
+    expect(g.screens[0]!.problems.some((p) => p.includes("does not exist"))).toBe(false);
+    expect(g.screens[0]!.ports.every((p) => p.pixels <= 650_000)).toBe(true);
   });
 });
 
