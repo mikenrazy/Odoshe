@@ -31,6 +31,7 @@ import { withDerivedResolution, derivedResolution, CABINET_CATALOG, fitCabinets 
 import { createRiser, STAGE_PRESETS } from "./stage-shapes";
 import { planPortDistribution } from "./ports";
 import { configureScreenSet } from "./screen-set";
+import { configureP2Lvp615 } from "./p2-setup";
 
 import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
 import { buildLayout, type LayoutKind } from "./layouts";
@@ -373,6 +374,7 @@ interface EditorState {
   applyPreset: (id: string, presetKey: string) => void;
   /** re-derive the LED resolution from pixel pitch + cabinet grid */
   syncScreenResolution: (id: string) => void;
+  applyP2Lvp615Setup: (id: string) => void;
   /** apply a catalogue cabinet spec (size + pitch + native resolution) */
   applyCabinetSpec: (id: string, cabinetKey: string) => void;
   addProcessor: (processor: Omit<ProcessorModel, "id">) => void;
@@ -811,6 +813,11 @@ export const useEditor = create<EditorState>((set, get) => {
       ),
 
 
+
+    applyP2Lvp615Setup: (id) => {
+      mutate((p) => configureP2Lvp615(p, id));
+      set({ status: "P2 0.56 m cabinets applied; sender has 2 ports. Pixel limits still require sender specifications." });
+    },
 
     syncScreenResolution: (id) => {
       mutate((p) => ({

@@ -21,6 +21,8 @@ import {
 import { NumberField, Readout, Section, SelectField, TextField, ToggleField } from "../Field";
 import { ProcessorSection } from "../ProcessorSection";
 import { ScreenContentSection } from "../ScreenContentSection";
+import { isLvp615 } from "@/lib/led/vdwall";
+import { Button } from "@/components/ui/button";
 
 const TYPE_OPTIONS = (Object.keys(SCREEN_TYPE_LABELS) as ScreenType[]).map((value) => ({
   value,
@@ -38,6 +40,7 @@ export function ScreenPanel() {
   const addScreen = useEditor((s) => s.addScreen);
   const applyCabinetSpec = useEditor((s) => s.applyCabinetSpec);
   const syncScreenResolution = useEditor((s) => s.syncScreenResolution);
+  const applyP2Lvp615Setup = useEditor((s) => s.applyP2Lvp615Setup);
   const [gap, setGap] = useState(0.5);
   const [pairTargetId, setPairTargetId] = useState("");
 
@@ -317,6 +320,14 @@ export function ScreenPanel() {
       </Section>
 
       <Section title="LED Cabinet Calculator">
+        {isLvp615(project.processors.find((p) => p.id === screen.processorId)) && (
+          <div className="mb-2">
+            <Button variant="outline" size="sm" className="h-auto w-full whitespace-normal py-2 text-[11px]" onClick={() => applyP2Lvp615Setup(screen.id)}>
+              Apply P2 · 0.56 × 0.56 m · 2 sender ports
+            </Button>
+            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">P2 pitch estimate: 280 × 280 px per cabinet (78,400 px). Native pixels and sender pixel limits remain unverified until confirmed by the supplier.</p>
+          </div>
+        )}
         <div>
           <NumberField label="Native cabinet W" suffix="px" min={0} step={1} value={screen.panelConfiguration.nativePixelWidth ?? 0} onChange={(v) => updateScreen(screen.id, { cabinetKey: undefined, panelConfiguration: { ...screen.panelConfiguration, nativePixelWidth: Math.round(v) || undefined } })} />
           <NumberField label="Native cabinet H" suffix="px" min={0} step={1} value={screen.panelConfiguration.nativePixelHeight ?? 0} onChange={(v) => updateScreen(screen.id, { cabinetKey: undefined, panelConfiguration: { ...screen.panelConfiguration, nativePixelHeight: Math.round(v) || undefined } })} />
@@ -326,7 +337,8 @@ export function ScreenPanel() {
           value={screen.panelConfiguration.sizeKey}
           options={PANEL_SIZE_PRESETS.map((p) => ({ value: p.key, label: p.label }))}
           onChange={(key) => {
-            const preset = PANEL_SIZE_PRESETS.find((p) => p.key === key)!;
+            const preset = PANEL_SIZE_PRESETS.find((p) => p.key === key);
+            if (!preset) return;
             const panelWidth =
               key === "custom" ? screen.panelConfiguration.panelWidth : preset.width;
             const panelHeight =
