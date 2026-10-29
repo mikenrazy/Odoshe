@@ -13,6 +13,7 @@ import { Readout, Section, SelectField } from "./Field";
 import { PortMap } from "./PortMap";
 import { processorPortMap, portsNeeded } from "@/lib/led/ports";
 import { screenChains } from "@/lib/led/engineering";
+import { isLvp615, senderReady } from "@/lib/led/vdwall";
 
 interface Props {
   screen: LedScreen;
@@ -26,14 +27,15 @@ export function ProcessorSection({ screen }: Props) {
 
   if (!project) return null;
   const processors = project.processors;
-  const active = processors.find((p) => p.id === screen.processorId) ?? processors[0]!;
+  const active = processors.find((p) => p.id === screen.processorId) ?? processors[0];
+  if (!active) return null;
   const pixels = screen.pixelWidth * screen.pixelHeight;
   const load = active.maxPixels > 0 ? (pixels / active.maxPixels) * 100 : 0;
   const assignment = computeGridNumbers(project).get(screen.id);
   const group = screen.groupId ? groupResolution(project, screen.groupId) : null;
   const chain = processorChain(project, active);
   const portMapData = processorPortMap(project, active);
-  const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === active.id && s.groupId === g.id));
+  const shared = isLvp615(active) || project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === active.id && s.groupId === g.id));
   const chains = screenChains(project, screen);
   const span = shared ? chains.length : Math.max(1, Math.round(screen.portSpan ?? 1));
   const startPort = shared ? chains[0]?.port ?? screen.rj45Port : screen.rj45Port;
@@ -58,7 +60,7 @@ export function ProcessorSection({ screen }: Props) {
         options={processors.map((p) => ({ value: p.id, label: processorName(p) }))}
         onChange={(processorId) => updateScreen(screen.id, { processorId })}
       />
-      {!shared && <SelectField
+      {!shared && senderReady(active) && <SelectField
         label="RJ45 Port"
         value={String(screen.rj45Port)}
         options={Array.from({ length: active.outputs }, (_, i) => ({
@@ -67,7 +69,7 @@ export function ProcessorSection({ screen }: Props) {
         }))}
         onChange={(v) => updateScreen(screen.id, { rj45Port: Number(v) })}
       />}
-      <SelectField
+      {!isLvp615(active) && <SelectField
         label="Logical Output"
         value={String(screen.processorOutput)}
         options={Array.from({ length: active.outputs }, (_, i) => ({
@@ -75,14 +77,14 @@ export function ProcessorSection({ screen }: Props) {
           label: `Output ${i + 1}`,
         }))}
         onChange={(v) => updateScreen(screen.id, { processorOutput: Number(v) })}
-      />
+      />}
 
       <Readout
         rows={[
           ["SOURCE IN", `${active.inputWidth ?? 1920} × ${active.inputHeight ?? 1080} px`],
-          ["CAPACITY", `${active.maxPixels.toLocaleString()} px`],
+          ["CAPACITY", senderReady(active) ? `${active.maxPixels.toLocaleString()} px` : "Sender unconfirmed"],
           ["SCREEN LOAD", `${load.toFixed(1)}%`, load > 100 ? "text-destructive" : undefined],
-          ["PHYSICAL PORT", `RJ45 Port ${startPort}`, "text-right text-primary"],
+          ["PHYSICAL PORT", isLvp615(active) ? senderReady(active) ? `Sender RJ45 ${startPort}` : "DVI → sender (unconfirmed)" : `RJ45 Port ${startPort}`, "text-right text-primary"],
           ["OUTPUT MAX", `${active.outputWidth} × ${active.outputHeight}`],
           ...(group
             ? ([
@@ -103,7 +105,7 @@ export function ProcessorSection({ screen }: Props) {
           ],
           [
             "PORTS REQUIRED",
-            `${needed} at ${(active.portMaxPixels ?? 650000).toLocaleString()} px/port`,
+            senderReady(active) ? `${needed} at ${(active.portMaxPixels ?? 650000).toLocaleString()} px/port` : "Enter sender specifications in Video",
             needed > span ? "text-right text-destructive" : undefined,
           ],
           ["SECTION LOAD", `${screenPixels.toLocaleString()} px on these ports`],

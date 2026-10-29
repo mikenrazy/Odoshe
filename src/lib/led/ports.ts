@@ -1,6 +1,7 @@
 import { derivedResolution } from "./resolution";
 import type { LedScreen, ProcessorModel, Project } from "./types";
 import { processorScreens, screenChains } from "./engineering";
+import { isLvp615, senderReady } from "./vdwall";
 
 /**
  * Processor → Output Ports → LED Sections → LED Cabinets.
@@ -131,7 +132,8 @@ export function allocateScreenPorts(
   project: Project,
   processor: ProcessorModel,
 ): { allocations: ScreenAllocation[]; portsRequired: number; fits: boolean } {
-  const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
+  if (isLvp615(processor) && !senderReady(processor)) return { allocations: [], portsRequired: 0, fits: false };
+  const shared = isLvp615(processor) || project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
   const screens = shared ? processorScreens(project, processor.id) : [...project.screens.filter((s) => s.processorId === processor.id)].sort(
     (a, b) => (a.gridOrder ?? 0) - (b.gridOrder ?? 0),
   );
@@ -210,6 +212,7 @@ export function screenSlices(
 
 /** Full port map for one processor. */
 export function processorPortMap(project: Project, processor: ProcessorModel): ProcessorPortMap {
+  if (isLvp615(processor) && !senderReady(processor)) return { processor, ports: [], portsUsed: 0, totalPixels: project.screens.filter((s) => s.processorId === processor.id).reduce((n, s) => n + s.pixelWidth * s.pixelHeight, 0), maxPixels: 0, loadPct: 0, portsRequired: 0, panelsAssigned: project.screens.filter((s) => s.processorId === processor.id).reduce((n, s) => n + s.panelConfiguration.cols * s.panelConfiguration.rows, 0), panelCapacity: 0, maxPanelsPerPort: 0, status: "over", issues: ["LED sending-card specifications are unconfirmed; RJ45 allocation is unavailable."], recommendations: ["Enter the installed sender model, total LED ports and pixel capacities in Video settings."] };
   const maxPP = portMaxPixels(processor);
   const outputs = Math.max(1, processor.outputs);
   const { allocations, portsRequired, fits } = allocateScreenPorts(project, processor);
@@ -236,7 +239,7 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
 
   let cursor = 1;
   for (const alloc of allocations) {
-    const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
+    const shared = isLvp615(processor) || project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
     const slices = shared ? screenChains(project, alloc.screen).map((ch) => {
       const c = derivedResolution(alloc.screen);
       const cols = ch.colEnd - ch.colStart + 1;

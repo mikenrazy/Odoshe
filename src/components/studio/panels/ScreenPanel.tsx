@@ -253,7 +253,7 @@ export function ScreenPanel() {
             ["CABINET RES", `${derived.cabinetPixelWidth} × ${derived.cabinetPixelHeight} px`],
             ["CABINET GRID", `${derived.cols} × ${derived.rows} (${derived.totalCabinets})`],
             ["DERIVED RES", `${derived.pixelWidth} × ${derived.pixelHeight} px`, "text-right text-primary"],
-            ["SOURCE OF TRUTH", derived.source === "catalog" ? "Cabinet catalogue" : "Pitch maths"],
+            ["SOURCE OF TRUTH", derived.source === "catalog" ? "Cabinet catalogue" : derived.source === "native" ? "Entered native matrix" : "Pitch maths (provisional)"],
             ["PX TOTAL", (screen.pixelWidth * screen.pixelHeight).toLocaleString()],
             ["ASPECT", calc.aspectLabel],
             [
@@ -317,6 +317,10 @@ export function ScreenPanel() {
       </Section>
 
       <Section title="LED Cabinet Calculator">
+        <div>
+          <NumberField label="Native cabinet W" suffix="px" min={0} step={1} value={screen.panelConfiguration.nativePixelWidth ?? 0} onChange={(v) => updateScreen(screen.id, { cabinetKey: undefined, panelConfiguration: { ...screen.panelConfiguration, nativePixelWidth: Math.round(v) || undefined } })} />
+          <NumberField label="Native cabinet H" suffix="px" min={0} step={1} value={screen.panelConfiguration.nativePixelHeight ?? 0} onChange={(v) => updateScreen(screen.id, { cabinetKey: undefined, panelConfiguration: { ...screen.panelConfiguration, nativePixelHeight: Math.round(v) || undefined } })} />
+        </div>
         <SelectField
           label="Cabinet Size"
           value={screen.panelConfiguration.sizeKey}

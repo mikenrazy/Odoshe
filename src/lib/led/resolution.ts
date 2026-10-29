@@ -1,6 +1,7 @@
 import type { LedScreen, Project, ProcessorModel } from "./types";
 import { PROCESSOR_CATALOG } from "./types";
 import { screenChains, processorLayout } from "./engineering";
+import { isLvp615, senderReady, lvp615Issues } from "./vdwall";
 
 /** Max screen width/height a processor can load across all its ports (NovaStar manuals: 10,240 × 8,192 for VX1000 / VX Pro). */
 export function loadLimits(proc: ProcessorModel) {
@@ -92,6 +93,7 @@ export const CABINET_CATALOG: CabinetSpec[] = [
 ];
 
 export function findCabinetSpec(screen: LedScreen): CabinetSpec | undefined {
+  if (!screen.cabinetKey && screen.panelConfiguration.nativePixelWidth && screen.panelConfiguration.nativePixelHeight) return undefined;
   if (screen.cabinetKey) {
     const hit = CABINET_CATALOG.find((c) => c.key === screen.cabinetKey);
     if (hit) return hit;
@@ -125,7 +127,7 @@ export interface DerivedResolution {
   actualHeight: number;
   totalCabinets: number;
   /** where the cabinet resolution came from */
-  source: "catalog" | "pitch";
+  source: "catalog" | "pitch" | "native";
   /** the configured resolution differs from the derived one */
   overridden: boolean;
 }
@@ -142,8 +144,9 @@ export function derivedResolution(screen: LedScreen): DerivedResolution {
   const cols = Math.max(1, Math.round(screen.panelConfiguration.cols));
   const rows = Math.max(1, Math.round(screen.panelConfiguration.rows));
 
-  const cabinetPixelWidth = spec?.pixelWidth ?? Math.round((cabinetWidth * 1000) / pitch);
-  const cabinetPixelHeight = spec?.pixelHeight ?? Math.round((cabinetHeight * 1000) / pitch);
+  const native = !spec && screen.panelConfiguration.nativePixelWidth && screen.panelConfiguration.nativePixelHeight;
+  const cabinetPixelWidth = spec?.pixelWidth ?? (native ? screen.panelConfiguration.nativePixelWidth ?? 1 : Math.round((cabinetWidth * 1000) / pitch));
+  const cabinetPixelHeight = spec?.pixelHeight ?? (native ? screen.panelConfiguration.nativePixelHeight ?? 1 : Math.round((cabinetHeight * 1000) / pitch));
 
   const pixelWidth = cabinetPixelWidth * cols;
   const pixelHeight = cabinetPixelHeight * rows;
@@ -160,7 +163,7 @@ export function derivedResolution(screen: LedScreen): DerivedResolution {
     actualWidth: +(cols * cabinetWidth).toFixed(3),
     actualHeight: +(rows * cabinetHeight).toFixed(3),
     totalCabinets: cols * rows,
-    source: spec ? "catalog" : "pitch",
+    source: spec ? "catalog" : native ? "native" : "pitch",
     overridden: pixelWidth !== screen.pixelWidth || pixelHeight !== screen.pixelHeight,
   };
 }
@@ -249,6 +252,8 @@ export function processorChain(project: Project, processor: ProcessorModel): Pro
 
   const notes: string[] = [];
   let status: ChainStatus = "ok";
+  const vdIssues = lvp615Issues(project, processor);
+  if (vdIssues.length) { status = "error"; notes.push(...vdIssues); }
   const raise = (next: ChainStatus) => {
     if (next === "error" || (next === "scaling" && status === "ok")) status = next;
   };
@@ -261,7 +266,7 @@ export function processorChain(project: Project, processor: ProcessorModel): Pro
       `Source ${sourceWidth}×${sourceHeight} exceeds the ${processor.label} input limit of ${maxInW}×${maxInH}.`,
     );
   }
-  if (ledPixels > processor.maxPixels) {
+  if (senderReady(processor) && ledPixels > processor.maxPixels) {
     raise("error");
     notes.push(
       `LED load ${ledPixels.toLocaleString()} px exceeds the ${processor.label} capacity of ${processor.maxPixels.toLocaleString()} px.`,
@@ -343,7 +348,8 @@ export function screenStatus(
   const d = derivedResolution(screen);
   const notes: string[] = [];
   let status: ChainStatus = "ok";
-
+  const vdIssues = lvp615Issues(project, proc);
+  if (vdIssues.length) return { status: "error", notes: vdIssues };
   if (screen.pixelWidth * screen.pixelHeight > proc.maxPixels) {
     status = "error";
     notes.push(`Exceeds ${proc.label} capacity.`);

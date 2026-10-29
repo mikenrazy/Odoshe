@@ -4,6 +4,8 @@ import { cabinetCalc } from "./calc";
 import { graphicsSpec, billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
 import { getAssets } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
+import { isLvp615, senderReady, lvp615Issues } from "./vdwall";
+import { processorGuide } from "./processor-guide";
 let PAINT = new Map<string, [number, number, number]>();
 
 const W = 297, H = 210;
@@ -283,7 +285,7 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string, sh
 }
 
 function summaryCard(doc: JsPDF, title: string, heading: string, tint: C3, stats: Array<[string, string]>, head: string[], rows: Array<{ colour: C3; cells: string[]; pct?: number }>) {
-  doc.setFillColor(...mix(CARD, tint, 0.18)); doc.setDrawColor(...mix(CARD, tint, 0.45)); doc.roundedRect(220, 41, 64, 16, 1, 1, "FD");
+  doc.setFillColor(...PANEL); doc.setDrawColor(...mix(CARD, tint, 0.45)); doc.roundedRect(220, 41, 64, 16, 1, 1, "FD");
   doc.setFont("helvetica", "bold"); doc.setFontSize(5); doc.setTextColor(...tint); doc.text(title, 222.5, 46);
   doc.setFontSize(10); doc.setTextColor(255, 255, 255); doc.text(heading, 222.5, 53.5);
   let y = 63;
@@ -559,7 +561,7 @@ function masterSheet(doc: JsPDF, project: Project, screens: LedScreen[], ps: Ret
   head("3. DATA / PROCESSORS");
   for (const proc of project.processors.filter((p) => screens.some((s) => s.processorId === p.id))) {
     const used = screens.filter((s) => s.processorId === proc.id).reduce((n, s) => n + screenChains(project, s).length, 0);
-    kv(`${proc.name ?? `${proc.brand} ${proc.label}`}:`, `${used} / ${proc.outputs} RJ45 ports`, used > proc.outputs ? RED : GREEN);
+    kv(`${proc.name ?? `${proc.brand} ${proc.label}`}:`, isLvp615(proc) ? senderReady(proc) ? `${used}/${proc.outputs} sender RJ45` : "DVI; sender unconfirmed" : `${used} / ${proc.outputs} RJ45 ports`, !senderReady(proc) || used > proc.outputs ? RED : GREEN);
   }
   const free = screens.filter((s) => !project.processors.some((p) => p.id === s.processorId));
   if (free.length) kv("No processor:", free.map((s) => s.name).join(", "), AMBER);
@@ -682,7 +684,7 @@ export async function buildTechnicalReport(project: Project, theme: ReportTheme 
     });
     table(doc, 15, 114, [{ h: "PROCESSOR / ONE INPUT", w: 59 }, { h: "INPUT PX", w: 34 }, { h: "OUTPUT CANVAS PX", w: 43 }, { h: "DESTINATION", w: 61 }, { h: "OUTPUT X,Y", w: 38 }, { h: "CAT6 PORTS", w: 32 }], rows.slice(0, 4), 5);
     doc.setFont("helvetica", "normal"); doc.setFontSize(6); doc.setTextColor(...MUTED);
-    doc.text("Use NovaLCT Screen Configuration for separated sections; scale ONE full input to the combined output canvas.", 15, 146);
+    doc.text("Configure separated sections in the sender software (NovaLCT for NovaStar); scale ONE input to its output image area.", 15, 146);
     doc.text("Set each section's output X/Y; run separate CAT6 home-runs to its first cabinets. No cable bridge or blank stage-gap pixels.", 15, 151);
     if (rows.length > 4) doc.text("Further sections and exact input crops are listed on their data sheets.", 15, 155);
   }
@@ -704,6 +706,21 @@ export async function buildTechnicalReport(project: Project, theme: ReportTheme 
   /* graphics specification for content designers */
   graphicsSheet(doc, project, screens);
 
+  /* LVP615 scaler settings and downstream sender worksheet, before cable sheets. */
+  for (const proc of project.processors.filter((p) => isLvp615(p) && screens.some((s) => s.processorId === p.id))) {
+    const guide = processorGuide(project, proc);
+    const entries = [...guide.steps.map((text, i) => `${i + 1}. ${text}`), ...guide.notes.map((text) => `NOTE: ${text}`)];
+    let y = 38;
+    page(doc, "VDWall LVP615 Configuration", proc.name ?? proc.label, project);
+    for (const text of entries) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+      const lines = doc.splitTextToSize(text, 267) as string[];
+      const height = lines.length * 4 + 5;
+      if (y + height > 193) { page(doc, "VDWall LVP615 Configuration (continued)", proc.name ?? proc.label, project); y = 38; }
+      doc.setTextColor(...(text.startsWith("NOTE:") ? AMBER : TEXT)); doc.text(lines, 15, y); y += height;
+    }
+  }
+
   /* per-screen data and power sheets */
   for (const s of screens) {
     const c = cabinetCalc(s);
@@ -716,12 +733,18 @@ export async function buildTechnicalReport(project: Project, theme: ReportTheme 
     const portMax = proc?.portMaxPixels ?? 650000;
     sheetFrame(doc, s, "data", "SIGNAL WIRING DIAGRAM (CAT6 RJ45 · DAISY-CHAIN)", project);
     const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}–C${ch2.colEnd + 1})` }));
-    wiringDrawing(doc, s, dRuns, "P", Boolean(sharedSet));
+    wiringDrawing(doc, s, dRuns, "P", Boolean(sharedSet) || isLvp615(proc));
+    if (proc && isLvp615(proc)) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(5.5); doc.setTextColor(...AMBER);
+      doc.text(doc.splitTextToSize(`LVP615 DVI OUT -> ${proc.senderModel || "SENDER UNCONFIRMED"} -> sender LED RJ45 -> ${s.name}. LAN is control only.`, 192)[0] ?? "", 14, 53);
+      const issues = lvp615Issues(project, proc);
+      doc.setFontSize(5); doc.text(doc.splitTextToSize(issues.length ? `NOT VERIFIED: ${issues.join(" ")}` : `DVI raster ${proc.videoOutputWidth ?? 1920} x ${proc.videoOutputHeight ?? 1080} at 60 Hz; sender capacity entered by operator.`, 192).slice(0, 2), 14, 57);
+    }
     if (setLayout && setPlacement && sharedSet) {
       doc.setFont("helvetica", "bold"); doc.setFontSize(6); doc.setTextColor(...GREEN);
       doc.text(doc.splitTextToSize(`SET: ${sharedSet.name} | ONE INPUT: ${setLayout.sourceWidth} x ${setLayout.sourceHeight} | LED OUTPUT: ${setLayout.width} x ${setLayout.height}`, 192)[0] ?? "", 14, 53);
       doc.setFont("helvetica", "normal"); doc.setFontSize(5.3); doc.setTextColor(...MUTED);
-      doc.text(`NovaLCT section offset X=${setPlacement.x}, Y=${setPlacement.y}; native section ${setPlacement.width} x ${setPlacement.height} px.`, 14, 57);
+      doc.text(`${isLvp615(proc) ? "Sender" : "NovaLCT"} section offset X=${setPlacement.x}, Y=${setPlacement.y}; native section ${setPlacement.width} x ${setPlacement.height} px.`, 14, 57);
       const r = setPlacement.sourceRegion;
       doc.text(`Input crop reference: X=${r.x}, Y=${r.y}, W=${r.width}, H=${r.height}. ${setLayout.exact ? "1:1 source." : "Scale full input to combined output; do not change cabinet pixels."}`, 14, 60);
       doc.setTextColor(...GREEN); doc.setFontSize(5);
@@ -731,9 +754,9 @@ export async function buildTechnicalReport(project: Project, theme: ReportTheme 
         doc.text(doc.splitTextToSize(`CONFIGURATION WARNING: ${setLayout.issues.join(" ")}`, 192)[0] ?? "", 14, 175);
       }
     }
-    const yEnd = summaryCard(doc, `DATA SIGNAL SUMMARY — ${s.name.toUpperCase()}`, `${chains.length} RJ45 PORTS (CAT6)`, GREEN, [
-      ["Total RJ45 Lines:", `${chains.length} Cat6 lines`],
-      ["Max Cabinets / Port:", `${Math.floor(portMax / Math.max(1, pxCab))} cabs (${Math.round(portMax / 1000)}k px)`],
+    const yEnd = summaryCard(doc, `DATA SIGNAL SUMMARY — ${s.name.toUpperCase()}`, isLvp615(proc) && !senderReady(proc) ? "SENDER DATA UNCONFIRMED" : `${chains.length} ${isLvp615(proc) ? "SENDER " : ""}RJ45 PORTS (CAT6)`, GREEN, [
+      ["Total RJ45 Lines:", isLvp615(proc) && !senderReady(proc) ? "Unconfirmed (not zero)" : `${chains.length} Cat6 lines`],
+      ["Max Cabinets / Port:", isLvp615(proc) && !senderReady(proc) ? "Enter sender capacity" : `${Math.floor(portMax / Math.max(1, pxCab))} cabs (${Math.round(portMax / 1000)}k px)`],
       ["Total Resolution:", `${s.pixelWidth} x ${s.pixelHeight} px`],
       ["Footprint / Span:", `${+c.actualWidth.toFixed(2)}m W x ${+c.actualHeight.toFixed(2)}m H`],
       ["Processor:", proc ? proc.name ?? `${proc.brand} ${proc.label}` : "not assigned"],
