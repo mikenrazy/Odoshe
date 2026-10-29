@@ -8,62 +8,101 @@ import { getAsset } from "./asset-store";
 import { processorGuide } from "./processor-guide";
 
 const W = 297, H = 210, M = 12;
-const BG: [number, number, number] = [14, 17, 23];
-const PANEL: [number, number, number] = [22, 27, 36];
-const TEXT: [number, number, number] = [226, 231, 238];
-const MUTED: [number, number, number] = [138, 148, 163];
-const ACCENT: [number, number, number] = [255, 157, 46];
-const PALETTE: Array<[number, number, number]> = [[52, 211, 153], [56, 189, 248], [250, 204, 21], [244, 114, 182], [167, 139, 250], [251, 146, 60], [45, 212, 191], [248, 113, 113], [132, 204, 22], [96, 165, 250]];
+type C3 = [number, number, number];
+const BG: C3 = [17, 17, 17];
+const PANEL: C3 = [20, 25, 34];
+const CARD: C3 = [14, 18, 25];
+const LINE: C3 = [44, 52, 64];
+const TEXT: C3 = [236, 238, 242];
+const MUTED: C3 = [150, 156, 166];
+const GREEN: C3 = [38, 222, 140];
+const AMBER: C3 = [245, 190, 40];
+const ACCENT = GREEN;
+const PALETTE: C3[] = [[38, 222, 140], [24, 196, 240], [245, 180, 30], [190, 110, 250], [250, 110, 160], [255, 140, 60], [45, 212, 191], [248, 113, 113], [132, 204, 22], [96, 165, 250]];
 
-function rgb(hex: string): [number, number, number] {
+function rgb(hex: string): C3 {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return [59, 130, 246];
+  if (!m) return [30, 136, 255];
   const n = parseInt(m[1]!, 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
-const shade = (c: [number, number, number], f: number): [number, number, number] => c.map((v) => Math.max(0, Math.min(255, Math.round(v * f)))) as [number, number, number];
+const shade = (c: C3, f: number): C3 => c.map((v) => Math.max(0, Math.min(255, Math.round(v * f)))) as C3;
+const mix = (a: C3, b: C3, t: number): C3 => a.map((v, i) => Math.round(v * (1 - t) + b[i]! * t)) as C3;
 
-function page(doc: JsPDF, title: string, sub: string, project: Project, first = false) {
+let LOGO: string | null = null;
+function logo(doc: JsPDF, x: number, y: number, w: number, h: number) {
+  if (!LOGO) return;
+  try { const p = doc.getImageProperties(LOGO); const f = fit(p.width, p.height, x, y, w, h); doc.addImage(LOGO, p.fileType, f.x, f.y, p.width * f.s, p.height * f.s); } catch { /* unreadable */ }
+}
+function footer(doc: JsPDF) {
+  doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(90, 94, 100);
+  doc.text("dx5ve studio", W - 12, H - 7, { align: "right" });
+}
+
+/** Plain report page: title top-left, rule, logo top-right. */
+function page(doc: JsPDF, title: string, sub: string, _project: Project, first = false) {
   if (!first) doc.addPage("a4", "landscape");
   doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
-  doc.setTextColor(...TEXT); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
-  doc.text(title.toUpperCase(), M, 16);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-  doc.text(sub, M, 21.5);
-  doc.setDrawColor(...ACCENT); doc.setLineWidth(0.4); doc.line(M, 24, W - M, 24);
-  doc.setFontSize(7); doc.text(`${project.name}  ·  ${project.meta.client || ""}`, M, H - 6);
-  doc.text(`DX5VE Studio · Page ${doc.getNumberOfPages()}`, W - M, H - 6, { align: "right" });
+  doc.setTextColor(...TEXT); doc.setFont("helvetica", "normal"); doc.setFontSize(18);
+  doc.text(title, 15, 22);
+  if (sub) { doc.setFontSize(7); doc.setTextColor(...MUTED); doc.text(sub, 15, 26.5); }
+  doc.setDrawColor(70, 72, 76); doc.setLineWidth(0.3); doc.line(15, 28.5, W - 15, 28.5);
+  logo(doc, W - 50, 11, 35, 13);
+  footer(doc);
+}
+
+function sectionTitle(doc: JsPDF, x: number, y: number, t: string) {
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...TEXT); doc.text(t, x, y);
+  doc.setFillColor(...GREEN); doc.rect(x, y + 3, 60, 0.9, "F");
 }
 
 function table(doc: JsPDF, x: number, y: number, cols: Array<{ h: string; w: number }>, rows: string[][], rowH = 5.2) {
-  doc.setFillColor(...PANEL); doc.rect(x, y, cols.reduce((n, c) => n + c.w, 0), rowH, "F");
-  doc.setFontSize(6.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...ACCENT);
+  const tw = cols.reduce((n, c) => n + c.w, 0);
+  doc.setFillColor(...PANEL); doc.rect(x, y, tw, rowH, "F");
+  doc.setFontSize(6.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...GREEN);
   let cx = x; for (const c of cols) { doc.text(c.h, cx + 1.5, y + 3.6); cx += c.w; }
   doc.setFont("helvetica", "normal"); doc.setTextColor(...TEXT);
   rows.forEach((r, i) => {
     const ry = y + rowH * (i + 1);
-    if (i % 2) { doc.setFillColor(18, 22, 30); doc.rect(x, ry, cols.reduce((n, c) => n + c.w, 0), rowH, "F"); }
+    if (i % 2) { doc.setFillColor(24, 26, 30); doc.rect(x, ry, tw, rowH, "F"); }
     let rx = x; r.forEach((v, j) => { doc.text(doc.splitTextToSize(v, cols[j]!.w - 2)[0] ?? "", rx + 1.5, ry + 3.6); rx += cols[j]!.w; });
   });
   return y + rowH * (rows.length + 1);
 }
 
-function details(doc: JsPDF, x: number, y: number, pairs: Array<[string, string]>, colW = 68) {
-  doc.setFontSize(7.5);
+/** Two-column "label  value" grid in the sample's Screen Details style. */
+function details(doc: JsPDF, x: number, y: number, pairs: Array<[string, string]>, colW = 68, valColour?: (i: number) => C3 | undefined) {
+  doc.setFontSize(9);
   pairs.forEach(([k, v], i) => {
-    const cx = x + Math.floor(i / 4) * (colW * 2), cy = y + (i % 4) * 6;
-    doc.setTextColor(...MUTED); doc.text(k, cx, cy);
-    doc.setTextColor(...TEXT); doc.text(v, cx + colW * 0.75, cy);
+    const cx = x + Math.floor(i / 4) * (colW * 2), cy = y + (i % 4) * 8;
+    doc.setFont("helvetica", "bold"); doc.setTextColor(...MUTED); doc.text(k, cx, cy);
+    doc.setTextColor(...(valColour?.(i) ?? TEXT)); doc.text(v, cx + colW * 0.82, cy);
   });
+  doc.setFont("helvetica", "normal");
 }
 
+function arrowHead(doc: JsPDF, x: number, y: number, dir: "l" | "r" | "u" | "d") {
+  const a = 1.6, b = 0.9;
+  const pts: Record<string, number[]> = { l: [x, y, x + a, y - b, x + a, y + b], r: [x, y, x - a, y - b, x - a, y + b], u: [x, y, x - b, y + a, x + b, y + a], d: [x, y, x - b, y - a, x + b, y - a] };
+  const p = pts[dir]!; doc.triangle(p[0]!, p[1]!, p[2]!, p[3]!, p[4]!, p[5]!, "F");
+}
 function dimH(doc: JsPDF, x0: number, x1: number, y: number, label: string) {
-  doc.setDrawColor(...ACCENT); doc.setLineWidth(0.25); doc.line(x0, y, x1, y); doc.line(x0, y - 1.5, x0, y + 1.5); doc.line(x1, y - 1.5, x1, y + 1.5);
-  doc.setFontSize(7); doc.setTextColor(...ACCENT); doc.text(label, (x0 + x1) / 2, y - 1.2, { align: "center" });
+  doc.setDrawColor(...GREEN); doc.setFillColor(...GREEN); doc.setLineWidth(0.3);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+  const tw = doc.getTextWidth(label) + 3, mid = (x0 + x1) / 2;
+  doc.line(x0, y, mid - tw / 2, y); doc.line(mid + tw / 2, y, x1, y);
+  arrowHead(doc, x0, y, "l"); arrowHead(doc, x1, y, "r");
+  doc.setTextColor(...GREEN); doc.text(label, mid, y + 1.1, { align: "center" });
+  doc.setFont("helvetica", "normal");
 }
 function dimV(doc: JsPDF, x: number, y0: number, y1: number, label: string) {
-  doc.setDrawColor(...ACCENT); doc.setLineWidth(0.25); doc.line(x, y0, x, y1); doc.line(x - 1.5, y0, x + 1.5, y0); doc.line(x - 1.5, y1, x + 1.5, y1);
-  doc.setFontSize(7); doc.setTextColor(...ACCENT); doc.text(label, x - 1.5, (y0 + y1) / 2, { align: "right" });
+  doc.setDrawColor(...GREEN); doc.setFillColor(...GREEN); doc.setLineWidth(0.3);
+  const mid = (y0 + y1) / 2;
+  doc.line(x, y0, x, mid - 3); doc.line(x, mid + 3, x, y1);
+  arrowHead(doc, x, y0, "u"); arrowHead(doc, x, y1, "d");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GREEN);
+  doc.text(label, x, mid + 1.1, { align: "center" });
+  doc.setFont("helvetica", "normal");
 }
 
 /** Fits a w×h box into an area; returns origin and scale. */
@@ -72,21 +111,210 @@ function fit(w: number, h: number, ax: number, ay: number, aw: number, ah: numbe
   return { x: ax + (aw - w * s) / 2, y: ay + (ah - h * s) / 2, s };
 }
 
-function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number, h: number, gridStart: number) {
+function withOpacity(doc: JsPDF, o: number, fn: () => void) {
+  const d = doc as unknown as { GState?: new (o: object) => unknown; setGState?: (g: unknown) => void };
+  if (d.GState && d.setGState) { d.setGState(new d.GState({ opacity: o, "stroke-opacity": o })); fn(); d.setGState(new d.GState({ opacity: 1, "stroke-opacity": 1 })); }
+  else fn();
+}
+
+function badge(doc: JsPDF, x: number, y: number, big: string, small: string, bg: C3, fg: C3, align: "l" | "r", size: number) {
+  doc.setFont("helvetica", "bold"); doc.setFontSize(size);
+  const bw = doc.getTextWidth(big); doc.setFontSize(size * 0.55); const sw = doc.getTextWidth(small);
+  const w = bw + sw + 3.5, h = size * 0.5;
+  const bx = align === "l" ? x : x - w;
+  doc.setFillColor(...bg); doc.rect(bx, y, w, h, "F");
+  doc.setTextColor(...fg); doc.setFontSize(size); doc.text(big, bx + 1, y + h * 0.75);
+  doc.setFontSize(size * 0.55); doc.text(small, bx + bw + 2.3, y + h * 0.72);
+  doc.setFont("helvetica", "normal");
+}
+
+/** Sample-style pixel map: checkerboard, numbers, test-card circles, name + resolution pill. */
+function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number, h: number, gridStart: number, opts: { badges?: boolean; logo?: boolean } = {}) {
   const c = cabinetCalc(screen);
   const base = rgb(screen.color);
   const cw = w / c.cols, ch = h / c.rows;
   for (let r = 0; r < c.rows; r++) for (let col = 0; col < c.cols; col++) {
-    doc.setFillColor(...shade(base, (r + col) % 2 ? 0.72 : 1));
+    doc.setFillColor(...((r + col) % 2 ? shade(base, 0.72) : base));
     doc.rect(x + col * cw, y + r * ch, cw, ch, "F");
-    if (cw > 4) { doc.setFontSize(Math.min(7, cw * 0.9)); doc.setTextColor(255, 255, 255); doc.text(String(gridStart + r * c.cols + col).padStart(2, "0"), x + col * cw + cw / 2, y + r * ch + ch / 2 + 1, { align: "center" }); }
   }
-  doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.15);
-  doc.line(x, y, x + w, y + h); doc.line(x + w, y, x, y + h);
-  doc.setFontSize(Math.min(18, w / 8)); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 255, 255);
-  doc.text(screen.name.toUpperCase(), x + w / 2, y + h / 2 - 1, { align: "center" });
-  doc.setFont("helvetica", "normal"); doc.setFontSize(Math.min(8, w / 18));
-  doc.text(`W ${screen.pixelWidth} x H ${screen.pixelHeight}`, x + w / 2, y + h / 2 + 5, { align: "center" });
+  if (cw > 3.5) {
+    doc.setFontSize(Math.min(9, cw * 0.55)); doc.setTextColor(...mix(base, [255, 255, 255], 0.75));
+    for (let r = 0; r < c.rows; r++) for (let col = 0; col < c.cols; col++)
+      doc.text(String(gridStart + r * c.cols + col).padStart(2, "0"), x + col * cw + cw / 2, y + r * ch + Math.min(ch / 2, 6) + 1, { align: "center" });
+  }
+  withOpacity(doc, 0.45, () => {
+    doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.15);
+    doc.line(x, y, x + w, y + h); doc.line(x + w, y, x, y + h);
+    doc.line(x + w / 2, y, x + w / 2, y + h); doc.line(x, y + h / 2, x + w, y + h / 2);
+    const R = Math.min(w, h) * 0.5;
+    doc.circle(x + w / 2, y + h / 2, R, "S");
+    doc.setLineDashPattern([0.8, 0.8], 0);
+    doc.circle(x + w / 2, y + h / 2, R * 0.6, "S");
+    if (w > h * 1.6) { doc.circle(x + w * 0.18, y + h / 2, R, "S"); doc.circle(x + w * 0.82, y + h / 2, R, "S"); }
+    doc.rect(x, y, w, h, "S");
+    doc.setLineDashPattern([], 0);
+  });
+  const big = Math.min(26, w / 6, h / 2.4);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(big); doc.setTextColor(255, 255, 255);
+  doc.text(screen.name.toUpperCase(), x + w / 2, y + h / 2 - big * 0.12, { align: "center" });
+  const pill = `W ${screen.pixelWidth} x H ${screen.pixelHeight}`;
+  const ps = Math.max(3, big * 0.32); doc.setFontSize(ps);
+  const pw = doc.getTextWidth(pill) + 3;
+  doc.setFillColor(10, 10, 10); doc.roundedRect(x + w / 2 - pw / 2, y + h / 2 + big * 0.08, pw, ps * 0.55, 0.8, 0.8, "F");
+  doc.setTextColor(255, 255, 255); doc.text(pill, x + w / 2, y + h / 2 + big * 0.08 + ps * 0.41, { align: "center" });
+  if (opts.logo) logo(doc, x + w / 2 - big * 1.2, y + h / 2 + big * 0.35, big * 2.4, big * 0.9);
+  doc.setFont("helvetica", "normal");
+  if (opts.badges !== false) {
+    const bs = Math.max(4, Math.min(9, h / 7));
+    badge(doc, x + 0.5, y + 0.5, `${c.area.toFixed(0)} m²`, `${+c.actualWidth.toFixed(2)} x ${+c.actualHeight.toFixed(2)} m`, [10, 10, 10], GREEN, "l", bs);
+    badge(doc, x + w - 0.5, y + 0.5, `P${screen.pixelPitch}`, `${(c.cabinetWidth * 100).toFixed(0)} x ${(c.cabinetHeight * 100).toFixed(0)} cm`, GREEN, [10, 10, 10], "r", bs);
+  }
+}
+
+/* ---------- engineering sheet (data / power) ---------- */
+
+function sheetFrame(doc: JsPDF, s: LedScreen, kind: "data" | "power", subtitle: string, project: Project) {
+  doc.addPage("a4", "landscape");
+  doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
+  const c = cabinetCalc(s);
+  const tag = kind === "data" ? GREEN : AMBER;
+  doc.setFillColor(...CARD); doc.setDrawColor(...shade(GREEN, 0.5)); doc.setLineWidth(0.3);
+  doc.roundedRect(10, 10, W - 20, 25, 1.5, 1.5, "FD");
+  doc.setFillColor(...tag); doc.rect(10, 10, 1.2, 25, "F");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(5.5); doc.setTextColor(...MUTED);
+  doc.text("TARGET LED DISPLAY // SCREEN ID", 15, 15.5);
+  doc.setFontSize(20); doc.setTextColor(255, 255, 255); doc.text(s.name.toUpperCase(), 15, 25);
+  const nw = doc.getTextWidth(s.name.toUpperCase());
+  const tl = kind === "data" ? "DATA / CAT6 RJ45" : "POWER / 220V AC";
+  doc.setFontSize(6.5); const tw = doc.getTextWidth(tl) + 5;
+  doc.setFillColor(...tag); doc.roundedRect(18 + nw, 19.3, tw, 6, 0.8, 0.8, "F");
+  doc.setTextColor(10, 10, 10); doc.text(tl, 20.5 + nw, 23.4);
+  doc.setFontSize(5.5); doc.setTextColor(...MUTED); doc.text(subtitle, 15, 31);
+  const stats: Array<[string, string, string, C3]> = [
+    ["CABINET MATRIX", `${c.cols} x ${c.rows}`, `${c.total} Active Panels`, TEXT],
+    ["PHYSICAL SIZE", `${+c.actualWidth.toFixed(2)} x ${+c.actualHeight.toFixed(2)} m`, `Area: ${c.area.toFixed(2)} m²`, GREEN],
+    ["CABINET / PITCH", `P${s.pixelPitch}`, `${(c.cabinetWidth * 100).toFixed(0)}x${(c.cabinetHeight * 100).toFixed(0)} cm (${Math.round(s.pixelWidth / c.cols)}x${Math.round(s.pixelHeight / c.rows)}px)`, [24, 196, 240]],
+    ["GEOMETRY / RES.", s.curve ? `CURVED` : "FLAT (0°)", `${s.pixelWidth} x ${s.pixelHeight} px`, TEXT],
+  ];
+  stats.forEach(([k, v, sub2, col], i) => {
+    const bx = 157 + i * 32.5;
+    doc.setFillColor(...PANEL); doc.setDrawColor(...LINE); doc.roundedRect(bx, 13, 30.5, 19, 1, 1, "FD");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(4.6); doc.setTextColor(...MUTED); doc.text(k, bx + 2, 17.5);
+    doc.setFontSize(9); doc.setTextColor(...col); doc.text(v, bx + 2, 24);
+    doc.setFont("courier", "normal"); doc.setFontSize(4.5); doc.setTextColor(...MUTED); doc.text(doc.splitTextToSize(sub2, 28)[0] ?? "", bx + 2, 29);
+  });
+  // drawing + summary panels
+  doc.setFillColor(...CARD); doc.setDrawColor(...LINE);
+  doc.roundedRect(10, 38, 204, 152, 1.5, 1.5, "FD");
+  doc.roundedRect(217, 38, 70, 152, 1.5, 1.5, "FD");
+  doc.setFont("courier", "bold"); doc.setFontSize(5.5); doc.setTextColor(...MUTED);
+  doc.text(`PROJECT: ${project.name.toUpperCase()}   ·   DISPLAY: ${s.name.toUpperCase()}   ·   ${kind === "data" ? "CAT6 SIGNAL WIRING DIAGRAM" : "POWERCON ELECTRICAL DISTRIBUTION"}`, 12, 196);
+  footer(doc);
+  doc.setFont("helvetica", "normal");
+}
+
+interface Run { label: string; colour: C3; path: Array<[number, number]>; tag: string }
+
+function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
+  const c = cabinetCalc(s);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(6); doc.setTextColor(...GREEN);
+  doc.text(`FRONT ASSEMBLY VIEW — COLUMNS C1 TO C${c.cols}  ·  ROWS R1 TO R${c.rows}`, 14, 45);
+  // legend chips (right aligned)
+  let lx = 211;
+  doc.setFont("courier", "bold"); doc.setFontSize(5);
+  for (const r of [...runs].reverse().slice(0, 8)) {
+    const tw = doc.getTextWidth(r.tag) + 5; lx -= tw + 1.5;
+    if (lx < 110) break;
+    doc.setDrawColor(...r.colour); doc.setFillColor(...CARD); doc.roundedRect(lx, 41.5, tw, 5, 0.6, 0.6, "FD");
+    doc.setFillColor(...r.colour); doc.rect(lx + 1, 43, 1.6, 2, "F");
+    doc.setTextColor(...TEXT); doc.text(r.tag, lx + 3.6, 45.1);
+  }
+  doc.setDrawColor(...LINE); doc.line(10, 49, 214, 49);
+  const f = fit(c.actualWidth, c.actualHeight, 26, 64, 180, 108);
+  const w = c.actualWidth * f.s, h = c.actualHeight * f.s, cw = w / c.cols, ch = h / c.rows;
+  const owner = new Map<string, number>();
+  runs.forEach((r, i) => r.path.forEach(([a, b]) => owner.set(`${a},${b}`, i)));
+  for (let r = 0; r < c.rows; r++) for (let col = 0; col < c.cols; col++) {
+    const o = owner.get(`${col},${r}`); const pc = o === undefined ? MUTED : runs[o]!.colour;
+    doc.setFillColor(...mix(CARD, pc, 0.18)); doc.setDrawColor(...mix(CARD, pc, 0.55)); doc.setLineWidth(0.25);
+    doc.rect(f.x + col * cw, f.y + r * ch, cw, ch, "FD");
+  }
+  doc.setFont("helvetica", "normal"); doc.setFontSize(Math.min(5.5, cw * 0.6)); doc.setTextColor(...MUTED);
+  for (let col = 0; col < c.cols; col++) doc.text(`C${col + 1}`, f.x + (col + 0.5) * cw, f.y - 2, { align: "center" });
+  for (let r = 0; r < c.rows; r++) doc.text(`R${r + 1}`, f.x - 4, f.y + (r + 0.5) * ch + 1, { align: "center" });
+  dimH(doc, f.x, f.x + w, f.y - 8, `${c.actualWidth.toFixed(2)} m  (${c.cols} Columns · ${s.pixelWidth} px)`);
+  dimV(doc, f.x - 11, f.y, f.y + h, `${c.actualHeight.toFixed(2)}m`);
+  const cx = (a: number) => f.x + (a + 0.5) * cw, cy = (b: number) => f.y + (b + 0.5) * ch;
+  const box = Math.min(2.6, cw * 0.32, ch * 0.32);
+  runs.forEach((run) => {
+    doc.setDrawColor(...run.colour); doc.setLineWidth(Math.min(0.7, cw * 0.06));
+    for (let k = 1; k < run.path.length; k++) { const [a, b] = run.path[k - 1]!, [x2, y2] = run.path[k]!; doc.line(cx(a), cy(b), cx(x2), cy(y2)); }
+    if (box > 1.2) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(box * 1.9);
+      run.path.forEach(([a, b], k) => {
+        if (k === 0 || k === run.path.length - 1) return;
+        doc.setFillColor(8, 8, 8); doc.setDrawColor(...run.colour); doc.setLineWidth(0.15);
+        doc.rect(cx(a) - box / 2, cy(b) - box / 2, box, box, "FD");
+        doc.setTextColor(255, 255, 255); doc.text(String(k + 1), cx(a), cy(b) + box * 0.3, { align: "center" });
+      });
+    }
+    const [ea, eb] = run.path[run.path.length - 1]!;
+    if (run.path.length > 1) { doc.setFillColor(8, 8, 8); doc.setDrawColor(...run.colour); doc.setLineWidth(0.35); doc.circle(cx(ea), cy(eb), Math.max(0.8, box * 0.55), "FD"); }
+    const [sa, sb] = run.path[0]!;
+    doc.setFont("courier", "bold"); doc.setFontSize(Math.max(3.5, Math.min(5.5, cw * 0.5)));
+    const lab = `${run.label} IN`; const lw = doc.getTextWidth(lab) + 2;
+    doc.setFillColor(...run.colour); doc.roundedRect(cx(sa) - lw / 2, cy(sb) - 2, lw, 4, 0.5, 0.5, "F");
+    doc.setTextColor(10, 10, 10); doc.text(lab, cx(sa), cy(sb) + 0.8, { align: "center" });
+    // bottom input tag
+    const t = `${run.label} IN (C${sa + 1}-R${sb + 1})`; doc.setFontSize(4.6); const tw = doc.getTextWidth(t) + 3;
+    const ty = f.y + h + 6;
+    doc.setDrawColor(...run.colour); doc.setLineWidth(0.25); doc.line(cx(sa), f.y + h, cx(sa), ty);
+    doc.setFillColor(...CARD); doc.roundedRect(cx(sa) - tw / 2, ty, tw, 4, 0.5, 0.5, "FD");
+    doc.setTextColor(...run.colour); doc.text(t, cx(sa), ty + 2.8, { align: "center" });
+  });
+  doc.setFont("courier", "bold"); doc.setFontSize(5); doc.setTextColor(...MUTED);
+  doc.text(`LEGEND:  [${prefix}n IN] = Line Start (Input)   ·   [ # ] = Cabinet Sequence   ·   ( o ) = Line End`, 14, 185);
+  doc.setFont("helvetica", "normal");
+}
+
+function summaryCard(doc: JsPDF, title: string, heading: string, tint: C3, stats: Array<[string, string]>, head: string[], rows: Array<{ colour: C3; cells: string[]; pct?: number }>) {
+  doc.setFillColor(...mix(CARD, tint, 0.18)); doc.setDrawColor(...mix(CARD, tint, 0.45)); doc.roundedRect(220, 41, 64, 16, 1, 1, "FD");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(5); doc.setTextColor(...tint); doc.text(title, 222.5, 46);
+  doc.setFontSize(10); doc.setTextColor(255, 255, 255); doc.text(heading, 222.5, 53.5);
+  let y = 63;
+  doc.setFontSize(5.2);
+  for (const [k, v] of stats) {
+    doc.setFont("helvetica", "normal"); doc.setTextColor(...MUTED); doc.text(k, 220, y);
+    doc.setFont("courier", "bold"); doc.setTextColor(...TEXT); doc.text(v, 284, y, { align: "right" }); y += 4.6;
+  }
+  y += 1; doc.setDrawColor(...LINE); doc.line(220, y, 284, y); y += 4;
+  const xs = [220, 230, 250, 260, 270];
+  doc.setFont("helvetica", "bold"); doc.setFontSize(4.6); doc.setTextColor(...tint);
+  head.forEach((h, i) => doc.text(h, xs[i]!, y)); y += 3;
+  for (const r of rows.slice(0, 24)) {
+    doc.setFillColor(22, 27, 36); doc.rect(220, y, 64, 4.6, "F");
+    doc.setFillColor(...r.colour); doc.roundedRect(220.8, y + 0.8, 7, 3, 0.4, 0.4, "F");
+    doc.setFont("courier", "bold"); doc.setFontSize(4.4); doc.setTextColor(10, 10, 10); doc.text(r.cells[0]!, 224.3, y + 3, { align: "center" });
+    doc.setTextColor(...TEXT);
+    doc.text(doc.splitTextToSize(r.cells[1]!, 19)[0] ?? "", 230, y + 3);
+    doc.text(r.cells[2]!, 250, y + 3); doc.text(r.cells[3]!, 258, y + 3);
+    if (r.pct !== undefined) {
+      doc.setFillColor(40, 44, 52); doc.roundedRect(268, y + 1.5, 9, 1.6, 0.6, 0.6, "F");
+      doc.setFillColor(...(r.pct > 100 ? [248, 113, 113] as C3 : r.colour)); doc.roundedRect(268, y + 1.5, 9 * Math.min(1, r.pct / 100), 1.6, 0.6, 0.6, "F");
+    }
+    doc.setTextColor(...(r.pct !== undefined && r.pct > 100 ? [248, 113, 113] as C3 : r.colour)); doc.text(r.cells[4]!, 284, y + 3, { align: "right" });
+    y += 5.2;
+  }
+  doc.setFont("helvetica", "normal");
+  return y;
+}
+
+/** Serpentine path (column-wise, starting bottom-left) through a block of columns. */
+function serpentine(colStart: number, colEnd: number, rows: number): Array<[number, number]> {
+  const p: Array<[number, number]> = [];
+  for (let col = colStart, k = 0; col <= colEnd; col++, k++)
+    for (let i = 0; i < rows; i++) p.push([col, k % 2 === 0 ? rows - 1 - i : i]);
+  return p;
 }
 
 export async function downloadTechnicalReport(project: Project) {
@@ -104,66 +332,60 @@ export async function buildTechnicalReport(project: Project) {
   const screens = project.screens.filter((s) => s.visible !== false);
   const today = new Date().toLocaleDateString();
 
-  /* 1 — cover */
-  doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
+  /* 1 — cover (logo, title, subtitle, date) */
   const cover = project.meta.coverImage ?? (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null);
-  if (cover) {
-    try { const p = doc.getImageProperties(cover); const f = fit(p.width, p.height, 60, 25, W - 120, 80); doc.addImage(cover, p.fileType, f.x, f.y, p.width * f.s, p.height * f.s); } catch { /* unreadable image */ }
-  }
-  doc.setTextColor(...TEXT); doc.setFont("helvetica", "bold"); doc.setFontSize(24);
+  LOGO = cover ?? null;
+  doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
+  if (cover) logo(doc, 50, 30, W - 100, 75);
+  doc.setTextColor(...TEXT); doc.setFont("helvetica", "normal"); doc.setFontSize(22);
   doc.text(project.name.toUpperCase(), W / 2, 125, { align: "center" });
-  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...ACCENT);
-  doc.text("PIXEL MAP · TECHNICAL REPORT", W / 2, 133, { align: "center" });
-  doc.setFontSize(8); doc.setTextColor(...MUTED);
-  const meta = project.meta as unknown as Record<string, string | undefined>;
-  [
-    `Client / event: ${project.meta.client || "—"}`,
-    `Venue: ${project.meta.venue || "—"}   ·   Event date: ${project.meta.eventDate || "—"}`,
-    `Prepared by: ${meta["preparedBy"] || meta["designer"] || "DX5VE Studio"}   ·   Revision: ${meta["revision"] || "1"}   ·   Generated: ${today}`,
-    `${screens.length} LED surfaces · ${layout.totalCabinets} cabinets · ${layout.activeAreaM2.toFixed(2)} m² · canvas ${layout.canvasWidth} × ${layout.canvasHeight} px`,
-  ].forEach((l, i) => doc.text(l, W / 2, 145 + i * 6, { align: "center" }));
+  doc.setFontSize(9); doc.setTextColor(...MUTED);
+  doc.text("PIXEL MAP - TECHNICAL REPORT", W / 2, 134, { align: "center" });
+  doc.setFontSize(7); doc.setTextColor(110, 114, 120);
+  doc.text(today, W / 2, 150, { align: "center" });
+  const coverMeta = [project.meta.client, project.meta.venue, project.meta.eventDate].filter(Boolean).join("   ·   ");
+  if (coverMeta) doc.text(coverMeta, W / 2, 156, { align: "center" });
+  footer(doc);
 
   /* per-screen pixel maps */
   for (const s of screens) {
     const c = cabinetCalc(s);
-    page(doc, s.name, "LED screen · front-facing pixel map", project);
-    const f = fit(c.actualWidth, c.actualHeight, M + 14, 34, W - 2 * M - 20, 112);
+    page(doc, s.name.toUpperCase(), "", project);
+    const f = fit(c.actualWidth, c.actualHeight, 30, 48, W - 48, 92);
     const w = c.actualWidth * f.s, h = c.actualHeight * f.s;
-    pixelMap(doc, s, f.x, f.y, w, h, grids.get(s.id)?.start ?? 1);
-    dimH(doc, f.x, f.x + w, f.y - 3, `${c.actualWidth.toFixed(2)} m · ${s.pixelWidth} px`);
-    dimV(doc, f.x - 3, f.y, f.y + h, `${c.actualHeight.toFixed(2)} m`);
-    doc.setFontSize(10); doc.setTextColor(...TEXT); doc.setFont("helvetica", "bold"); doc.text("Screen Details", M, 160); doc.setFont("helvetica", "normal");
-    details(doc, M, 168, [
-      ["Display name", s.name], ["Module type", `P${s.pixelPitch} · ${(c.cabinetWidth * 100).toFixed(0)} × ${(c.cabinetHeight * 100).toFixed(0)} cm`],
-      ["Panels (W × H)", `${c.cols} × ${c.rows}`], ["Panel resolution", `${Math.round(s.pixelWidth / c.cols)} × ${Math.round(s.pixelHeight / c.rows)} px`],
-      ["Physical size", `${c.actualWidth.toFixed(2)} × ${c.actualHeight.toFixed(2)} m`], ["Active panels", `${c.total} un.`],
-      ["Physical area", `${c.area.toFixed(2)} m²`], ["Resolution", `${s.pixelWidth} × ${s.pixelHeight} px (${(s.pixelWidth * s.pixelHeight).toLocaleString()})`],
-      ["Canvas offset", `X ${s.content.x} · Y ${s.content.y} px`], ["Position", `X ${s.position.x.toFixed(2)} · Y ${s.position.y.toFixed(2)} · Z ${s.position.z.toFixed(2)} m`],
-      ["Rotation", `${s.rotation.y.toFixed(0)}° yaw · ${s.rotation.x.toFixed(0)}° tilt`], ["Grid numbers", `${grids.get(s.id)?.start ?? 1}–${(grids.get(s.id)?.start ?? 1) + c.total - 1}`],
-    ], 45);
+    pixelMap(doc, s, f.x, f.y, w, h, grids.get(s.id)?.start ?? 1, { logo: true });
+    dimH(doc, f.x, f.x + w, f.y - 6, `${c.actualWidth.toFixed(2)} m`);
+    dimV(doc, f.x - 8, f.y, f.y + h, `${c.actualHeight.toFixed(2)} m`);
+    sectionTitle(doc, 15, 157, "Screen Details");
+    details(doc, 15, 170, [
+      ["Display Name", s.name.toUpperCase()], ["Module Type:", `P${s.pixelPitch} - ${(c.cabinetWidth * 100).toFixed(0)} × ${(c.cabinetHeight * 100).toFixed(0)} cm`],
+      ["Screen Width (panels):", `${c.cols}`], ["Screen Height (panels):", `${c.rows}`],
+      ["Physical Width:", `${c.actualWidth.toFixed(2)} m`], ["Physical Height:", `${c.actualHeight.toFixed(2)} m`],
+      ["Active Panels:", `${c.total} un.`], ["Physical Area:", `${c.area.toFixed(2)} m2 (${c.actualWidth.toFixed(2)} x ${c.actualHeight.toFixed(2)} m)`],
+    ], 68);
   }
 
   /* full canvas layout */
-  page(doc, "Full Canvas Layout", "Logical graphics canvas — screens at their configured pixel offsets", project);
+  page(doc, "Full Canvas Layout", "", project);
   if (layout.canvasWidth > 0) {
-    const f = fit(layout.canvasWidth, layout.canvasHeight, M, 34, W - 2 * M, 90);
+    const f = fit(layout.canvasWidth, layout.canvasHeight, 15, 45, W - 30, 100);
     doc.setFillColor(0, 0, 0); doc.rect(f.x, f.y, layout.canvasWidth * f.s, layout.canvasHeight * f.s, "F");
     for (const p of layout.placements) {
       const s = screens.find((x) => x.id === p.screenId)!;
-      pixelMap(doc, s, f.x + p.x * f.s, f.y + p.y * f.s, p.width * f.s, p.height * f.s, grids.get(s.id)?.start ?? 1);
+      pixelMap(doc, s, f.x + p.x * f.s, f.y + p.y * f.s, p.width * f.s, p.height * f.s, grids.get(s.id)?.start ?? 1, { logo: true });
     }
-    dimH(doc, f.x, f.x + layout.canvasWidth * f.s, f.y - 3, `${layout.canvasWidth} px`);
-    dimV(doc, f.x - 2, f.y, f.y + layout.canvasHeight * f.s, `${layout.canvasHeight} px`);
   }
-  doc.setFontSize(10); doc.setTextColor(...TEXT); doc.setFont("helvetica", "bold"); doc.text("Global Layout", M, 134); doc.setFont("helvetica", "normal");
-  details(doc, M, 141, [
-    ["Total canvas", `${layout.canvasWidth} × ${layout.canvasHeight} px`], ["Active panels", `${layout.totalCabinets} un.`],
-    ["Unused canvas", `${layout.unusedPixels.toLocaleString()} px`], ["Active area", `${layout.activeAreaM2.toFixed(2)} m²`],
-    ["Footprint width", `${layout.footprintWidthM.toFixed(2)} m`], ["Footprint height", `${layout.footprintHeightM.toFixed(2)} m`],
-    ["Occupied pixels", layout.occupiedPixels.toLocaleString()], ["Note", "Logical canvas, not a processor output"],
-  ], 66);
-  table(doc, M, 168, [{ h: "SCREEN", w: 60 }, { h: "X", w: 30 }, { h: "Y", w: 30 }, { h: "WIDTH", w: 35 }, { h: "HEIGHT", w: 35 }, { h: "PANELS", w: 30 }, { h: "AREA", w: 30 }],
-    layout.placements.slice(0, 5).map((p) => [p.name, `${p.x}`, `${p.y}`, `${p.width} px`, `${p.height} px`, `${p.cols}×${p.rows}`, `${p.areaM2.toFixed(2)} m²`]));
+  sectionTitle(doc, 15, 160, "Global Layout");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+  const gl: Array<[string, string, number, number, boolean]> = [
+    ["TOTAL CANVAS & AREA", `${layout.canvasWidth}px x ${layout.canvasHeight}px`, 15, 172, false],
+    ["Active Panels:", `${layout.totalCabinets} un.`, 15, 180, false],
+    ["Est. Total Width:", `${layout.footprintWidthM.toFixed(2)} m`, 112, 172, true],
+    ["Est. Total Height:", `${layout.footprintHeightM.toFixed(2)} m`, 112, 180, true],
+    ["Total Physical Area:", `${layout.activeAreaM2.toFixed(2)} m2`, 205, 180, false],
+  ];
+  for (const [k, v, x, y, g] of gl) { doc.setTextColor(...MUTED); doc.text(k, x, y); doc.setTextColor(...(g ? GREEN : TEXT)); doc.text(v, x + 36, y); }
+  doc.setFont("helvetica", "normal");
 
   /* master elevation */
   page(doc, "Master Stage Elevation & Rigging", "Front elevation · screen trim heights above floor", project);
@@ -171,61 +393,69 @@ export async function buildTechnicalReport(project: Project) {
     const stage = project.stage;
     let x0 = -stage.width / 2, x1 = stage.width / 2, top = stage.height + 1;
     for (const s of screens) { const c = cabinetCalc(s); x0 = Math.min(x0, s.position.x - c.actualWidth / 2); x1 = Math.max(x1, s.position.x + c.actualWidth / 2); top = Math.max(top, s.position.y + c.actualHeight / 2); }
-    const f = fit(x1 - x0, top, M + 15, 34, 175, 120);
+    doc.setFillColor(...CARD); doc.setDrawColor(...LINE); doc.roundedRect(12, 34, 190, 150, 1.5, 1.5, "FD");
+    doc.setFont("courier", "bold"); doc.setFontSize(5.5); doc.setTextColor(...GREEN); doc.text("VIEW 01 // FRONT ELEVATION (TRIM HEIGHTS)", 16, 40);
+    const f = fit(x1 - x0, top, 30, 48, 160, 118);
     const X = (m: number) => f.x + (m - x0) * f.s, Y = (m: number) => f.y + (top - m) * f.s;
     doc.setDrawColor(...MUTED); doc.setLineWidth(0.3); doc.line(X(x0) - 5, Y(0), X(x1) + 5, Y(0));
-    doc.setFillColor(60, 66, 78); doc.rect(X(-stage.width / 2), Y(stage.height), stage.width * f.s, stage.height * f.s, "F");
-    dimH(doc, X(-stage.width / 2), X(stage.width / 2), Y(0) + 6, `Stage ${stage.width.toFixed(2)} m`);
-    dimV(doc, X(x0) - 4, Y(stage.height), Y(0), `${stage.height.toFixed(2)} m`);
+    doc.setFillColor(40, 46, 56); doc.rect(X(-stage.width / 2), Y(stage.height), stage.width * f.s, stage.height * f.s, "F");
+    dimH(doc, X(-stage.width / 2), X(stage.width / 2), Y(0) + 7, `Stage ${stage.width.toFixed(2)} m`);
+    dimV(doc, X(x0) - 8, Y(stage.height), Y(0), `${stage.height.toFixed(2)} m`);
     for (const s of screens) {
       const c = cabinetCalc(s);
       const left = s.position.x - c.actualWidth / 2, bottom = s.position.y - c.actualHeight / 2;
-      doc.setFillColor(...rgb(s.color)); doc.rect(X(left), Y(bottom + c.actualHeight), c.actualWidth * f.s, c.actualHeight * f.s, "F");
-      doc.setFontSize(6.5); doc.setTextColor(255, 255, 255); doc.text(s.name, X(s.position.x), Y(s.position.y), { align: "center" });
+      pixelMap(doc, s, X(left), Y(bottom + c.actualHeight), c.actualWidth * f.s, c.actualHeight * f.s, grids.get(s.id)?.start ?? 1, { badges: false });
     }
-    table(doc, 205, 34, [{ h: "SCREEN", w: 28 }, { h: "BOTTOM", w: 18 }, { h: "TOP", w: 18 }, { h: "SIZE", w: 16 }],
+    doc.setFont("helvetica", "normal");
+    table(doc, 206, 34, [{ h: "SCREEN", w: 28 }, { h: "BOTTOM", w: 18 }, { h: "TOP", w: 18 }, { h: "SIZE", w: 16 }],
       screens.map((s) => { const c = cabinetCalc(s); const b = s.position.y - c.actualHeight / 2; return [s.name, `${b.toFixed(2)} m`, `${(b + c.actualHeight).toFixed(2)} m`, `${c.actualWidth}×${c.actualHeight}`]; }));
     doc.setFontSize(6.5); doc.setTextColor(...MUTED);
-    doc.text(doc.splitTextToSize("Heights are measured from venue floor to the LED's bottom and top edges using the saved screen positions. Rigging points, loads and structure must be verified on site by a qualified rigger.", 80), 205, 150);
+    doc.text(doc.splitTextToSize("Heights are measured from venue floor to the LED's bottom and top edges using the saved screen positions. Rigging points, loads and structure must be verified on site by a qualified rigger.", 78), 206, 150);
   }
 
-  /* per-screen data and power */
+  /* per-screen data and power sheets */
   for (const s of screens) {
     const c = cabinetCalc(s);
     const proc = project.processors.find((p) => p.id === s.processorId);
     const chains = screenChains(project, s);
-    page(doc, `${s.name} · Data / Port Mapping`, `Signal wiring · ${proc ? `${proc.brand} ${proc.label}` : "no processor"} · ${chains.length} RJ45 ports (CAT6) · serpentine by column`, project);
-    const f = fit(c.actualWidth, c.actualHeight, M + 8, 36, 175, 140);
-    const cw = c.actualWidth * f.s / c.cols, ch = c.actualHeight * f.s / c.rows;
-    chains.forEach((chain, i) => {
-      const col = PALETTE[i % PALETTE.length]!;
-      for (const [cc, rr] of chain.path) { doc.setFillColor(...shade(col, 0.28)); doc.setDrawColor(...shade(col, 0.7)); doc.setLineWidth(0.2); doc.rect(f.x + cc * cw, f.y + rr * ch, cw, ch, "FD"); }
-      doc.setDrawColor(...col); doc.setLineWidth(0.6);
-      for (let k = 1; k < chain.path.length; k++) { const [a, b] = chain.path[k - 1]!, [cc, d] = chain.path[k]!; doc.line(f.x + (a + 0.5) * cw, f.y + (b + 0.5) * ch, f.x + (cc + 0.5) * cw, f.y + (d + 0.5) * ch); }
-      const [sc, sr] = chain.path[0]!; doc.setFillColor(...col); doc.circle(f.x + (sc + 0.5) * cw, f.y + (sr + 0.5) * ch, Math.min(1.4, cw / 4), "F");
-      doc.setFontSize(6); doc.setTextColor(...col); doc.text(`P${chain.port}`, f.x + (sc + 0.5) * cw, f.y + c.actualHeight * f.s + 4, { align: "center" });
-    });
-    dimH(doc, f.x, f.x + c.actualWidth * f.s, f.y - 3, `${c.actualWidth.toFixed(2)} m · ${c.cols} columns · ${s.pixelWidth} px`);
-    const dEnd = table(doc, 200, 36, [{ h: "PORT", w: 11 }, { h: "COLUMNS", w: 19 }, { h: "CAB", w: 10 }, { h: "PIXELS", w: 20 }, { h: "LOAD", w: 12 }, { h: "JUMPERS", w: 13 }],
-      chains.map((ch2) => { const cab = chainCableM(s, ch2, ps.dataHomeRunM ?? 0); return [`P${ch2.port}${ch2.overflow ? " *" : ""}`, `C${ch2.colStart + 1}-C${ch2.colEnd + 1}`, `${ch2.cabinets}`, ch2.pixels.toLocaleString(), `${ch2.loadPct.toFixed(0)}%`, `${cab.jumpersM} m`]; }));
-    doc.setFontSize(6.5); doc.setTextColor(...MUTED);
-    doc.text(doc.splitTextToSize(`Each port is filled with whole cabinet columns up to ${proc?.portMaxPixels?.toLocaleString() ?? "650,000"} px.${ps.dataHomeRunM ? ` Home run from processor: ${ps.dataHomeRunM} m per port (estimate).` : " Home-run cable lengths: measure on site."}${chains.some((x) => x.overflow) ? ` * Port exceeds the ${proc?.outputs} outputs of this processor — add a second processor.` : ""}`, 87), 200, dEnd + 6);
+    const pxCab = Math.round(s.pixelWidth / c.cols) * Math.round(s.pixelHeight / c.rows);
+    const portMax = proc?.portMaxPixels ?? 650000;
+    sheetFrame(doc, s, "data", "SIGNAL WIRING DIAGRAM (CAT6 RJ45 · DAISY-CHAIN)", project);
+    const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}-C${ch2.colEnd + 1})` }));
+    wiringDrawing(doc, s, dRuns, "P");
+    const yEnd = summaryCard(doc, `DATA SIGNAL SUMMARY — ${s.name.toUpperCase()}`, `${chains.length} RJ45 PORTS (CAT6)`, GREEN, [
+      ["Total RJ45 Lines:", `${chains.length} Cat6 lines`],
+      ["Max Cabinets / Port:", `${Math.floor(portMax / Math.max(1, pxCab))} cabs (${Math.round(portMax / 1000)}k px)`],
+      ["Total Resolution:", `${s.pixelWidth} x ${s.pixelHeight} px`],
+      ["Footprint / Span:", `${+c.actualWidth.toFixed(2)}m W x ${+c.actualHeight.toFixed(2)}m H`],
+      ["Processor:", proc ? `${proc.brand} ${proc.label}` : "not assigned"],
+    ], ["PORT", "ROUTE (IN→OUT)", "CABS", "PIXELS", "LOAD"],
+      chains.map((ch2, i) => {
+        const a = ch2.path[0]!, b = ch2.path[ch2.path.length - 1]!;
+        return { colour: PALETTE[i % PALETTE.length]!, pct: ch2.loadPct, cells: [`P${ch2.port}${ch2.overflow ? "*" : ""}`, `C${a[0] + 1}-R${a[1] + 1}→C${b[0] + 1}`, `${ch2.cabinets}c`, `${Math.round(ch2.pixels / 1000)}k px`, `${ch2.loadPct.toFixed(0)}%`] };
+      }));
+    doc.setFontSize(5); doc.setTextColor(...MUTED);
+    const jm = chains.reduce((n, ch2) => n + chainCableM(s, ch2, 0).jumpersM, 0);
+    doc.text(doc.splitTextToSize(`Panel-to-panel jumpers: ${jm.toFixed(1)} m total.${ps.dataHomeRunM ? ` Home run: ${ps.dataHomeRunM} m per port (estimate).` : " Home-run lengths: measure on site."}${chains.some((x) => x.overflow) ? ` * Port exceeds the ${proc?.outputs} outputs of this processor — add a second processor.` : ""}`, 62), 220, Math.min(yEnd + 4, 178));
 
     const pw = screenPower(s, ps);
-    page(doc, `${s.name} · Power Distribution`, `Power wiring · ${ps.voltage} V · ${ps.phases}-phase · ${pw.circuits.length} circuits`, project);
-    for (let r = 0; r < c.rows; r++) for (let col = 0; col < c.cols; col++) {
-      const ci = pw.circuits.findIndex((x) => col >= x.colStart && col <= x.colEnd);
-      const pc = ci >= 0 ? PALETTE[ci % PALETTE.length]! : MUTED;
-      doc.setFillColor(...shade(pc, 0.28)); doc.setDrawColor(...shade(pc, 0.7)); doc.setLineWidth(0.2); doc.rect(f.x + col * cw, f.y + r * ch, cw, ch, "FD");
-    }
-    pw.circuits.forEach((cir, i) => { doc.setFontSize(6); doc.setTextColor(...PALETTE[i % PALETTE.length]!); doc.text(`${cir.id}·${cir.phase}`, f.x + ((cir.colStart + cir.colEnd + 1) / 2) * cw, f.y + c.actualHeight * f.s + 4, { align: "center" }); });
+    sheetFrame(doc, s, "power", `POWER DISTRIBUTION DIAGRAM (${ps.voltage}V · POWERCON)`, project);
+    const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: serpentine(cir.colStart, cir.colEnd, c.rows), tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}-C${cir.colEnd + 1})` }));
+    wiringDrawing(doc, s, pRuns, "C");
     if (pw.status === "missing") {
-      doc.setFontSize(8); doc.setTextColor(...ACCENT); doc.text(doc.splitTextToSize(`Power specification missing — ${pw.message}`, 85), 200, 40);
+      summaryCard(doc, `POWER DISTRIBUTION SUMMARY — ${s.name.toUpperCase()}`, "POWER DATA MISSING", AMBER, [], [], []);
+      doc.setFontSize(6.5); doc.setTextColor(...AMBER); doc.text(doc.splitTextToSize(pw.message ?? "", 62), 220, 66);
     } else {
-      const end = table(doc, 200, 36, [{ h: "CIRCUIT", w: 15 }, { h: "PHASE", w: 12 }, { h: "CAB", w: 11 }, { h: "MAX W", w: 18 }, { h: "AMPS", w: 14 }, { h: "LOAD", w: 15 }],
-        pw.circuits.map((x) => [x.id, x.phase, `${x.cabinets}`, `${x.maxW}`, x.amps.toFixed(1), `${x.loadPct.toFixed(0)}%`]));
-      details(doc, 200, end + 8, [["Max load", `${(pw.totalMaxW / 1000).toFixed(2)} kW`], ["Typical", pw.totalTypW ? `${(pw.totalTypW / 1000).toFixed(2)} kW` : "not entered"], ["Total current", `${pw.totalAmps.toFixed(1)} A`], ["Cab / circuit", `${pw.cabinetsPerCircuit}`]], 30);
-      doc.setFontSize(6.5); doc.setTextColor(...MUTED); doc.text(doc.splitTextToSize(`Based on ${ps.cabinetMaxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 85), 200, end + 36);
+      const pEnd = summaryCard(doc, `POWER DISTRIBUTION SUMMARY — ${s.name.toUpperCase()}`, `${pw.circuits.length} POWERCON CIRCUITS`, AMBER, [
+        ["Total PowerCon Lines:", `${pw.circuits.length} circuits (${ps.voltage}V)`],
+        ["Peak Load:", `${(pw.totalMaxW / 1000).toFixed(2)} kW`],
+        ["Typical Load:", pw.totalTypW ? `${(pw.totalTypW / 1000).toFixed(2)} kW` : "not entered"],
+        ["Total Current:", `${pw.totalAmps.toFixed(1)} A (${ps.phases}-phase)`],
+        ["Max Cabinets / Circuit:", `${pw.cabinetsPerCircuit} cabinets`],
+      ], ["CIRC.", "FEED-P / ROUTE", "CABS", "POWER", "AMP"],
+        pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.colStart + 1}-C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
+      doc.setFontSize(5); doc.setTextColor(...MUTED);
+      doc.text(doc.splitTextToSize(`Based on ${ps.cabinetMaxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
     }
   }
 
