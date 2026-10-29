@@ -332,11 +332,15 @@ export function ScreenPanel() {
             const panelHeight =
               key === "custom" ? screen.panelConfiguration.panelHeight : preset.height;
             updateScreen(screen.id, {
+              cabinetKey: undefined,
+              ...(key === "0.56x0.56" ? { pixelPitch: 2, resolutionOverride: false, physicalWidth: Math.max(1, Math.round(screen.physicalWidth / panelWidth)) * panelWidth, physicalHeight: Math.max(1, Math.round(screen.physicalHeight / panelHeight)) * panelHeight } : {}),
               panelConfiguration: {
                 ...screen.panelConfiguration,
                 sizeKey: key as PanelSizeKey,
                 panelWidth,
                 panelHeight,
+                nativePixelWidth: undefined,
+                nativePixelHeight: undefined,
                 manual: false,
                 cols: Math.max(1, Math.round(screen.physicalWidth / panelWidth)),
                 rows: Math.max(1, Math.round(screen.physicalHeight / panelHeight)),

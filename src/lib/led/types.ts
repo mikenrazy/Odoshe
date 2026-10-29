@@ -47,7 +47,7 @@ export interface PanelConfiguration {
   manual?: boolean;
 }
 
-export type PanelSizeKey = "1x0.5" | "0.5x0.5" | "0.5x1" | "custom";
+export type PanelSizeKey = "1x0.5" | "0.5x0.5" | "0.5x1" | "0.56x0.56" | "custom";
 
 export const PANEL_SIZE_PRESETS: Array<{
   key: PanelSizeKey;
@@ -58,6 +58,7 @@ export const PANEL_SIZE_PRESETS: Array<{
   { key: "1x0.5", label: "1.0 × 0.5 m", width: 1, height: 0.5 },
   { key: "0.5x0.5", label: "0.5 × 0.5 m", width: 0.5, height: 0.5 },
   { key: "0.5x1", label: "0.5 × 1.0 m", width: 0.5, height: 1 },
+  { key: "0.56x0.56", label: "0.56 × 0.56 m (P2 cabinet size)", width: 0.56, height: 0.56 },
   { key: "custom", label: "Custom", width: 1, height: 0.5 },
 ];
 
@@ -91,6 +92,7 @@ export interface ProcessorModel {
   maxInputHeight?: number;
   builtIn?: boolean;
   senderModel?: string;
+  senderPortsConfirmed?: boolean;
   inputConnector?: "HDMI" | "DVI" | "DP" | "VGA" | undefined;
   videoOutputWidth?: number | undefined;
   videoOutputHeight?: number | undefined;
@@ -180,7 +182,7 @@ export const PROCESSOR_CATALOG: ProcessorCatalogEntry[] = [
     brand: "VDWall",
     label: "LVP615",
     maxPixels: 0,
-    outputs: 0,
+    outputs: 2,
     outputWidth: 3840,
     outputHeight: 1920,
     portMaxPixels: 0,
@@ -209,7 +211,7 @@ export function processorFromCatalog(entry: ProcessorCatalogEntry, id: string, n
     portMaxPixels: entry.portMaxPixels,
     inputWidth: entry.inputPresets.at(-1)?.width ?? 1920,
     inputHeight: entry.inputPresets.at(-1)?.height ?? 1080,
-    ...(entry.key === "vdwall" ? { inputConnector: "HDMI" as const, videoOutputWidth: 1920, videoOutputHeight: 1080 } : {}),
+    ...(entry.key === "vdwall" ? { inputConnector: "HDMI" as const, videoOutputWidth: 1920, videoOutputHeight: 1080, senderPortsConfirmed: true } : {}),
     minInputWidth: entry.minInputWidth,
     minInputHeight: entry.minInputHeight,
     maxInputWidth: entry.maxInputWidth,
@@ -861,7 +863,7 @@ export function normalizeProject(project: Project): Project {
       minInputHeight: p.minInputHeight ?? catalog?.minInputHeight ?? 360,
       maxInputWidth: p.maxInputWidth ?? catalog?.maxInputWidth ?? 1920,
       maxInputHeight: p.maxInputHeight ?? catalog?.maxInputHeight ?? 1080,
-      ...(p.brand.toLowerCase() === "vdwall" && (catalog?.key === "vdwall" || /LVP615/i.test(p.label)) && !p.senderModel?.trim() ? { label: "LVP615", outputs: 0, portMaxPixels: 0, maxPixels: 0, outputWidth: 3840, outputHeight: 1920 } : {}),
+      ...(p.brand.toLowerCase() === "vdwall" && (catalog?.key === "vdwall" || /LVP615/i.test(p.label)) && !p.senderModel?.trim() ? { label: "LVP615", outputs: p.senderPortsConfirmed ? p.outputs : 2, senderPortsConfirmed: true, portMaxPixels: 0, maxPixels: 0, outputWidth: 3840, outputHeight: 1920 } : {}),
     };
   });
 

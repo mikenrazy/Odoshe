@@ -153,7 +153,7 @@ export function ProcessorPanel() {
                 min={isLvp615(proc) ? 0 : 1}
                 max={32}
                 value={proc.outputs}
-                onChange={(v) => updateProcessor(proc.id, { outputs: Math.round(v) })}
+                onChange={(v) => updateProcessor(proc.id, { outputs: Math.round(v), ...(isLvp615(proc) ? { senderPortsConfirmed: true } : {}) })}
               />
               <NumberField
                 label={isLvp615(proc) ? "Sender total pixels" : "Max Pixels"}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createProject, normalizeProject, PROCESSOR_CATALOG, processorFromCatalog } from "./types";
+import { createProject, normalizeProject, PROCESSOR_CATALOG, processorFromCatalog, PANEL_SIZE_PRESETS } from "./types";
 import { defaultScreen } from "./presets";
 import { derivedResolution, withDerivedResolution } from "./resolution";
 import { screenChains } from "./engineering";
@@ -13,8 +13,10 @@ const base = { ...defaultScreen(0), processorId: "vd", pixelPitch: 2, cabinetKey
 const screen = withDerivedResolution(base);
 const project = { ...createProject("VDWall checks"), processors: [proc], screens: [screen] };
 describe("LVP615 mapping", () => {
-  it("does not invent Ethernet capacity for two mirrored DVI outputs", () => { expect(proc.outputs).toBe(0); expect(senderReady(proc)).toBe(false); expect(screenChains(project, screen)).toEqual([]); expect(processorPortMap(project, proc).status).toBe("over"); expect(planPortDistribution(project, proc).fits).toBe(false); });
-  it("invalidates legacy generic VDWall fabricated four-port profile", () => { const old = { ...proc, label: "VDWall", outputs: 4, portMaxPixels: 650000, maxPixels: 2300000 }; expect(normalizeProject({ ...project, processors: [old] }).processors[0]?.outputs).toBe(0); });
+  it("uses the user's two sender ports without inventing pixel capacity", () => { expect(proc.outputs).toBe(2); expect(proc.portMaxPixels).toBe(0); expect(senderReady(proc)).toBe(false); expect(screenChains(project, screen)).toEqual([]); expect(processorPortMap(project, proc).status).toBe("over"); expect(planPortDistribution(project, proc).fits).toBe(false); });
+  it("invalidates legacy generic VDWall fabricated four-port profile", () => { const old = { ...proc, label: "VDWall", senderPortsConfirmed: false, outputs: 4, portMaxPixels: 650000, maxPixels: 2300000 }; expect(normalizeProject({ ...project, processors: [old] }).processors[0]?.outputs).toBe(2); });
+  it("offers the user's measured 0.56m square cabinet dimensions", () => { expect(PANEL_SIZE_PRESETS.find((p) => p.key === "0.56x0.56")).toMatchObject({ width: 0.56, height: 0.56 }); });
+  it("keeps a two-port sender overload visible rather than inventing a third port", () => { const confirmed = { ...proc, senderModel: "Test two-port sender", portMaxPixels: 300000, maxPixels: 1200000 }; expect(screenChains({ ...project, processors: [confirmed] }, screen).map((c) => c.overflow)).toEqual([false, false, true]); });
   it("uses operator native P2 matrix for a measured 0.56m square cabinet", () => { expect(derivedResolution(screen)).toMatchObject({ cabinetPixelWidth: 280, cabinetPixelHeight: 280, pixelWidth: 1120, pixelHeight: 560, source: "native" }); });
   it("does not replace supplier native matrix with dimensional pitch maths", () => { expect(derivedResolution({ ...screen, panelConfiguration: { ...screen.panelConfiguration, panelWidth: 0.58, panelHeight: 0.58, nativePixelWidth: 288, nativePixelHeight: 288 } }).pixelWidth).toBe(1152); });
   it("blocks unconfirmed P2 pitch-only cabinets", () => { const unconfirmed = { ...screen, panelConfiguration: { ...screen.panelConfiguration, nativePixelWidth: undefined, nativePixelHeight: undefined } }; const confirmed = { ...proc, senderModel: "Operator test sender", outputs: 4, portMaxPixels: 300000, maxPixels: 1200000 }; expect(lvp615Issues({ ...project, screens: [unconfirmed] }, confirmed).some((s) => s.includes("native cabinet"))).toBe(true); });
