@@ -96,10 +96,15 @@ export function loadProjects(): Project[] {
 function stripHeavyMedia(projects: Project[]): Project[] {
   return projects.map((p) => ({
     ...p,
-    meta:
-      p.meta.coverImage && p.meta.coverImage.length > 4000
-        ? { ...p.meta, coverImage: p.meta.coverAssetId ? undefined : p.meta.coverImage }
-        : p.meta,
+    meta: {
+      ...p.meta,
+      ...(p.meta.coverImage && p.meta.coverImage.length > 4000 && p.meta.coverAssetId
+        ? { coverImage: undefined }
+        : {}),
+      ...(p.meta.reportLogo && p.meta.reportLogo.length > 4000 && p.meta.reportLogoAssetId
+        ? { reportLogo: undefined }
+        : {}),
+    },
     screens: p.screens.map((s) =>
       s.contentImage && s.contentImage.length > 4000
         ? { ...s, contentImage: s.contentAssetId ? undefined : s.contentImage }

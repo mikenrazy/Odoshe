@@ -53,7 +53,16 @@ export function ReportLogoSection() {
       </p>
 
       {logo ? (
-        <div className="relative mb-2 overflow-hidden border border-border bg-checker">
+        <div
+          className="relative mb-2 overflow-hidden border border-border"
+          style={{
+            backgroundImage:
+              "linear-gradient(45deg, #2a2a2a 25%, transparent 25%, transparent 75%, #2a2a2a 75%), linear-gradient(45deg, #2a2a2a 25%, transparent 25%, transparent 75%, #2a2a2a 75%)",
+            backgroundSize: "12px 12px",
+            backgroundPosition: "0 0, 6px 6px",
+            backgroundColor: "#1a1a1a",
+          }}
+        >
           <img src={logo} alt="Report logo preview" className="block h-20 w-full object-contain" />
           <button
             type="button"
