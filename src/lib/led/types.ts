@@ -730,6 +730,10 @@ export interface ProjectMeta {
   reportLogoAssetId?: string | undefined;
   reportLogo?: string | undefined;
   reportLogoName?: string | undefined;
+  /** separate logo for the light (print) theme of the technical report */
+  reportLogoLightAssetId?: string | undefined;
+  reportLogoLight?: string | undefined;
+  reportLogoLightName?: string | undefined;
 }
 
 export function defaultMeta(): ProjectMeta {

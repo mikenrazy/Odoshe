@@ -2,7 +2,7 @@ import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
 import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
-import { getAsset } from "./asset-store";
+import { getAssets } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
 
@@ -28,6 +28,13 @@ const shade = (c: C3, f: number): C3 => c.map((v) => Math.max(0, Math.min(255, M
 const mix = (a: C3, b: C3, t: number): C3 => a.map((v, i) => Math.round(v * (1 - t) + b[i]! * t)) as C3;
 
 let LOGO: string | null = null;
+/** Which logo data a report theme should show: light pages use their own logo, else the dark one. */
+export function resolveReportLogo(project: Project, theme: "dark" | "light", assets: Record<string, string> = {}): string | null {
+  const pick = (inline?: string, id?: string) => inline ?? (id ? assets[id] ?? null : null);
+  const dark = pick(project.meta.reportLogo, project.meta.reportLogoAssetId);
+  if (theme !== "light") return dark;
+  return pick(project.meta.reportLogoLight, project.meta.reportLogoLightAssetId) ?? dark;
+}
 function logo(doc: JsPDF, x: number, y: number, w: number, h: number, img: string | null = LOGO) {
   if (!img) return;
   try { const p = doc.getImageProperties(img); const f = fit(p.width, p.height, x, y, w, h); doc.addImage(img, p.fileType, f.x, f.y, p.width * f.s, p.height * f.s); } catch { /* unreadable */ }
@@ -558,8 +565,13 @@ export async function buildTechnicalReport(project: Project, theme: ReportTheme 
   const screens = project.screens.filter((s) => s.visible !== false);
   const today = new Date().toLocaleDateString();
 
-  /* 1 — cover (logo, title, subtitle, date) */
-  const reportLogo = project.meta.reportLogo ?? (project.meta.reportLogoAssetId ? await getAsset(project.meta.reportLogoAssetId) : null);
+  /* 1 — cover (logo, title, subtitle, date). Light pages use the dedicated light logo, falling back to the dark one. */
+  const missingIds = [
+    ...(project.meta.reportLogo ? [] : project.meta.reportLogoAssetId ? [project.meta.reportLogoAssetId] : []),
+    ...(project.meta.reportLogoLight ? [] : project.meta.reportLogoLightAssetId ? [project.meta.reportLogoLightAssetId] : []),
+  ];
+  const assets = missingIds.length > 0 ? await getAssets(missingIds) : {};
+  const reportLogo = resolveReportLogo(project, theme, assets);
   LOGO = reportLogo;
   doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
   if (reportLogo) logo(doc, 50, 30, W - 100, 75, reportLogo);
