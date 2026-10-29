@@ -1,5 +1,4 @@
 import { cabinetCalc } from "./calc";
-import { processorPortMap } from "./ports";
 import type { LedScreen, Project } from "./types";
 
 /* ------------------------------------------------------------ canvas layout */
@@ -95,27 +94,44 @@ export interface CabinetChain {
   loadPct: number;
   /** ordered cabinet cells (col,row) in serpentine order, bottom-left start */
   path: Array<[number, number]>;
+  /** port number exceeds the processor's physical outputs */
+  overflow: boolean;
 }
 
-/** Splits a screen into whole-column cabinet chains following the processor port map. */
+/** Port capacity in pixels for a screen's processor (documented profile value, else 650k planning default). */
+function portCapacity(project: Project, screen: LedScreen) {
+  const proc = project.processors.find((p) => p.id === screen.processorId);
+  return { proc, max: Math.max(1, proc?.portMaxPixels ?? 650_000) };
+}
+
+/** Columns each port can carry without exceeding its pixel capacity (whole columns only). */
+export function colsPerPortFor(project: Project, screen: LedScreen) {
+  const c = cabinetCalc(screen);
+  const colPx = (screen.pixelWidth / c.cols) * screen.pixelHeight;
+  return Math.max(1, Math.floor(portCapacity(project, screen).max / Math.max(1, colPx)));
+}
+
+/**
+ * Splits a screen into whole-column serpentine chains, each within one port's pixel capacity,
+ * balanced so no port carries more than one extra column. Ports are numbered continuously per
+ * processor in screen order; numbers above the processor's output count are flagged.
+ */
 export function screenChains(project: Project, screen: LedScreen): CabinetChain[] {
   const c = cabinetCalc(screen);
-  const proc = project.processors.find((p) => p.id === screen.processorId);
+  const { proc, max } = portCapacity(project, screen);
   const pxPerCab = (screen.pixelWidth / c.cols) * (screen.pixelHeight / c.rows);
-  let slices: Array<{ port: number; cols: number; max: number }> = [];
-  if (proc) {
-    const map = processorPortMap(project, proc);
-    for (const port of map.ports)
-      for (const sec of port.sections)
-        if (sec.screenId === screen.id)
-          slices.push({ port: port.port, cols: Math.max(1, sec.cabinetCols), max: port.maxPixels });
+  const per = colsPerPortFor(project, screen);
+  const ports = Math.ceil(c.cols / per);
+  let firstPort = 1;
+  for (const other of project.screens) {
+    if (other.id === screen.id) break;
+    if (other.processorId === screen.processorId && other.visible !== false)
+      firstPort += Math.ceil(cabinetCalc(other).cols / colsPerPortFor(project, other));
   }
-  if (!slices.length) slices = [{ port: screen.rj45Port || 1, cols: c.cols, max: 650_000 }];
   const chains: CabinetChain[] = [];
   let col = 0;
-  for (const [i, s] of slices.entries()) {
-    const cols = i === slices.length - 1 ? c.cols - col : Math.min(s.cols, c.cols - col);
-    if (cols <= 0) break;
+  for (let i = 0; i < ports; i++) {
+    const cols = Math.floor(c.cols / ports) + (i < c.cols % ports ? 1 : 0);
     const path: Array<[number, number]> = [];
     for (let k = 0; k < cols; k++) {
       const cc = col + k;
@@ -123,10 +139,22 @@ export function screenChains(project: Project, screen: LedScreen): CabinetChain[
     }
     const cabinets = cols * c.rows;
     const pixels = Math.round(cabinets * pxPerCab);
-    chains.push({ port: s.port, colStart: col, colEnd: col + cols - 1, cabinets, pixels, loadPct: (pixels / s.max) * 100, path });
+    const port = firstPort + i;
+    chains.push({ port, colStart: col, colEnd: col + cols - 1, cabinets, pixels, loadPct: (pixels / max) * 100, path, overflow: proc ? port > proc.outputs : false });
     col += cols;
   }
   return chains;
+}
+
+/** Estimated CAT6 lengths: home run (operator-set) plus cabinet-to-cabinet jumpers along the chain. */
+export function chainCableM(screen: LedScreen, chain: CabinetChain, homeRunM: number) {
+  const c = cabinetCalc(screen);
+  let jumpers = 0;
+  for (let k = 1; k < chain.path.length; k++) {
+    const [a, b] = chain.path[k - 1]!, [x, y] = chain.path[k]!;
+    jumpers += Math.abs(a - x) * c.cabinetWidth + Math.abs(b - y) * c.cabinetHeight;
+  }
+  return { homeRunM, jumpersM: +jumpers.toFixed(2), jumperCount: Math.max(0, chain.path.length - 1) };
 }
 
 /* ------------------------------------------------------------------- power */
@@ -140,6 +168,8 @@ export interface PowerSettings {
   /** usable fraction of circuit rating (operator-set planning margin) */
   loadLimitPct: number;
   phases: 1 | 3;
+  /** estimated processor-to-first-cabinet cable run, metres */
+  dataHomeRunM?: number | undefined;
 }
 
 export const DEFAULT_POWER: PowerSettings = { voltage: 230, loadLimitPct: 80, phases: 3 };
@@ -203,7 +233,8 @@ export function billOfMaterials(project: Project): BomRow[] {
     const c = cabinetCalc(s);
     rows.push({ item: "LED cabinet", model: `P${s.pixelPitch} ${c.cabinetWidth * 1000}×${c.cabinetHeight * 1000} mm`, qty: c.total, location: s.name, spec: `${Math.round(s.pixelWidth / c.cols)}×${Math.round(s.pixelHeight / c.rows)} px per cabinet`, notes: "" });
     const chains = screenChains(project, s);
-    rows.push({ item: "Data cable (CAT6) — processor to first cabinet", model: "CAT6", qty: chains.length, location: s.name, spec: "Length to be measured on site", notes: "" });
+    const run = powerSettings(project).dataHomeRunM;
+    rows.push({ item: "Data cable (CAT6) — processor to first cabinet", model: "CAT6", qty: chains.length, location: s.name, spec: run ? `${run} m each (estimate)` : "Length to be measured on site", notes: chains.some((ch) => ch.overflow) ? "Needs more processor ports than available" : "" });
     rows.push({ item: "Data jumper (CAT6) — cabinet to cabinet", model: "CAT6", qty: Math.max(0, c.total - chains.length), location: s.name, spec: "Short jumper", notes: "" });
     const p = screenPower(s, powerSettings(project));
     if (p.status === "ok") rows.push({ item: "Power circuit / feed", model: "", qty: p.circuits.length, location: s.name, spec: `${powerSettings(project).circuitAmps} A @ ${powerSettings(project).voltage} V`, notes: "Verify with a qualified electrician" });
@@ -219,4 +250,21 @@ export function billOfMaterials(project: Project): BomRow[] {
 export function bomCsv(rows: BomRow[]) {
   const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
   return ["Item,Model,Quantity,Location,Specification,Unit cost,Total cost,Notes", ...rows.map((r) => [r.item, r.model, r.qty, r.location, r.spec, "", "", r.notes].map(esc).join(","))].join("\n");
+}
+
+/* ------------------------------------------------------ graphics specification */
+
+export interface GraphicsSpecRow { screen: string; x: number; y: number; width: number; height: number; aspect: string; panels: string; pitch: number }
+
+/** What the designer needs: exact pixel size and canvas position of every screen, plus the full canvas. */
+export function graphicsSpec(project: Project): GraphicsSpecRow[] {
+  const g = globalLayout(project);
+  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+  const asp = (w: number, h: number) => { const d = gcd(w, h) || 1; return w / d <= 64 ? `${w / d}:${h / d}` : `${(w / h).toFixed(2)}:1`; };
+  const rows = g.placements.map((p) => ({ screen: p.name, x: p.x, y: p.y, width: p.width, height: p.height, aspect: asp(p.width, p.height), panels: `${p.cols}×${p.rows}`, pitch: project.screens.find((s) => s.id === p.screenId)?.pixelPitch ?? 0 }));
+  return [{ screen: "FULL CANVAS", x: 0, y: 0, width: g.canvasWidth, height: g.canvasHeight, aspect: asp(g.canvasWidth, g.canvasHeight), panels: `${g.totalCabinets}`, pitch: 0 }, ...rows];
+}
+
+export function graphicsSpecCsv(rows: GraphicsSpecRow[]) {
+  return ["Screen,X px,Y px,Width px,Height px,Aspect,Panels,Pitch mm", ...rows.map((r) => [r.screen, r.x, r.y, r.width, r.height, r.aspect, r.panels, r.pitch || ""].map((v) => `"${v}"`).join(","))].join("\n");
 }

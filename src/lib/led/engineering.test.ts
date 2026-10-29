@@ -40,3 +40,19 @@ describe("Power planning", () => {
     expect(p.totalMaxW).toBe(15600);
   });
 });
+
+describe("Data chains respect port capacity", () => {
+  const proj = { ...project, processors: [{ id: "p", outputs: 10, portMaxPixels: 650_000 }] } as unknown as Project;
+  it("CIO100 side screen uses 3 ports (3+3+2 columns)", async () => {
+    const { screenChains } = await import("./engineering");
+    expect(screenChains(proj, left).map((c) => c.colEnd - c.colStart + 1)).toEqual([3, 3, 2]);
+  });
+  it("no port exceeds 650,000 px", async () => {
+    const { screenChains } = await import("./engineering");
+    for (const s of [left, centre, right]) for (const c of screenChains(proj, s)) expect(c.pixels).toBeLessThanOrEqual(650_000);
+  });
+  it("flags ports beyond the processor's 10 outputs", async () => {
+    const { screenChains } = await import("./engineering");
+    expect(screenChains(proj, right).some((c) => c.overflow)).toBe(true);
+  });
+});
