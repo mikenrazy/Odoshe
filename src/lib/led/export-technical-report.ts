@@ -228,7 +228,7 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
     doc.setTextColor(...TEXT); doc.text(r.tag, lx + 3.6, 45.1);
   }
   doc.setDrawColor(...LINE); doc.line(10, 49, 214, 49);
-  const f = fit(c.actualWidth, c.actualHeight, 26, 64, 180, 108);
+  const f = fit(c.actualWidth, c.actualHeight, 26, 64, 180, 100);
   const w = c.actualWidth * f.s, h = c.actualHeight * f.s, cw = w / c.cols, ch = h / c.rows;
   const owner = new Map<string, number>();
   runs.forEach((r, i) => r.path.forEach(([a, b]) => owner.set(`${a},${b}`, i)));
