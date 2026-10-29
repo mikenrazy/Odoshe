@@ -50,9 +50,10 @@ export interface CabinetSpec {
   pixelHeight: number;
 }
 
-function cab(width: number, height: number, pitch: number): CabinetSpec {
-  const pixelWidth = Math.round((width * 1000) / pitch);
-  const pixelHeight = Math.round((height * 1000) / pitch);
+/** Optional explicit native matrix — real cabinets don't always equal metres ÷ pitch. */
+function cab(width: number, height: number, pitch: number, px?: [number, number]): CabinetSpec {
+  const pixelWidth = px?.[0] ?? Math.round((width * 1000) / pitch);
+  const pixelHeight = px?.[1] ?? Math.round((height * 1000) / pitch);
   return {
     key: `${width}x${height}-p${pitch}`,
     label: `${width} × ${height} m · P${pitch} · ${pixelWidth}×${pixelHeight}`,
@@ -73,8 +74,14 @@ export const CABINET_CATALOG: CabinetSpec[] = [
   cab(0.5, 0.5, 2.5),
   cab(0.5, 0.5, 2.6),
   cab(0.5, 0.5, 3.9),
-  cab(0.5, 1.0, 2.5),
-  cab(0.5, 1.0, 3.9),
+  cab(0.5, 0.5, 2.9, [168, 168]),
+  cab(0.5, 0.5, 4.8, [104, 104]),
+  cab(0.5, 1.0, 1.9, [256, 512]),
+  cab(0.5, 1.0, 2.5, [200, 400]),
+  cab(0.5, 1.0, 2.6, [192, 384]),
+  cab(0.5, 1.0, 2.9, [168, 336]),
+  cab(0.5, 1.0, 3.9, [128, 256]),
+  cab(0.5, 1.0, 4.8, [104, 208]),
   cab(1.0, 0.5, 1.5),
   cab(1.0, 0.5, 2.0),
   cab(1.0, 0.5, 2.5),

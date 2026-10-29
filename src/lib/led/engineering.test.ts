@@ -84,3 +84,12 @@ describe("Processor-dependent resolution", () => {
     expect(loadLimits({ brand: "NovaStar", label: "VX1000", outputWidth: 4096, outputHeight: 1080 } as never).width).toBe(10240);
   });
 });
+
+describe("Cabinet catalogue", () => {
+  it("0.5 × 1 m P2.5 is 200 × 400 px and P2.6 is 192 × 384 px", async () => {
+    const { CABINET_CATALOG } = await import("./resolution");
+    const f = (p: number) => CABINET_CATALOG.find((c) => c.width === 0.5 && c.height === 1 && c.pitch === p);
+    expect([f(2.5)?.pixelWidth, f(2.5)?.pixelHeight]).toEqual([200, 400]);
+    expect([f(2.6)?.pixelWidth, f(2.6)?.pixelHeight]).toEqual([192, 384]);
+  });
+});
