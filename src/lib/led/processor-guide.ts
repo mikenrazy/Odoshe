@@ -1,5 +1,5 @@
 import { cabinetCalc } from "./calc";
-import { screenChains } from "./engineering";
+import { screenChains, processorLayout } from "./engineering";
 import type { Project, ProcessorModel } from "./types";
 
 /**
@@ -57,5 +57,18 @@ export function processorGuide(project: Project, processor: ProcessorModel): Pro
     "If a cabinet will not light, send the cabinet configuration file (.rcfgx) from NovaLCT, then repeat the steps.",
     "Low Latency requires all cabinets loaded by the Ethernet ports to be top-aligned.",
   ];
+  const sets = (project.groups ?? []).filter((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
+  if (sets.length) {
+    const cfg = processorLayout(project, processor.id);
+    steps.splice(0, steps.length,
+      `Feed ONE source input (${cfg.sourceWidth} x ${cfg.sourceHeight}) to ${processor.name ?? processor.label}.`,
+      `Use NovaLCT Screen Configuration for the separated screens, with one ${cfg.width} x ${cfg.height} px output canvas; do not use rectangular front-panel Quick Configuration for this layout.`,
+      "Load the supplier's receiving-card configuration; keep each cabinet's native pixel dimensions.",
+      ...cfg.placements.map((p) => `${p.name}: output X=${p.x}, Y=${p.y}, ${p.width} x ${p.height} px. Run P${p.chains[0]?.port ?? "?"}-P${p.chains.at(-1)?.port ?? "?"} separately to this screen; follow the cabinet chain on its data sheet.`),
+      cfg.exact ? "Map source to output 1:1." : `Scale the full input to ${cfg.width} x ${cfg.height}; source crop references in the report describe the same split, not new cabinet sizes.`,
+      "Test with LEFT/RIGHT labels; verify each cable's first cabinet and serpentine order, then save to receiving cards. No data jumper is required across the stage gap.",
+    );
+    notes.push(...cfg.issues);
+  }
   return { processor, supported: isNovaVx(processor), steps, screens, notes };
 }

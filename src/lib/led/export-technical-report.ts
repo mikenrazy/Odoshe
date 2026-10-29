@@ -1,7 +1,7 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
-import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts } from "./engineering";
+import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
 import { getAsset } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
@@ -565,13 +565,30 @@ export async function buildTechnicalReport(project: Project) {
 
   /* full canvas layout */
   page(doc, "Full Canvas Layout", "", project);
+  const setProcessors = project.processors.filter((proc) => screens.some((s) => s.processorId === proc.id && project.groups?.some((g) => g.id === s.groupId && g.mappingMode === "shared-input")));
   if (layout.canvasWidth > 0) {
-    const f = fit(layout.canvasWidth, layout.canvasHeight, 15, 45, W - 30, 100);
+    const f = fit(layout.canvasWidth, layout.canvasHeight, 15, 45, W - 30, setProcessors.length ? 58 : 100);
     doc.setFillColor(0, 0, 0); doc.rect(f.x, f.y, layout.canvasWidth * f.s, layout.canvasHeight * f.s, "F");
     for (const p of layout.placements) {
       const s = screens.find((x) => x.id === p.screenId)!;
       pixelMap(doc, s, f.x + p.x * f.s, f.y + p.y * f.s, p.width * f.s, p.height * f.s, 1, { logo: true });
     }
+  }
+  if (setProcessors.length) {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...GREEN);
+    doc.text("SHARED INPUT / SEPARATE PHYSICAL SCREENS", 15, 110);
+    const rows = setProcessors.flatMap((proc) => {
+      const cfg = processorLayout(project, proc.id);
+      return cfg.placements.map((p) => [
+        proc.name ?? proc.label, `${cfg.sourceWidth} x ${cfg.sourceHeight}`, `${cfg.width} x ${cfg.height}`,
+        p.name, `${p.x}, ${p.y}`, `P${p.chains[0]?.port ?? "?"}-P${p.chains.at(-1)?.port ?? "?"}`,
+      ]);
+    });
+    table(doc, 15, 114, [{ h: "PROCESSOR / ONE INPUT", w: 59 }, { h: "INPUT PX", w: 34 }, { h: "OUTPUT CANVAS PX", w: 43 }, { h: "DESTINATION", w: 61 }, { h: "OUTPUT X,Y", w: 38 }, { h: "CAT6 PORTS", w: 32 }], rows.slice(0, 4), 5);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(6); doc.setTextColor(...MUTED);
+    doc.text("Use NovaLCT Screen Configuration for separated sections; scale ONE full input to the combined output canvas.", 15, 146);
+    doc.text("Set each section's output X/Y; run separate CAT6 home-runs to its first cabinets. No cable bridge or blank stage-gap pixels.", 15, 151);
+    if (rows.length > 4) doc.text("Further sections and exact input crops are listed on their data sheets.", 15, 155);
   }
   sectionTitle(doc, 15, 160, "Global Layout");
   doc.setFont("helvetica", "bold"); doc.setFontSize(8);
@@ -593,17 +610,30 @@ export async function buildTechnicalReport(project: Project) {
     const c = cabinetCalc(s);
     const proc = project.processors.find((p) => p.id === s.processorId);
     const chains = screenChains(project, s);
+    const sharedSet = project.groups?.find((g) => g.id === s.groupId && g.mappingMode === "shared-input");
+    const setLayout = sharedSet ? processorLayout(project, s.processorId) : null;
+    const setPlacement = setLayout?.placements.find((p) => p.screenId === s.id);
     const pxCab = Math.round(s.pixelWidth / c.cols) * Math.round(s.pixelHeight / c.rows);
     const portMax = proc?.portMaxPixels ?? 650000;
     sheetFrame(doc, s, "data", "SIGNAL WIRING DIAGRAM (CAT6 RJ45 · DAISY-CHAIN)", project);
     const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}–C${ch2.colEnd + 1})` }));
     wiringDrawing(doc, s, dRuns, "P");
+    if (setLayout && setPlacement && sharedSet) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(6); doc.setTextColor(...GREEN);
+      doc.text(doc.splitTextToSize(`SET: ${sharedSet.name} | ONE INPUT: ${setLayout.sourceWidth} x ${setLayout.sourceHeight} | LED OUTPUT: ${setLayout.width} x ${setLayout.height}`, 192)[0] ?? "", 14, 53);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(5.3); doc.setTextColor(...MUTED);
+      doc.text(`NovaLCT section offset X=${setPlacement.x}, Y=${setPlacement.y}; native section ${setPlacement.width} x ${setPlacement.height} px.`, 14, 57);
+      const r = setPlacement.sourceRegion;
+      doc.text(`Input crop reference: X=${r.x}, Y=${r.y}, W=${r.width}, H=${r.height}. ${setLayout.exact ? "1:1 source." : "Scale full input to combined output; do not change cabinet pixels."}`, 14, 60);
+      doc.setTextColor(...GREEN); doc.setFontSize(5);
+      doc.text(`ONE INPUT -> ${proc?.name ?? proc?.label ?? "Processor"} -> P${chains[0]?.port ?? "?"}-P${chains.at(-1)?.port ?? "?"} -> ${s.name} (separate CAT6 home-runs)`, 14, 180);
+    }
     const yEnd = summaryCard(doc, `DATA SIGNAL SUMMARY — ${s.name.toUpperCase()}`, `${chains.length} RJ45 PORTS (CAT6)`, GREEN, [
       ["Total RJ45 Lines:", `${chains.length} Cat6 lines`],
       ["Max Cabinets / Port:", `${Math.floor(portMax / Math.max(1, pxCab))} cabs (${Math.round(portMax / 1000)}k px)`],
       ["Total Resolution:", `${s.pixelWidth} x ${s.pixelHeight} px`],
       ["Footprint / Span:", `${+c.actualWidth.toFixed(2)}m W x ${+c.actualHeight.toFixed(2)}m H`],
-      ["Processor:", proc ? `${proc.brand} ${proc.label}` : "not assigned"],
+      ["Processor:", proc ? proc.name ?? `${proc.brand} ${proc.label}` : "not assigned"],
       ["Total Rigging Weight:", (() => { const rg = screenRigging(s, ps); return rg.weightKg !== undefined ? `${rg.weightKg} kg${rg.hoists ? ` (${rg.hoists} hoists)` : ""}` : "enter kg/m²"; })()],
     ], ["PORT", "ROUTE (IN-OUT)", "CABS", "PIXELS", "LOAD"],
       chains.map((ch2, i) => {
