@@ -1,7 +1,7 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
-import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
+import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
 import { getAsset } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
@@ -666,6 +666,26 @@ export async function buildTechnicalReport(project: Project) {
         pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.path[0]![0] + 1}·R${cir.path[0]![1] + 1}–C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
       doc.setFontSize(5); doc.setTextColor(...MUTED);
       doc.text(doc.splitTextToSize(`Based on ${cabinetWatts(s, ps).maxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
+    }
+    }
+
+  /* equipment list — final page(s) */
+  {
+    const rows = billOfMaterials(project);
+    const cabs = screens.reduce((n, s) => n + cabinetCalc(s).total, 0);
+    const ports = screens.reduce((n, s) => n + screenChains(project, s).length, 0);
+    const cols = [
+      { h: "ITEM", w: 60 }, { h: "MODEL", w: 42 }, { h: "QTY", w: 12 },
+      { h: "LOCATION", w: 34 }, { h: "SPEC", w: 72 }, { h: "NOTES", w: 46 },
+    ];
+    const perPage = 27;
+    for (let i = 0; i < rows.length; i += perPage) {
+      page(doc, i === 0 ? "Equipment List" : "Equipment List (cont.)", `${project.name.toUpperCase()} · ${rows.length} LINES${i > 0 ? ` · SHEET ${Math.floor(i / perPage) + 1}` : ""}`, project);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...GREEN);
+      doc.text(`TOTALS: ${cabs} LED cabinets · ${ports} RJ45 data lines · ${rows.length} line items`, 15, 36);
+      table(doc, 15, 40, cols, rows.slice(i, i + perPage).map((r) => [r.item, r.model, String(r.qty), r.location, r.spec, r.notes]));
+      doc.setFont("helvetica", "normal"); doc.setFontSize(5.5); doc.setTextColor(...MUTED);
+      doc.text("Power and rigging figures are estimates — verify with a qualified electrician and rigger. Costs are left blank for supplier quotations.", 15, 188);
     }
   }
 
