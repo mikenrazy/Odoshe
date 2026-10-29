@@ -21,8 +21,7 @@ const project = {
   meta: {},
   stage: { width: 12, depth: 6, height: 1, color: "#1c1c1c", backWall: true, backWallHeight: 4 },
   screens: [centre], processors: [{ id: "p1", brand: "NovaStar", label: "VX1000", outputs: 10, name: "VX1000" }],
-  power: { ...DEFAULT_POWER, cabinetMaxW: 200, circuitAmps: 16 },
-  equipment: [], extensions: {},
+  extensions: { power: { cabinetMaxW: 200, circuitAmps: 16 } },
 } as unknown as Project;
 
 describe("technical report equipment page", () => {
