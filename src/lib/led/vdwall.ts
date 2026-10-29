@@ -11,7 +11,7 @@ export function senderReady(p: ProcessorModel | undefined) {
 export function lvp615Issues(project: Project, p: ProcessorModel): string[] {
   if (!isLvp615(p)) return [];
   const issues: string[] = [];
-  if (!senderReady(p)) issues.push("Sending-card model, total LED RJ45 ports, pixels per port and total sender pixel capacity are unconfirmed. LVP615 DVI OUT1/OUT2 mirror the same image; LAN is for control.");
+  if (!senderReady(p)) issues.push(`${p.outputs} sender LED RJ45 ports configured; sending-card model, pixels per port and total pixel capacity remain unconfirmed. LVP615 DVI OUT1/OUT2 mirror the same image; LAN is for control.`);
   const input = p.inputConnector ?? "HDMI";
   const maxW = input === "DVI" ? 2304 : input === "VGA" ? 2048 : 1920;
   const maxH = input === "DVI" || input === "VGA" ? 1152 : 1080;
@@ -20,6 +20,10 @@ export function lvp615Issues(project: Project, p: ProcessorModel): string[] {
   if (!LVP615_TIMINGS.some(([tw, th]) => tw === w && th === h)) issues.push("Select a documented 60 Hz output timing; custom timing bandwidth is not confirmed by width/height limits alone.");
   const screens = project.screens.filter((s) => s.processorId === p.id && s.visible !== false);
   if (screens.length) {
+    if (senderReady(p)) {
+      const required = screens.reduce((n, s) => { const count = Math.max(1, s.panelConfiguration.cols * s.panelConfiguration.rows); const px = s.pixelWidth * s.pixelHeight / count; const per = Math.max(1, Math.floor((p.portMaxPixels ?? 0) / Math.max(1, px))); return n + Math.ceil(count / per); }, 0);
+      if (required > p.outputs) issues.push(`INVALID DATA PLAN: ${required} LED RJ45 ports required, but the sending card has only ${p.outputs}. Ports above P${p.outputs} do not exist; do not use this cable plan.`);
+    }
     const x = Math.min(...screens.map((s) => s.content.x));
     const y = Math.min(...screens.map((s) => s.content.y));
     const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && screens.some((s) => s.groupId === g.id));

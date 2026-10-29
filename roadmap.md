@@ -18,4 +18,5 @@
 - [x] Add manual-based LVP615 settings and sender-aware validation.
 - [x] Add explicit native P2 cabinet matrix entry without guessing dimensions.
 - [x] Include VDWall-specific configuration in the guide and technical report; verify tests and downloads.
-- [ ] Finalize the user's actual P2/VDWall configuration — awaiting measured cabinet dimensions, native matrix and fitted sending-card model/capacities.
+- [x] Add confirmed 0.56 × 0.56 m P2 cabinet-size option and two-port sender default.
+- [ ] Finalize the user's actual P2/VDWall configuration — awaiting native cabinet matrix and fitted sending-card model/pixel capacities; dimensions and two ports are confirmed.
