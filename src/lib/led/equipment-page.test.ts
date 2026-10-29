@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildTechnicalReport } from "./export-technical-report";
-import { DEFAULT_POWER } from "./engineering";
 import type { LedScreen, Project } from "./types";
 
 function screen(id: string, x: number, w: number, h: number, cols: number, rows: number, pw: number, ph: number, px: number): LedScreen {
