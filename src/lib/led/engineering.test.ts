@@ -56,3 +56,14 @@ describe("Data chains respect port capacity", () => {
     expect(screenChains(proj, right).some((c) => c.overflow)).toBe(true);
   });
 });
+
+describe("VX1000 quick configuration guide", () => {
+  it("lists ports in descending order within 650,000 px for the CIO100 centre", async () => {
+    const { processorGuide } = await import("./processor-guide");
+    const proc = { id: "p", brand: "NovaStar", label: "VX1000", outputs: 10, portMaxPixels: 650_000 };
+    const g = processorGuide({ ...project, screens: [centre], processors: [proc] } as unknown as Project, proc as never);
+    expect(g.screens[0]!.ports.length).toBe(13);
+    expect(g.screens[0]!.problems.some((p) => p.includes("does not exist"))).toBe(true);
+    expect(g.screens[0]!.ports.every((p) => p.pixels <= 650_000 && p.cabinets % 3 === 0)).toBe(true);
+  });
+});
