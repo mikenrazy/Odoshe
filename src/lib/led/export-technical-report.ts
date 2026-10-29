@@ -3,7 +3,7 @@ import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
 import { computeGridNumbers } from "./grid-numbering";
 import { validateMapping } from "./mapping";
-import { billOfMaterials, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
+import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
 import { getAsset } from "./asset-store";
 
 const W = 297, H = 210, M = 12;
@@ -205,8 +205,10 @@ export async function buildTechnicalReport(project: Project) {
       doc.setFontSize(6); doc.setTextColor(...col); doc.text(`P${chain.port}`, f.x + (sc + 0.5) * cw, f.y + c.actualHeight * f.s + 4, { align: "center" });
     });
     dimH(doc, f.x, f.x + c.actualWidth * f.s, f.y - 3, `${c.actualWidth.toFixed(2)} m · ${c.cols} columns · ${s.pixelWidth} px`);
-    table(doc, 200, 36, [{ h: "PORT", w: 12 }, { h: "COLUMNS", w: 20 }, { h: "CAB", w: 12 }, { h: "PIXELS", w: 22 }, { h: "LOAD", w: 19 }],
-      chains.map((ch2) => [`P${ch2.port}`, `C${ch2.colStart + 1}–C${ch2.colEnd + 1}`, `${ch2.cabinets}`, ch2.pixels.toLocaleString(), `${ch2.loadPct.toFixed(0)}%${ch2.loadPct > 100 ? " !" : ""}`]));
+    const dEnd = table(doc, 200, 36, [{ h: "PORT", w: 11 }, { h: "COLUMNS", w: 19 }, { h: "CAB", w: 10 }, { h: "PIXELS", w: 20 }, { h: "LOAD", w: 12 }, { h: "JUMPERS", w: 13 }],
+      chains.map((ch2) => { const cab = chainCableM(s, ch2, ps.dataHomeRunM ?? 0); return [`P${ch2.port}${ch2.overflow ? " *" : ""}`, `C${ch2.colStart + 1}-C${ch2.colEnd + 1}`, `${ch2.cabinets}`, ch2.pixels.toLocaleString(), `${ch2.loadPct.toFixed(0)}%`, `${cab.jumpersM} m`]; }));
+    doc.setFontSize(6.5); doc.setTextColor(...MUTED);
+    doc.text(doc.splitTextToSize(`Each port is filled with whole cabinet columns up to ${proc?.portMaxPixels?.toLocaleString() ?? "650,000"} px.${ps.dataHomeRunM ? ` Home run from processor: ${ps.dataHomeRunM} m per port (estimate).` : " Home-run cable lengths: measure on site."}${chains.some((x) => x.overflow) ? ` * Port exceeds the ${proc?.outputs} outputs of this processor — add a second processor.` : ""}`, 87), 200, dEnd + 6);
 
     const pw = screenPower(s, ps);
     page(doc, `${s.name} · Power Distribution`, `Power wiring · ${ps.voltage} V · ${ps.phases}-phase · ${pw.circuits.length} circuits`, project);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileText, Sheet } from "lucide-react";
 import { useEditor } from "@/lib/led/store";
-import { billOfMaterials, bomCsv, globalLayout, powerSettings } from "@/lib/led/engineering";
+import { billOfMaterials, bomCsv, globalLayout, graphicsSpec, graphicsSpecCsv, powerSettings } from "@/lib/led/engineering";
 import { downloadTechnicalReport } from "@/lib/led/export-technical-report";
 import { Button } from "@/components/ui/button";
 import { NumberField, Readout, Section } from "./Field";
@@ -15,11 +15,11 @@ export function EngineeringSection() {
   const ps = powerSettings(project);
   const layout = globalLayout(project);
 
-  const downloadBom = () => {
-    const blob = new Blob([bomCsv(billOfMaterials(project))], { type: "text/csv" });
+  const downloadCsv = (csv: string, suffix: string) => {
+    const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${project.name}-equipment-list.csv`;
+    a.download = `${project.name}-${suffix}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -42,6 +42,7 @@ export function EngineeringSection() {
         <NumberField label="Supply voltage" suffix="V" min={1} value={ps.voltage} onChange={(v) => setPower({ voltage: v })} />
         <NumberField label="Circuit rating" suffix="A" min={0} value={ps.circuitAmps ?? 0} onChange={(v) => setPower({ circuitAmps: v > 0 ? v : undefined })} />
         <NumberField label="Usable load limit" suffix="%" min={1} value={ps.loadLimitPct} onChange={(v) => setPower({ loadLimitPct: Math.min(100, v) })} />
+        <NumberField label="Data cable run to screens" suffix="m" min={0} value={ps.dataHomeRunM ?? 0} onChange={(v) => setPower({ dataHomeRunM: v > 0 ? v : undefined })} />
         <div className="mt-1 flex gap-1">
           {([1, 3] as const).map((n) => (
             <Button key={n} size="sm" variant={ps.phases === n ? "secondary" : "ghost"} onClick={() => setPower({ phases: n })}>{n}-phase</Button>
@@ -53,7 +54,8 @@ export function EngineeringSection() {
           <Button size="sm" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await downloadTechnicalReport(project); } catch { setError("Could not create the report. Please try again."); } finally { setBusy(false); } }}>
             <FileText /> {busy ? "Generating…" : "Technical report (PDF)"}
           </Button>
-          <Button size="sm" variant="outline" onClick={downloadBom}><Sheet /> Equipment list (CSV)</Button>
+          <Button size="sm" variant="outline" onClick={() => downloadCsv(bomCsv(billOfMaterials(project)), "equipment-list")}><Sheet /> Equipment list (CSV)</Button>
+          <Button size="sm" variant="outline" onClick={() => downloadCsv(graphicsSpecCsv(graphicsSpec(project)), "graphics-spec")}><Sheet /> Graphics spec for designer (CSV)</Button>
           {error && <p className="text-[10px] text-destructive">{error}</p>}
         </div>
       </Section>
