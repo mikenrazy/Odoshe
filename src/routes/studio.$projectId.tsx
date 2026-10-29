@@ -79,7 +79,7 @@ function Studio() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen flex-col overflow-hidden bg-grid text-foreground">
       <TopBar />
       <div className="flex min-h-0 flex-1">
         <LeftSidebar />
