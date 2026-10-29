@@ -36,16 +36,45 @@ export function buildDxf(project: Project): string {
 
 /* ---------------------------------------------------- native pixel map */
 
-function hexToRgb(hex: string): [number, number, number] {
+/** Screen colour made vivid enough for a test card (pale/grey picks become saturated). */
+export function vividColour(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   const n = m ? parseInt(m[1]!, 16) : 0x1e88ff;
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+  const l0 = (mx + mn) / 2, s0 = d ? d / (1 - Math.abs(2 * l0 - 1)) : 0;
+  if (s0 < 0.15) return [30, 136, 255];
+  const S = Math.max(s0, 0.85), L = Math.min(Math.max(l0, 0.45), 0.55);
+  const C = (1 - Math.abs(2 * L - 1)) * S, X = C * (1 - Math.abs(((h / 60) % 2) - 1)), M0 = L - C / 2;
+  const [a, bb, c] = h < 60 ? [C, X, 0] : h < 120 ? [X, C, 0] : h < 180 ? [0, C, X] : h < 240 ? [0, X, C] : h < 300 ? [X, 0, C] : [C, 0, X];
+  return [Math.round((a + M0) * 255), Math.round((bb + M0) * 255), Math.round((c + M0) * 255)];
+}
+
+/**
+ * Test-card colour per screen. When screens share a colour (e.g. all default),
+ * the largest screen is blue and the rest red, like LEDMapper, so neighbours stay distinct.
+ */
+export function screenPaint(project: Project): Map<string, [number, number, number]> {
+  const vis = project.screens.filter((s) => s.visible !== false);
+  const out = new Map<string, [number, number, number]>();
+  const cols = vis.map((s) => vividColour(s.color));
+  let dup = false;
+  for (let i = 0; i < cols.length; i++) for (let j = i + 1; j < cols.length; j++)
+    if (Math.hypot(cols[i]![0] - cols[j]![0], cols[i]![1] - cols[j]![1], cols[i]![2] - cols[j]![2]) < 90) dup = true;
+  if (!dup) { for (const s of vis) out.set(s.id, vividColour(s.color)); return out; }
+  const biggest = vis.reduce<typeof vis[number] | undefined>((a, s) => (!a || s.pixelWidth * s.pixelHeight > a.pixelWidth * a.pixelHeight ? s : a), undefined);
+  for (const s of vis) out.set(s.id, s === biggest ? [30, 136, 255] : [239, 43, 43]);
+  return out;
 }
 
 /** Draws the pixel map test card at the canvas' native resolution (browser only). */
 export async function renderPixelMap(project: Project, logo?: string | null): Promise<HTMLCanvasElement> {
   const layout = globalLayout(project);
   const grids = computeGridNumbers(project);
+  const paint = screenPaint(project);
   const cv = document.createElement("canvas");
   cv.width = Math.max(1, layout.canvasWidth); cv.height = Math.max(1, layout.canvasHeight);
   const g = cv.getContext("2d")!;
@@ -54,7 +83,7 @@ export async function renderPixelMap(project: Project, logo?: string | null): Pr
   if (logo) img = await new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = logo; });
   for (const p of layout.placements) {
     const s = project.screens.find((x) => x.id === p.screenId)!;
-    const [r0, g0, b0] = hexToRgb(s.color);
+    const [r0, g0, b0] = paint.get(s.id) ?? vividColour(s.color);
     const cw = p.width / p.cols, ch = p.height / p.rows;
     const start = grids.get(s.id)?.start ?? 1;
     for (let r = 0; r < p.rows; r++) for (let c = 0; c < p.cols; c++) {
@@ -82,14 +111,17 @@ export async function renderPixelMap(project: Project, logo?: string | null): Pr
     const pw = g.measureText(pill).width + big * 0.3;
     g.fillStyle = "#0a0a0a"; g.fillRect(p.x + p.width / 2 - pw / 2, p.y + p.height / 2 + big * 0.08, pw, big * 0.42);
     g.fillStyle = "#fff"; g.textBaseline = "middle"; g.fillText(pill, p.x + p.width / 2, p.y + p.height / 2 + big * 0.29);
-    if (img) { const h = big * 0.9, w = h * (img.width / img.height); g.drawImage(img, p.x + p.width / 2 - w / 2, p.y + p.height / 2 + big * 0.6, w, h); }
     // area / pitch tags
-    const c = cabinetCalc(s); const ts = Math.max(10, p.height / 18);
-    g.font = `800 ${ts}px sans-serif`; g.textBaseline = "top"; g.textAlign = "left";
+    const c = cabinetCalc(s);
     const a = `${c.area.toFixed(0)} m²  ${+c.actualWidth.toFixed(2)} x ${+c.actualHeight.toFixed(2)} m`;
+    const t = `P${s.pixelPitch}  ${(c.cabinetWidth * 100).toFixed(0)} x ${(c.cabinetHeight * 100).toFixed(0)} cm`;
+    let ts = Math.max(6, Math.min(p.height / 26, p.width / 22, 36));
+    g.font = `800 ${ts}px sans-serif`;
+    const need = g.measureText(a).width + g.measureText(t).width + ts * 2.4;
+    if (need > p.width * 0.95) { ts *= (p.width * 0.95) / need; g.font = `800 ${ts}px sans-serif`; }
+    g.textBaseline = "top"; g.textAlign = "left";
     g.fillStyle = "#0a0a0a"; g.fillRect(p.x + 2, p.y + 2, g.measureText(a).width + ts * 0.6, ts * 1.4);
     g.fillStyle = "#26de8c"; g.fillText(a, p.x + 2 + ts * 0.3, p.y + 2 + ts * 0.2);
-    const t = `P${s.pixelPitch}  ${(c.cabinetWidth * 100).toFixed(0)} x ${(c.cabinetHeight * 100).toFixed(0)} cm`;
     const tw = g.measureText(t).width + ts * 0.6;
     g.fillStyle = "#26de8c"; g.fillRect(p.x + p.width - tw - 2, p.y + 2, tw, ts * 1.4);
     g.fillStyle = "#0a0a0a"; g.fillText(t, p.x + p.width - tw - 2 + ts * 0.3, p.y + 2 + ts * 0.2);
