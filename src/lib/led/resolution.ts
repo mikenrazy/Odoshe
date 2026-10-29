@@ -93,6 +93,7 @@ export const CABINET_CATALOG: CabinetSpec[] = [
 ];
 
 export function findCabinetSpec(screen: LedScreen): CabinetSpec | undefined {
+  if (!screen.cabinetKey && screen.panelConfiguration.nativePixelWidth && screen.panelConfiguration.nativePixelHeight) return undefined;
   if (screen.cabinetKey) {
     const hit = CABINET_CATALOG.find((c) => c.key === screen.cabinetKey);
     if (hit) return hit;

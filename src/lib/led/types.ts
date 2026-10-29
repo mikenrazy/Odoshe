@@ -39,8 +39,8 @@ export interface PanelConfiguration {
   panelWidth: number;
   panelHeight: number;
   /** Supplier-confirmed native matrix for custom cabinets; not a wall-resolution override. */
-  nativePixelWidth?: number;
-  nativePixelHeight?: number;
+  nativePixelWidth?: number | undefined;
+  nativePixelHeight?: number | undefined;
   /** which cabinet size preset is active */
   sizeKey: PanelSizeKey;
   /** when true the user pinned cols/rows manually and auto-fit is skipped */
@@ -91,9 +91,9 @@ export interface ProcessorModel {
   maxInputHeight?: number;
   builtIn?: boolean;
   senderModel?: string;
-  inputConnector?: "HDMI" | "DVI" | "DP" | "VGA";
-  videoOutputWidth?: number;
-  videoOutputHeight?: number;
+  inputConnector?: "HDMI" | "DVI" | "DP" | "VGA" | undefined;
+  videoOutputWidth?: number | undefined;
+  videoOutputHeight?: number | undefined;
 }
 
 export interface ProcessorCatalogEntry {
@@ -861,6 +861,7 @@ export function normalizeProject(project: Project): Project {
       minInputHeight: p.minInputHeight ?? catalog?.minInputHeight ?? 360,
       maxInputWidth: p.maxInputWidth ?? catalog?.maxInputWidth ?? 1920,
       maxInputHeight: p.maxInputHeight ?? catalog?.maxInputHeight ?? 1080,
+      ...(p.brand.toLowerCase() === "vdwall" && (catalog?.key === "vdwall" || /LVP615/i.test(p.label)) && !p.senderModel?.trim() ? { label: "LVP615", outputs: 0, portMaxPixels: 0, maxPixels: 0, outputWidth: 3840, outputHeight: 1920 } : {}),
     };
   });
 
