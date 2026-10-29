@@ -5,7 +5,6 @@ import { getAsset } from "@/lib/led/asset-store";
 import { useEditor } from "@/lib/led/store";
 import { billOfMaterials, bomCsv, globalLayout, graphicsSpec, graphicsSpecCsv, powerSettings, screenPower, screenRigging, TYPICAL_LED_FIGURES } from "@/lib/led/engineering";
 import { downloadTechnicalReport } from "@/lib/led/export-technical-report";
-import { downloadEquipmentPdf } from "@/lib/led/export-equipment-pdf";
 import { Button } from "@/components/ui/button";
 import { ProcessorGuideSection } from "./ProcessorGuideSection";
 import { NumberField, Readout, Section } from "./Field";
@@ -71,7 +70,6 @@ export function EngineeringSection() {
           <Button size="sm" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await downloadTechnicalReport(project); } catch { setError("Could not create the report. Please try again."); } finally { setBusy(false); } }}>
             <FileText /> {busy ? "Generating…" : "Technical report (PDF)"}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => { setError(""); try { downloadEquipmentPdf(project); } catch { setError("Could not create the equipment list PDF."); } }}><FileText /> Equipment list (PDF)</Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(bomCsv(billOfMaterials(project)), "equipment-list")}><Sheet /> Equipment list (CSV)</Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(graphicsSpecCsv(graphicsSpec(project)), "graphics-spec")}><Sheet /> Graphics spec for designer (CSV)</Button>
           <Button size="sm" variant="outline" onClick={async () => { setError(""); try { const logo = project.meta.reportLogo ?? (project.meta.reportLogoAssetId ? await getAsset(project.meta.reportLogoAssetId) : null) ?? project.meta.coverImage ?? (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null); await downloadPixelMapPng(project, logo); } catch { setError("Could not create the pixel map image."); } }}><ImageIcon /> Pixel map image (PNG, {layout.canvasWidth}×{layout.canvasHeight})</Button>
