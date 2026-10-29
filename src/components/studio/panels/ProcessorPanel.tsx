@@ -12,6 +12,7 @@ import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { NumberField, Readout, Section, SelectField, TextField } from "../Field";
 import { PortMap } from "../PortMap";
 import { ScreenSetsSection } from "../ScreenSetsSection";
+import { screenChains } from "@/lib/led/engineering";
 
 function sourceOptions(proc: ProcessorModel) {
   const catalog = PROCESSOR_CATALOG.find((c) => c.key === (proc.modelKey ?? proc.id));
@@ -198,6 +199,8 @@ export function ProcessorPanel() {
         {project.screens.map((screen) => {
           const proc = project.processors.find((p) => p.id === screen.processorId);
           const assignment = grids.get(screen.id);
+          const shared = groups.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === screen.processorId));
+          const chains = screenChains(project, screen);
           return (
             <div key={screen.id} className="border-b border-border/60 py-2 last:border-0">
               <button
@@ -226,7 +229,7 @@ export function ProcessorPanel() {
                 }))}
                 onChange={(processorId) => updateScreen(screen.id, { processorId })}
               />
-              <SelectField
+              {!shared && <SelectField
                 label="RJ45 Port"
                 value={String(screen.rj45Port)}
                 options={Array.from({ length: proc?.outputs ?? 4 }, (_, i) => ({
@@ -234,7 +237,7 @@ export function ProcessorPanel() {
                   label: `RJ45 Port ${i + 1}`,
                 }))}
                 onChange={(v) => updateScreen(screen.id, { rj45Port: Number(v) })}
-              />
+              />}
               <SelectField
                 label="Logical Output"
                 value={String(screen.processorOutput)}
@@ -247,6 +250,7 @@ export function ProcessorPanel() {
               <Readout
                 rows={[
                   ["LED RES", `${screen.pixelWidth} × ${screen.pixelHeight} px`],
+                  ...(shared ? [["DATA CABLES", `P${chains[0]?.port ?? "—"}–P${chains.at(-1)?.port ?? "—"}`, "text-primary"] as [string, string, string]] : []),
                   [
                     "GRID",
                     assignment

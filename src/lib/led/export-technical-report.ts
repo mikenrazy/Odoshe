@@ -213,7 +213,7 @@ function sheetFrame(doc: JsPDF, s: LedScreen, kind: "data" | "power", subtitle: 
 
 interface Run { label: string; colour: C3; path: Array<[number, number]>; tag: string; feed?: string }
 
-function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
+function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string, sharedHeader = false) {
   const c = cabinetCalc(s);
   doc.setFont("helvetica", "bold"); doc.setFontSize(6); doc.setTextColor(...GREEN);
   doc.text(`FRONT ASSEMBLY VIEW — COLUMNS C1 TO C${c.cols}  ·  ROWS R1 TO R${c.rows}`, 14, 45);
@@ -228,7 +228,7 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
     doc.setTextColor(...TEXT); doc.text(r.tag, lx + 3.6, 45.1);
   }
   doc.setDrawColor(...LINE); doc.line(10, 49, 214, 49);
-  const f = fit(c.actualWidth, c.actualHeight, 26, 64, 180, 100);
+  const f = fit(c.actualWidth, c.actualHeight, 26, sharedHeader ? 73 : 64, 180, sharedHeader ? 90 : 100);
   const w = c.actualWidth * f.s, h = c.actualHeight * f.s, cw = w / c.cols, ch = h / c.rows;
   const owner = new Map<string, number>();
   runs.forEach((r, i) => r.path.forEach(([a, b]) => owner.set(`${a},${b}`, i)));
@@ -617,7 +617,7 @@ export async function buildTechnicalReport(project: Project) {
     const portMax = proc?.portMaxPixels ?? 650000;
     sheetFrame(doc, s, "data", "SIGNAL WIRING DIAGRAM (CAT6 RJ45 · DAISY-CHAIN)", project);
     const dRuns: Run[] = chains.map((ch2, i) => ({ label: `P${ch2.port}`, colour: PALETTE[i % PALETTE.length]!, path: ch2.path, tag: `P${ch2.port}: ${ch2.cabinets} cabs (C${ch2.colStart + 1}–C${ch2.colEnd + 1})` }));
-    wiringDrawing(doc, s, dRuns, "P");
+    wiringDrawing(doc, s, dRuns, "P", Boolean(sharedSet));
     if (setLayout && setPlacement && sharedSet) {
       doc.setFont("helvetica", "bold"); doc.setFontSize(6); doc.setTextColor(...GREEN);
       doc.text(doc.splitTextToSize(`SET: ${sharedSet.name} | ONE INPUT: ${setLayout.sourceWidth} x ${setLayout.sourceHeight} | LED OUTPUT: ${setLayout.width} x ${setLayout.height}`, 192)[0] ?? "", 14, 53);
