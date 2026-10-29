@@ -641,7 +641,7 @@ export const useEditor = create<EditorState>((set, get) => {
 
     setMeta: (patch) => mutate((p) => ({ ...p, meta: { ...p.meta, ...patch } })),
     setCanvas: (patch) => mutate((p) => ({ ...p, canvas: { ...p.canvas, ...patch } })),
-    setPower: (patch) => mutate((p) => ({ ...p, extensions: { ...p.extensions, power: { ...(p.extensions?.power as object | undefined), ...patch } } })),
+    setPower: (patch) => mutate((p) => ({ ...p, extensions: { ...p.extensions, power: { ...(p.extensions?.["power"] as object | undefined), ...patch } } })),
     setStage: (patch) => mutate((p) => ({ ...p, stage: { ...p.stage, ...patch } })),
 
     applyStagePreset: (key) => {

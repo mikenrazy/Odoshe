@@ -145,7 +145,7 @@ export interface PowerSettings {
 export const DEFAULT_POWER: PowerSettings = { voltage: 230, loadLimitPct: 80, phases: 3 };
 
 export function powerSettings(project: Project): PowerSettings {
-  return { ...DEFAULT_POWER, ...((project.extensions?.power as Partial<PowerSettings>) ?? {}) };
+  return { ...DEFAULT_POWER, ...((project.extensions?.["power"] as Partial<PowerSettings>) ?? {}) };
 }
 
 export interface PowerCircuit {

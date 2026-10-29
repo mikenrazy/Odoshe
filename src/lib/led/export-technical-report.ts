@@ -112,7 +112,7 @@ export async function downloadTechnicalReport(project: Project) {
   [
     `Client / event: ${project.meta.client || "—"}`,
     `Venue: ${project.meta.venue || "—"}   ·   Event date: ${project.meta.eventDate || "—"}`,
-    `Prepared by: ${meta.preparedBy || meta.designer || "DX5VE Studio"}   ·   Revision: ${meta.revision || "1"}   ·   Generated: ${today}`,
+    `Prepared by: ${meta["preparedBy"] || meta["designer"] || "DX5VE Studio"}   ·   Revision: ${meta["revision"] || "1"}   ·   Generated: ${today}`,
     `${screens.length} LED surfaces · ${layout.totalCabinets} cabinets · ${layout.activeAreaM2.toFixed(2)} m² · canvas ${layout.canvasWidth} × ${layout.canvasHeight} px`,
   ].forEach((l, i) => doc.text(l, W / 2, 145 + i * 6, { align: "center" }));
 
