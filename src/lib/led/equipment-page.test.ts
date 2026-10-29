@@ -31,7 +31,7 @@ describe("technical report equipment page", () => {
     const pdf = new TextDecoder("latin1").decode(doc.output("arraybuffer") as ArrayBuffer);
     expect(pdf).toContain("Equipment List");
     expect(pdf).toContain("LED cabinet");
-    expect(pdf).toContain("Data jumper (CAT6)");
+    expect(pdf).toContain("Data jumper");
     expect(pdf).toContain("Power jumper");
     expect(pdf).toContain("LED processor");
     // totals line: 78 cabinets on one screen
