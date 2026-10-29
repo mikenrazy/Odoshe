@@ -8,3 +8,8 @@
 - [x] Multipage technical report PDF (cover, screen maps, full canvas, elevation, data, power, validation/equipment) and equipment CSV.
 - [x] Port chains within capacity, cable length estimates, graphics spec CSV, cost columns in equipment CSV.
 - [ ] Direct processor programming and Resolume/processor config files — blocked: need vendor-documented formats/API.
+
+# Shared-input screen sets
+- [ ] Add LEFT/RIGHT set configuration without changing cabinet resolution or stage positions.
+- [ ] Use separate, consistent data-port paths in the editor and technical report.
+- [ ] Verify screen-set setup, saved settings, and report download.

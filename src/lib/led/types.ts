@@ -253,8 +253,10 @@ export function defaultCanvas(): CanvasConfig {
 export interface ScreenGroup {
   id: string;
   name: string;
-  /** treat the grouped sections as one continuous surface on one RJ45 port */
+  /** treat the grouped sections as one logical surface; physical ports remain separate */
   continuous: boolean;
+  /** Explicit shared-input sets preserve native LED resolution and use separate data chains. */
+  mappingMode?: "shared-input";
 }
 
 
