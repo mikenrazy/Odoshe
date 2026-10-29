@@ -58,7 +58,7 @@ export function PixelMapBoard() {
     ed.updateScreen(id, { content: { ...s.content, x: Math.round(x), y: Math.round(y) } }, { history });
   };
   const onDown = (e: React.PointerEvent, id: string) => {
-    if (L.packed) return;
+    if (L.packed) { arrange(); return; }
     e.preventDefault(); ed.select(id);
     const r = regionOf(id);
     drag.current = { id, sx: e.clientX, sy: e.clientY, ox: r.x, oy: r.y, moved: false };
@@ -165,7 +165,7 @@ export function PixelMapBoard() {
                 <div key={p.screenId} onPointerDown={(e) => onDown(e, p.screenId)} onClick={() => ed.select(p.screenId)}
                   title={`${p.name} · ${p.width}×${p.height} px`}
                   style={{ left: `${(x / L.canvasWidth) * 100}%`, top: `${(y / L.canvasHeight) * 100}%`, width: `${(p.width / L.canvasWidth) * 100}%`, height: `${(p.height / L.canvasHeight) * 100}%` }}
-                  className={`absolute ${L.packed ? "cursor-pointer" : "cursor-move"} ${sel ? "outline outline-2 outline-primary" : "hover:outline hover:outline-1 hover:outline-primary/60"}`}>
+                  className={`absolute ${"cursor-move"} ${sel ? "outline outline-2 outline-primary" : "hover:outline hover:outline-1 hover:outline-primary/60"}`}>
                   {sel && <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{p.name} · X {s?.content.x} Y {s?.content.y}</span>}
                 </div>
               );
