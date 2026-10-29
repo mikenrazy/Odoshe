@@ -48,7 +48,6 @@ export function EngineeringSection() {
         <NumberField label="Supply voltage" suffix="V" min={1} value={ps.voltage} onChange={(v) => setPower({ voltage: v })} />
         <NumberField label="Circuit rating" suffix="A" min={0} value={ps.circuitAmps ?? 0} onChange={(v) => setPower({ circuitAmps: v > 0 ? v : undefined })} />
         <NumberField label="Usable load limit" suffix="%" min={1} value={ps.loadLimitPct} onChange={(v) => setPower({ loadLimitPct: Math.min(100, v) })} />
-        <NumberField label="Max port load (spare room)" suffix="%" min={10} value={ps.portLoadPct} onChange={(v) => setPower({ portLoadPct: Math.min(100, Math.max(10, v)) })} />
         <NumberField label="Data cable run to screens" suffix="m" min={0} value={ps.dataHomeRunM ?? 0} onChange={(v) => setPower({ dataHomeRunM: v > 0 ? v : undefined })} />
         <NumberField label="LED weight per m²" suffix="kg" min={0} value={ps.kgPerM2 ?? 0} onChange={(v) => setPower({ kgPerM2: v > 0 ? v : undefined })} />
         <NumberField label="Hoist capacity" suffix="kg" min={0} value={ps.hoistKg ?? 0} onChange={(v) => setPower({ hoistKg: v > 0 ? v : undefined })} />
