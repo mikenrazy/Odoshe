@@ -15,6 +15,6 @@
 - Export Canvas reports separately from stage production PDFs, so existing client delivery page order remains unchanged.
 - Keep engineering maths (global canvas, data chains, power circuits, equipment list) in src/lib/led/engineering.ts with tests, and build the technical report only from it, so report figures match the app; power uses only operator-entered ratings.
 - Data chains and power circuits cut one bottom-left column serpentine into runs of floor(capacity ÷ per-cabinet load) cabinets, so splits match the user's LEDMapper sample report.
-- The technical report keeps the sample's page set (cover, screen pages, full canvas, Sheet 01, data/power sheets); setup guide and equipment list stay separate downloads.
+- The technical report keeps the sample's page set (cover, screen pages, full canvas, Sheet 01, data/power sheets) and ends with the equipment list page (added by user request); only the setup guide stays a separate download.
 - Pixel-map PNG and DXF exports live in src/lib/led/pixel-map-export.ts and read only globalLayout/cabinetCalc, so exports match the report figures.
 - Shared-input screen sets preserve native LED pixels and stage positions; engineering screenChains is authoritative for their separate physical ports, while source crops and processor-local output offsets remain distinct from the project canvas.
