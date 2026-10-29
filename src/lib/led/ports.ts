@@ -133,7 +133,7 @@ export function allocateScreenPorts(
   processor: ProcessorModel,
 ): { allocations: ScreenAllocation[]; portsRequired: number; fits: boolean } {
   if (isLvp615(processor) && !senderReady(processor)) return { allocations: [], portsRequired: 0, fits: false };
-  const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
+  const shared = isLvp615(processor) || project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
   const screens = shared ? processorScreens(project, processor.id) : [...project.screens.filter((s) => s.processorId === processor.id)].sort(
     (a, b) => (a.gridOrder ?? 0) - (b.gridOrder ?? 0),
   );
@@ -239,7 +239,7 @@ export function processorPortMap(project: Project, processor: ProcessorModel): P
 
   let cursor = 1;
   for (const alloc of allocations) {
-    const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
+    const shared = isLvp615(processor) || project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.groupId === g.id && s.processorId === processor.id));
     const slices = shared ? screenChains(project, alloc.screen).map((ch) => {
       const c = derivedResolution(alloc.screen);
       const cols = ch.colEnd - ch.colStart + 1;

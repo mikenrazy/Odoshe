@@ -35,7 +35,7 @@ export function ProcessorSection({ screen }: Props) {
   const group = screen.groupId ? groupResolution(project, screen.groupId) : null;
   const chain = processorChain(project, active);
   const portMapData = processorPortMap(project, active);
-  const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === active.id && s.groupId === g.id));
+  const shared = isLvp615(active) || project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === active.id && s.groupId === g.id));
   const chains = screenChains(project, screen);
   const span = shared ? chains.length : Math.max(1, Math.round(screen.portSpan ?? 1));
   const startPort = shared ? chains[0]?.port ?? screen.rj45Port : screen.rj45Port;

@@ -87,13 +87,13 @@ export function validateMapping(project: Project): MappingIssue[] {
       continue;
     }
 
-    const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === proc.id && s.groupId === g.id));
+    const shared = isLvp615(proc) || project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === proc.id && s.groupId === g.id));
     const startPort = shared ? screenChains(project, screen)[0]?.port ?? screen.rj45Port : screen.rj45Port;
     const key = `${proc.id}:${startPort}`;
     const clash = seenPorts.get(key);
     // Sections in the same group are one logical screen and legitimately share a port.
     const sameGroup = clash && screen.groupId && clash.groupId === screen.groupId && !shared;
-    if (clash && !sameGroup) {
+    if (senderReady(proc) && clash && !sameGroup) {
       issues.push({
         id: `${screen.id}-dupport`,
         level: "error",
