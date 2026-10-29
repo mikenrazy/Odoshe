@@ -675,17 +675,29 @@ export async function buildTechnicalReport(project: Project) {
     const cabs = screens.reduce((n, s) => n + cabinetCalc(s).total, 0);
     const ports = screens.reduce((n, s) => n + screenChains(project, s).length, 0);
     const cols = [
-      { h: "ITEM", w: 60 }, { h: "MODEL", w: 42 }, { h: "QTY", w: 12 },
-      { h: "LOCATION", w: 34 }, { h: "SPEC", w: 72 }, { h: "NOTES", w: 46 },
+      { h: "ITEM", w: 54 }, { h: "MODEL", w: 36 }, { h: "QTY", w: 11 },
+      { h: "LOCATION", w: 30 }, { h: "SPEC", w: 62 }, { h: "NOTES", w: 40 },
+      { h: "VERIFY", w: 15 }, { h: "EXTRA QTY", w: 18 },
     ];
     const perPage = 27;
     for (let i = 0; i < rows.length; i += perPage) {
       page(doc, i === 0 ? "Equipment List" : "Equipment List (cont.)", `${project.name.toUpperCase()} · ${rows.length} LINES${i > 0 ? ` · SHEET ${Math.floor(i / perPage) + 1}` : ""}`, project);
       doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...GREEN);
       doc.text(`TOTALS: ${cabs} LED cabinets · ${ports} RJ45 data lines · ${rows.length} line items`, 15, 36);
-      table(doc, 15, 40, cols, rows.slice(i, i + perPage).map((r) => [r.item, r.model, String(r.qty), r.location, r.spec, r.notes]));
+      const slice = rows.slice(i, i + perPage);
+      table(doc, 15, 40, cols, slice.map((r) => [r.item, r.model, String(r.qty), r.location, r.spec, r.notes, "", ""]));
+      // blank tick box in VERIFY and a write-in rule in EXTRA QTY on every row
+      const vx = 15 + cols.slice(0, 6).reduce((n, c) => n + c.w, 0);
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.3);
+      slice.forEach((_, k) => {
+        const ry = 40 + 5.2 * (k + 1);
+        doc.rect(vx + 5.5, ry + 1.1, 3, 3);
+        doc.setDrawColor(70, 76, 86); doc.setLineDashPattern([0.6, 0.6], 0);
+        doc.line(vx + 15 + 1.5, ry + 4.1, vx + 15 + 16.5, ry + 4.1);
+        doc.setLineDashPattern([], 0); doc.setDrawColor(...LINE);
+      });
       doc.setFont("helvetica", "normal"); doc.setFontSize(5.5); doc.setTextColor(...MUTED);
-      doc.text("Power and rigging figures are estimates — verify with a qualified electrician and rigger. Costs are left blank for supplier quotations.", 15, 188);
+      doc.text("Tick VERIFY as each line is checked on site; write any extra quantity carried in EXTRA QTY. Power and rigging figures are estimates — verify with a qualified electrician and rigger. Costs are left blank for supplier quotations.", 15, 188);
     }
   }
 

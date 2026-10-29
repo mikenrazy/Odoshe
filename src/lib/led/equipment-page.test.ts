@@ -32,6 +32,9 @@ describe("technical report equipment page", () => {
     expect(pdf).toContain("Data jumper");
     expect(pdf).toContain("Power jumper");
     expect(pdf).toContain("LED processor");
+    // check-off and extra-quantity columns are blank on the printed sheet
+    expect(pdf).toContain("VERIFY");
+    expect(pdf).toContain("EXTRA QTY");
     // totals line: 78 cabinets on one screen
     expect(pdf).toContain("TOTALS: 78 LED cabinets");
     // it is the last page: nothing screen-specific follows it in the page order
