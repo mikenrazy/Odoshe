@@ -35,7 +35,7 @@ export function downloadEquipmentPdf(project: Project) {
     if (i % 2) { doc.setFillColor(30, 30, 30); doc.rect(M, y - 3.5, W - 2 * M, h, "F"); }
     doc.setTextColor(230, 230, 230);
     let x = M;
-    cells.forEach((l, ci) => { doc.text(l, x + 1.5, y); x += cols[ci].w; });
+    cells.forEach((l, ci) => { doc.text(l, x + 1.5, y); x += cols[ci]!.w; });
     y += h;
   });
   doc.save(`${project.name}-equipment-list.pdf`);
