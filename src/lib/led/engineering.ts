@@ -126,7 +126,9 @@ export interface CabinetChain {
 /** Port capacity in pixels for a screen's processor (documented profile value, else 650k planning default). */
 function portCapacity(project: Project, screen: LedScreen) {
   const proc = project.processors.find((p) => p.id === screen.processorId);
-  return { proc, max: Math.max(1, proc?.portMaxPixels ?? 650_000) };
+  const max = Math.max(1, proc?.portMaxPixels ?? 650_000);
+  const pct = Math.min(100, Math.max(10, powerSettings(project).portLoadPct));
+  return { proc, max, limit: Math.max(1, Math.floor(max * pct / 100)) };
 }
 
 /** Columns each port can carry without exceeding its pixel capacity (whole columns only). */
@@ -140,7 +142,7 @@ export function colsPerPortFor(project: Project, screen: LedScreen) {
 export function cabinetsPerPortFor(project: Project, screen: LedScreen) {
   const c = cabinetCalc(screen);
   const pxPerCab = (screen.pixelWidth / c.cols) * (screen.pixelHeight / c.rows);
-  return Math.max(1, Math.floor(portCapacity(project, screen).max / Math.max(1, pxPerCab)));
+  return Math.max(1, Math.floor(portCapacity(project, screen).limit / Math.max(1, pxPerCab)));
 }
 
 /** One continuous column serpentine through the whole screen, starting bottom-left. */
@@ -212,11 +214,13 @@ export interface PowerSettings {
   kgPerM2?: number | undefined;
   /** working load limit of one hoist, kg */
   hoistKg?: number | undefined;
+  /** max fill of each RJ45 port, % of its pixel capacity (spare headroom) */
+  portLoadPct: number;
   /** estimated processor-to-first-cabinet cable run, metres */
   dataHomeRunM?: number | undefined;
 }
 
-export const DEFAULT_POWER: PowerSettings = { voltage: 230, loadLimitPct: 80, phases: 3 };
+export const DEFAULT_POWER: PowerSettings = { voltage: 230, loadLimitPct: 80, phases: 3, portLoadPct: 85 };
 
 export function powerSettings(project: Project): PowerSettings {
   return { ...DEFAULT_POWER, ...((project.extensions?.["power"] as Partial<PowerSettings>) ?? {}) };
