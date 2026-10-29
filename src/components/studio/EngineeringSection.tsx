@@ -3,7 +3,7 @@ import { FileText, Sheet, Image as ImageIcon, PenTool } from "lucide-react";
 import { downloadDxf, downloadPixelMapPng } from "@/lib/led/pixel-map-export";
 import { getAsset } from "@/lib/led/asset-store";
 import { useEditor } from "@/lib/led/store";
-import { billOfMaterials, bomCsv, globalLayout, graphicsSpec, graphicsSpecCsv, powerSettings } from "@/lib/led/engineering";
+import { billOfMaterials, bomCsv, globalLayout, graphicsSpec, graphicsSpecCsv, powerSettings, screenPower, screenRigging, TYPICAL_LED_FIGURES } from "@/lib/led/engineering";
 import { downloadTechnicalReport } from "@/lib/led/export-technical-report";
 import { Button } from "@/components/ui/button";
 import { ProcessorGuideSection } from "./ProcessorGuideSection";
@@ -39,18 +39,30 @@ export function EngineeringSection() {
         ]} />
       </Section>
       <Section title="Power Planning">
-        <p className="mb-2 text-[10px] text-muted-foreground">Enter figures from the cabinet datasheet and venue supply. Nothing is assumed.</p>
-        <NumberField label="Cabinet max power" suffix="W" min={0} value={ps.cabinetMaxW ?? 0} onChange={(v) => setPower({ cabinetMaxW: v > 0 ? v : undefined })} />
-        <NumberField label="Cabinet typical power" suffix="W" min={0} value={ps.cabinetTypW ?? 0} onChange={(v) => setPower({ cabinetTypW: v > 0 ? v : undefined })} />
+        <p className="mb-2 text-[10px] text-muted-foreground">Don't have the datasheet? Fill typical P2.6 indoor figures, then correct them when you get the real ones from your supplier.</p>
+        <Button size="sm" variant="outline" className="mb-2 w-full" onClick={() => setPower({ ...TYPICAL_LED_FIGURES, cabinetMaxW: undefined, cabinetTypW: undefined })}>Fill typical values (estimate)</Button>
+        <NumberField label="LED max power per m²" suffix="W" min={0} value={ps.maxWPerM2 ?? 0} onChange={(v) => setPower({ maxWPerM2: v > 0 ? v : undefined })} />
+        <NumberField label="LED typical power per m²" suffix="W" min={0} value={ps.typWPerM2 ?? 0} onChange={(v) => setPower({ typWPerM2: v > 0 ? v : undefined })} />
+        <NumberField label="Or: cabinet max power" suffix="W" min={0} value={ps.cabinetMaxW ?? 0} onChange={(v) => setPower({ cabinetMaxW: v > 0 ? v : undefined })} />
+        <NumberField label="Or: cabinet typical power" suffix="W" min={0} value={ps.cabinetTypW ?? 0} onChange={(v) => setPower({ cabinetTypW: v > 0 ? v : undefined })} />
         <NumberField label="Supply voltage" suffix="V" min={1} value={ps.voltage} onChange={(v) => setPower({ voltage: v })} />
         <NumberField label="Circuit rating" suffix="A" min={0} value={ps.circuitAmps ?? 0} onChange={(v) => setPower({ circuitAmps: v > 0 ? v : undefined })} />
         <NumberField label="Usable load limit" suffix="%" min={1} value={ps.loadLimitPct} onChange={(v) => setPower({ loadLimitPct: Math.min(100, v) })} />
         <NumberField label="Data cable run to screens" suffix="m" min={0} value={ps.dataHomeRunM ?? 0} onChange={(v) => setPower({ dataHomeRunM: v > 0 ? v : undefined })} />
+        <NumberField label="LED weight per m²" suffix="kg" min={0} value={ps.kgPerM2 ?? 0} onChange={(v) => setPower({ kgPerM2: v > 0 ? v : undefined })} />
+        <NumberField label="Hoist capacity" suffix="kg" min={0} value={ps.hoistKg ?? 0} onChange={(v) => setPower({ hoistKg: v > 0 ? v : undefined })} />
         <div className="mt-1 flex gap-1">
           {([1, 3] as const).map((n) => (
             <Button key={n} size="sm" variant={ps.phases === n ? "secondary" : "ghost"} onClick={() => setPower({ phases: n })}>{n}-phase</Button>
           ))}
         </div>
+      </Section>
+      <Section title="Power & Rigging per Screen">
+        <Readout rows={project.screens.map((sc) => {
+          const p = screenPower(sc, ps); const r = screenRigging(sc, ps);
+          return [sc.name.toUpperCase(), `${p.status === "ok" ? `${(p.totalMaxW / 1000).toFixed(2)} kW · ${p.circuits.length} circ.` : "no power"} · ${r.weightKg !== undefined ? `${r.weightKg} kg` : "no kg"}${r.hoists ? ` · ${r.hoists} hoists` : ""}`] as [string, string];
+        })} />
+        <p className="mt-1 text-[10px] text-muted-foreground">Estimates only — confirm with a qualified electrician and rigger.</p>
       </Section>
       <ProcessorGuideSection />
       <Section title="Reports">
