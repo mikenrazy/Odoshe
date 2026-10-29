@@ -515,15 +515,43 @@ function masterSheet(doc: JsPDF, project: Project, screens: LedScreen[], ps: Ret
   doc.setFont("helvetica", "normal");
 }
 
-export async function downloadTechnicalReport(project: Project) {
-  const doc = await buildTechnicalReport(project);
-  doc.save(`${project.name.replace(/[^\w\- ]+/g, "").trim() || "project"}-technical-report.pdf`);
+export type ReportTheme = "dark" | "light";
+
+export async function downloadTechnicalReport(project: Project, theme: ReportTheme = "dark") {
+  const doc = await buildTechnicalReport(project, theme);
+  doc.save(`${project.name.replace(/[^\w\- ]+/g, "").trim() || "project"}-technical-report${theme === "light" ? "-light" : ""}.pdf`);
+}
+
+/** Print-friendly remap: neutral greys invert (dark page → white, light text → dark), bright colours darken for contrast on paper. */
+export function lightColour(r: number, g: number, b: number): C3 {
+  const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255;
+  const l = (max + min) / 2, d = max - min;
+  const sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  if (sat < 0.25 || d < 0.12) {
+    const v = Math.round((l < 0.14 ? 1 : 1 - l * 0.92) * 255);
+    return [v, v, v];
+  }
+  const k = l > 0.4 ? 0.62 : 1;
+  return [Math.round(r * k), Math.round(g * k), Math.round(b * k)];
+}
+
+function applyLightTheme(doc: { setFillColor: (...a: never[]) => unknown; setTextColor: (...a: never[]) => unknown; setDrawColor: (...a: never[]) => unknown }) {
+  for (const m of ["setFillColor", "setTextColor", "setDrawColor"] as const) {
+    const orig = (doc[m] as (...a: unknown[]) => unknown).bind(doc);
+    (doc as Record<string, unknown>)[m] = (...a: unknown[]) => {
+      if (a.length >= 3 && a.slice(0, 3).every((x) => typeof x === "number")) {
+        return orig(...lightColour(a[0] as number, a[1] as number, a[2] as number));
+      }
+      return orig(...a);
+    };
+  }
 }
 
 /** Builds the multipage report from saved project data. */
-export async function buildTechnicalReport(project: Project) {
+export async function buildTechnicalReport(project: Project, theme: ReportTheme = "dark") {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  if (theme === "light") applyLightTheme(doc as never);
   PAINT = screenPaint(project);
   const layout = globalLayout(project);
   const ps = powerSettings(project);
