@@ -180,7 +180,7 @@ export function PixelMapBoard() {
       </div>
 
       <div className="px-4 pb-4"><CanvasScreenInspector /></div>
-      <div className="absolute right-3 top-44 flex flex-col items-center gap-1.5 rounded-full border border-border bg-card/90 p-1.5">
+      <div className="absolute right-3 top-[27rem] z-10 flex flex-col items-center gap-1.5 rounded-full border border-border bg-card/90 p-1.5">
         {([[ZoomIn, "Zoom in", () => setZoom((z) => Math.min(4, z * 1.25))], [Maximize, "Fit", () => setZoom(1)], [ZoomOut, "Zoom out", () => setZoom((z) => Math.max(0.25, z / 1.25))]] as const).map(([Icon, t, fn]) => (
           <button key={t} title={t} onClick={fn} className="grid h-8 w-8 place-items-center rounded-full border border-border text-muted-foreground hover:text-primary">
             <Icon className="h-4 w-4" />
