@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createProject, normalizeProject, PROCESSOR_CATALOG, processorFromCatalog, PANEL_SIZE_PRESETS } from "./types";
 import { defaultScreen } from "./presets";
 import { derivedResolution, withDerivedResolution } from "./resolution";
-import { screenChains } from "./engineering";
+import { screenChains, senderScreenCapacity } from "./engineering";
 import { processorPortMap, planPortDistribution } from "./ports";
 import { lvp615Issues, senderReady } from "./vdwall";
 
@@ -13,6 +13,37 @@ const base = { ...defaultScreen(0), processorId: "vd", pixelPitch: 2, cabinetKey
 const screen = withDerivedResolution(base);
 const project = { ...createProject("VDWall checks"), processors: [proc], screens: [screen] };
 describe("LVP615 mapping", () => {
+  it("flags the screen when its 627200 pixels exceed an entered 600000-pixel card limit", () => {
+    const sender = { ...proc, senderModel: "Test sender", portMaxPixels: 400000, maxPixels: 600000 };
+    const result = senderScreenCapacity({ ...project, processors: [sender] }, sender)[0];
+    expect(result?.pixels).toBe(627200);
+    expect(result?.issues).toContain("Screen exceeds sending-card capacity by 27,200 px.");
+    expect(lvp615Issues(project, sender).some((issue) => issue.includes("INVALID SENDER LOAD"))).toBe(true);
+  });
+  it("flags every affected screen when their combined load exceeds one card", () => {
+    const sender = { ...proc, senderModel: "Test sender", outputs: 4, portMaxPixels: 400000, maxPixels: 1000000 };
+    const combined = { ...project, processors: [sender], screens: [screen, { ...screen, id: "second", name: "RIGHT" }] };
+    expect(senderScreenCapacity(combined, sender).map((s) => s.issues)).toEqual([
+      ["Combined assigned screens exceed sending-card capacity by 254,400 px."],
+      ["Combined assigned screens exceed sending-card capacity by 254,400 px."],
+    ]);
+  });
+  it("rejects one 78400-pixel cabinet on a 70000-pixel port", () => {
+    const sender = { ...proc, senderModel: "Test sender", outputs: 8, portMaxPixels: 70000, maxPixels: 1000000 };
+    expect(senderScreenCapacity({ ...project, processors: [sender] }, sender)[0]?.issues.some((s) => s.includes("P1 (78,400 px)"))).toBe(true);
+    expect(lvp615Issues(project, sender).some((s) => s.includes("A cabinet cannot be split"))).toBe(true);
+  });
+  it("flags nonexistent third sender port beside the affected screen", () => {
+    const sender = { ...proc, senderModel: "Test sender", portMaxPixels: 300000, maxPixels: 1200000 };
+    expect(senderScreenCapacity({ ...project, processors: [sender] }, sender)[0]?.issues).toContain("Requires unavailable sender ports P3; only 2 fitted.");
+  });
+  it("accepts the exact 627200-pixel card and 313600-pixel port boundaries", () => {
+    const sender = { ...proc, senderModel: "Test sender", portMaxPixels: 313600, maxPixels: 627200 };
+    const result = senderScreenCapacity({ ...project, processors: [sender] }, sender)[0];
+    expect(result?.chains.map((c) => c.pixels)).toEqual([313600, 313600]);
+    expect(result?.issues).toEqual([]);
+    expect(result?.verified).toBe(true);
+  });
   it("uses the user's two sender ports without inventing pixel capacity", () => { expect(proc.outputs).toBe(2); expect(proc.portMaxPixels).toBe(0); expect(senderReady(proc)).toBe(false); expect(screenChains(project, screen)).toEqual([]); expect(processorPortMap(project, proc).status).toBe("over"); expect(planPortDistribution(project, proc).fits).toBe(false); });
   it("invalidates legacy generic VDWall fabricated four-port profile", () => { const old = { ...proc, label: "VDWall", senderPortsConfirmed: false, outputs: 4, portMaxPixels: 650000, maxPixels: 2300000 }; expect(normalizeProject({ ...project, processors: [old] }).processors[0]?.outputs).toBe(2); });
   it("offers the user's measured 0.56m square cabinet dimensions", () => { expect(PANEL_SIZE_PRESETS.find((p) => p.key === "0.56x0.56")).toMatchObject({ width: 0.56, height: 0.56 }); });
