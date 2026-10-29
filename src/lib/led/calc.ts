@@ -44,8 +44,9 @@ export function cabinetCalc(screen: LedScreen): CabinetCalc {
   const actualHeight = +(rows * cabinetHeight).toFixed(3);
 
   const pitch = Math.max(0.1, screen.pixelPitch);
-  const nativePixelWidth = Math.round((actualWidth * 1000) / pitch);
-  const nativePixelHeight = Math.round((actualHeight * 1000) / pitch);
+  const native = screen.panelConfiguration.nativePixelWidth && screen.panelConfiguration.nativePixelHeight;
+  const nativePixelWidth = native ? (screen.panelConfiguration.nativePixelWidth ?? 1) * cols : Math.round((actualWidth * 1000) / pitch);
+  const nativePixelHeight = native ? (screen.panelConfiguration.nativePixelHeight ?? 1) * rows : Math.round((actualHeight * 1000) / pitch);
 
   const warnings: string[] = [];
   if (Math.abs(actualWidth - screen.physicalWidth) > 0.005) {
