@@ -380,7 +380,7 @@ function graphicsSheet(doc: JsPDF, project: Project, screens: LedScreen[]) {
   const body = rows.map((r, i) => {
     const pl = i === 0 ? null : g.placements[i - 1]!;
     const s = pl ? byId.get(pl.screenId) : undefined;
-    const size = s ? `${s.width.toFixed(2)} × ${s.height.toFixed(2)} m` : `${g.activeAreaM2.toFixed(1)} m2 total`;
+    const size = s ? (() => { const c = cabinetCalc(s); return `${c.actualWidth.toFixed(2)} × ${c.actualHeight.toFixed(2)} m`; })() : `${g.activeAreaM2.toFixed(1)} m2 total`;
     const safe = `${Math.round(r.width * 0.9)} × ${Math.round(r.height * 0.9)}`;
     return [r.screen, `${r.x}`, `${r.y}`, `${r.width}`, `${r.height}`, r.aspect, r.panels, r.pitch ? `P${r.pitch}` : "—", size, safe];
   });
