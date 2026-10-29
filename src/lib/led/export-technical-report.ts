@@ -1,7 +1,7 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
-import { chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
+import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts } from "./engineering";
 import { getAsset } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
@@ -454,13 +454,14 @@ function masterSheet(doc: JsPDF, project: Project, screens: LedScreen[], ps: Ret
     y += 2; doc.setDrawColor(...shade(CYAN, 0.5)); doc.setLineWidth(0.5); doc.line(195, y, 280, y); y += 4;
   };
   head("1. RIGGING & SCREEN SCHEDULE");
-  const cols = [195, 222, 240, 255, 268];
+  const cols = [195, 218, 233, 246, 258, 272];
   doc.setFont("courier", "bold"); doc.setFontSize(4.6); doc.setTextColor(...TEXT);
-  ["SCREEN", "DIMENSIONS", "BOT TRIM", "TOP", "PANELS"].forEach((h, i) => doc.text(h, cols[i]!, y)); y += 3.6;
+  ["SCREEN", "DIMENSIONS", "BOT TRIM", "PANELS", "WEIGHT", "HOISTS"].forEach((h, i) => doc.text(h, cols[i]!, y)); y += 3.6;
   doc.setFont("courier", "normal");
   for (const s of screens.slice(0, 12)) {
     const c = cabinetCalc(s); const b = s.position.y - c.actualHeight / 2;
-    [doc.splitTextToSize(s.name.toUpperCase(), 26)[0] ?? "", `${m2(c.actualWidth)}x${m2(c.actualHeight)}m`, `+${m2(b)}m`, `+${m2(b + c.actualHeight)}m`, `${c.total}`].forEach((v, i) => doc.text(v, cols[i]!, y));
+    const rg = screenRigging(s, ps);
+    [doc.splitTextToSize(s.name.toUpperCase(), 22)[0] ?? "", `${m2(c.actualWidth)}x${m2(c.actualHeight)}m`, `+${m2(b)}m`, `${c.total}`, rg.weightKg !== undefined ? `${rg.weightKg}kg` : "—", rg.hoists !== undefined ? `${rg.hoists}x ${(ps.hoistKg ?? 0) / 1000}T` : "—"].forEach((v, i) => doc.text(v, cols[i]!, y));
     y += 3.6;
   }
   y += 5;
@@ -484,6 +485,12 @@ function masterSheet(doc: JsPDF, project: Project, screens: LedScreen[], ps: Ret
     doc.setFont("helvetica", "normal"); doc.setFontSize(5.5); doc.setTextColor(...AMBER);
     const t = doc.splitTextToSize("Power not calculated — enter cabinet max watts and circuit rating (Summary tab › Power Planning) from manufacturer and venue data.", 84);
     doc.text(t, 195, y); y += t.length * 3 + 2;
+  }
+  {
+    const rgs = screens.map((s) => screenRigging(s, ps));
+    if (rgs.length && rgs.every((r) => r.weightKg !== undefined)) {
+      kv("Total Suspended LED Load:", `${rgs.reduce((n, r) => n + r.weightKg!, 0).toFixed(1)} kg${rgs.every((r) => r.hoists) ? ` (${rgs.reduce((n, r) => n + r.hoists!, 0)} hoist points)` : ""}`);
+    }
   }
   y += 4;
   head("3. DATA / PROCESSORS");
@@ -597,6 +604,7 @@ export async function buildTechnicalReport(project: Project) {
       ["Total Resolution:", `${s.pixelWidth} x ${s.pixelHeight} px`],
       ["Footprint / Span:", `${+c.actualWidth.toFixed(2)}m W x ${+c.actualHeight.toFixed(2)}m H`],
       ["Processor:", proc ? `${proc.brand} ${proc.label}` : "not assigned"],
+      ["Total Rigging Weight:", (() => { const rg = screenRigging(s, ps); return rg.weightKg !== undefined ? `${rg.weightKg} kg${rg.hoists ? ` (${rg.hoists} hoists)` : ""}` : "enter kg/m²"; })()],
     ], ["PORT", "ROUTE (IN-OUT)", "CABS", "PIXELS", "LOAD"],
       chains.map((ch2, i) => {
         const a = ch2.path[0]!, b = ch2.path[ch2.path.length - 1]!;
@@ -623,7 +631,7 @@ export async function buildTechnicalReport(project: Project) {
       ], ["CIRC.", "FEED-P / ROUTE", "CABS", "POWER", "AMP"],
         pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.path[0]![0] + 1}·R${cir.path[0]![1] + 1}–C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
       doc.setFontSize(5); doc.setTextColor(...MUTED);
-      doc.text(doc.splitTextToSize(`Based on ${ps.cabinetMaxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
+      doc.text(doc.splitTextToSize(`Based on ${cabinetWatts(s, ps).maxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
     }
   }
 
