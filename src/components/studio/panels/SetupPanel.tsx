@@ -1,6 +1,7 @@
 import { useEditor } from "@/lib/led/store";
 import { DateField, Readout, Section, SelectField, TextAreaField, TextField } from "../Field";
 import { DocumentCoverSection } from "../DocumentCoverSection";
+import { ReportLogoSection } from "../ReportLogoSection";
 
 export function SetupPanel() {
   const project = useEditor((s) => s.project);
@@ -44,6 +45,9 @@ export function SetupPanel() {
       </Section>
 
       <DocumentCoverSection />
+
+      <ReportLogoSection />
+
 
       <Section title="Notes">
         <TextAreaField

@@ -72,7 +72,7 @@ export function EngineeringSection() {
           </Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(bomCsv(billOfMaterials(project)), "equipment-list")}><Sheet /> Equipment list (CSV)</Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(graphicsSpecCsv(graphicsSpec(project)), "graphics-spec")}><Sheet /> Graphics spec for designer (CSV)</Button>
-          <Button size="sm" variant="outline" onClick={async () => { setError(""); try { const logo = project.meta.coverImage ?? (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null); await downloadPixelMapPng(project, logo); } catch { setError("Could not create the pixel map image."); } }}><ImageIcon /> Pixel map image (PNG, {layout.canvasWidth}×{layout.canvasHeight})</Button>
+          <Button size="sm" variant="outline" onClick={async () => { setError(""); try { const logo = project.meta.reportLogo ?? (project.meta.reportLogoAssetId ? await getAsset(project.meta.reportLogoAssetId) : null) ?? project.meta.coverImage ?? (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null); await downloadPixelMapPng(project, logo); } catch { setError("Could not create the pixel map image."); } }}><ImageIcon /> Pixel map image (PNG, {layout.canvasWidth}×{layout.canvasHeight})</Button>
           <Button size="sm" variant="outline" onClick={() => downloadDxf(project)}><PenTool /> AutoCAD drawing (DXF, 1:1 mm)</Button>
           {error && <p className="text-[10px] text-destructive">{error}</p>}
         </div>

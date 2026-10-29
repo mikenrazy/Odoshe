@@ -28,9 +28,9 @@ const shade = (c: C3, f: number): C3 => c.map((v) => Math.max(0, Math.min(255, M
 const mix = (a: C3, b: C3, t: number): C3 => a.map((v, i) => Math.round(v * (1 - t) + b[i]! * t)) as C3;
 
 let LOGO: string | null = null;
-function logo(doc: JsPDF, x: number, y: number, w: number, h: number) {
-  if (!LOGO) return;
-  try { const p = doc.getImageProperties(LOGO); const f = fit(p.width, p.height, x, y, w, h); doc.addImage(LOGO, p.fileType, f.x, f.y, p.width * f.s, p.height * f.s); } catch { /* unreadable */ }
+function logo(doc: JsPDF, x: number, y: number, w: number, h: number, img: string | null = LOGO) {
+  if (!img) return;
+  try { const p = doc.getImageProperties(img); const f = fit(p.width, p.height, x, y, w, h); doc.addImage(img, p.fileType, f.x, f.y, p.width * f.s, p.height * f.s); } catch { /* unreadable */ }
 }
 function footer(doc: JsPDF) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(90, 94, 100);
@@ -532,9 +532,10 @@ export async function buildTechnicalReport(project: Project) {
 
   /* 1 — cover (logo, title, subtitle, date) */
   const cover = project.meta.coverImage ?? (project.meta.coverAssetId ? await getAsset(project.meta.coverAssetId) : null);
-  LOGO = cover ?? null;
+  const reportLogo = project.meta.reportLogo ?? (project.meta.reportLogoAssetId ? await getAsset(project.meta.reportLogoAssetId) : null);
+  LOGO = reportLogo ?? cover ?? null;
   doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
-  if (cover) logo(doc, 50, 30, W - 100, 75);
+  if (cover || reportLogo) logo(doc, 50, 30, W - 100, 75, cover ?? reportLogo);
   doc.setTextColor(...TEXT); doc.setFont("helvetica", "normal"); doc.setFontSize(22);
   doc.text(project.name.toUpperCase(), W / 2, 125, { align: "center" });
   doc.setFontSize(9); doc.setTextColor(...MUTED);

@@ -25,7 +25,9 @@ export function PixelMapBoard() {
   useEffect(() => {
     let live = true;
     const m = project?.meta;
-    if (m?.coverImage) setLogo(m.coverImage);
+    if (m?.reportLogo) setLogo(m.reportLogo);
+    else if (m?.reportLogoAssetId) void getAsset(m.reportLogoAssetId).then((v) => live && setLogo(v ?? null));
+    else if (m?.coverImage) setLogo(m.coverImage);
     else if (m?.coverAssetId) void getAsset(m.coverAssetId).then((v) => live && setLogo(v ?? null));
     else setLogo(null);
     return () => { live = false; };

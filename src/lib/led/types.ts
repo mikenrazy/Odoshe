@@ -724,6 +724,10 @@ export interface ProjectMeta {
   coverAssetId?: string | undefined;
   coverImage?: string | undefined;
   coverImageName?: string | undefined;
+  /** optional brand logo stamped on every technical report page */
+  reportLogoAssetId?: string | undefined;
+  reportLogo?: string | undefined;
+  reportLogoName?: string | undefined;
 }
 
 export function defaultMeta(): ProjectMeta {
