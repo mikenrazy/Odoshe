@@ -94,7 +94,6 @@ export async function renderPixelMap(project: Project, logo?: string | null): Pr
     const pw = g.measureText(pill).width + big * 0.3;
     g.fillStyle = "#0a0a0a"; g.fillRect(p.x + p.width / 2 - pw / 2, p.y + p.height / 2 + big * 0.08, pw, big * 0.42);
     g.fillStyle = "#fff"; g.textBaseline = "middle"; g.fillText(pill, p.x + p.width / 2, p.y + p.height / 2 + big * 0.29);
-    if (img && false) { const h = big * 0.9, w = h * (img.width / img.height); g.drawImage(img, p.x + p.width / 2 - w / 2, p.y + p.height / 2 + big * 0.6, w, h); }
     // area / pitch tags
     const c = cabinetCalc(s); const ts = Math.max(10, p.height / 18);
     g.font = `800 ${ts}px sans-serif`; g.textBaseline = "top"; g.textAlign = "left";
