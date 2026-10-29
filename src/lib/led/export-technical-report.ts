@@ -194,7 +194,7 @@ function sheetFrame(doc: JsPDF, s: LedScreen, kind: "data" | "power", subtitle: 
     ["CABINET MATRIX", `${c.cols} x ${c.rows}`, `${c.total} Active Panels`, TEXT],
     ["PHYSICAL SIZE", `${+c.actualWidth.toFixed(2)} x ${+c.actualHeight.toFixed(2)} m`, `Area: ${c.area.toFixed(2)} m²`, GREEN],
     ["CABINET / PITCH", `P${s.pixelPitch}`, `${(c.cabinetWidth * 100).toFixed(0)}x${(c.cabinetHeight * 100).toFixed(0)} cm (${Math.round(s.pixelWidth / c.cols)}x${Math.round(s.pixelHeight / c.rows)}px)`, [24, 196, 240]],
-    ["GEOMETRY / RES.", s.curve ? `CURVED` : "FLAT (0°)", `${s.pixelWidth} x ${s.pixelHeight} px`, TEXT],
+    ["GEOMETRY / RES.", s.type === "curved" ? "CURVED" : "FLAT (0°)", `${s.pixelWidth} x ${s.pixelHeight} px`, TEXT],
   ];
   stats.forEach(([k, v, sub2, col], i) => {
     const bx = 157 + i * 32.5;
