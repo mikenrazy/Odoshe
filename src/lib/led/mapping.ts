@@ -4,6 +4,7 @@ import { computeGridNumbers } from "./grid-numbering";
 import { processorPortMap } from "./ports";
 import type { LedScreen, Project, ProcessorModel } from "./types";
 import { processorLayout, screenChains } from "./engineering";
+import { isLvp615, senderReady } from "./vdwall";
 
 /**
  * The mapping chain is deliberately explicit:
@@ -104,7 +105,7 @@ export function validateMapping(project: Project): MappingIssue[] {
       seenPorts.set(key, screen);
     }
 
-    if (screen.rj45Port < 1 || screen.rj45Port > proc.outputs) {
+    if (senderReady(proc) && (screen.rj45Port < 1 || screen.rj45Port > proc.outputs)) {
       issues.push({
         id: `${screen.id}-badport`,
         level: "error",
@@ -114,7 +115,7 @@ export function validateMapping(project: Project): MappingIssue[] {
       });
     }
 
-    if (screen.processorOutput < 1 || screen.processorOutput > proc.outputs) {
+    if (!isLvp615(proc) && (screen.processorOutput < 1 || screen.processorOutput > proc.outputs)) {
       issues.push({
         id: `${screen.id}-badlogical`,
         level: "warning",
@@ -173,7 +174,7 @@ export function validateMapping(project: Project): MappingIssue[] {
     const used = project.screens.filter((s) => s.processorId === proc.id);
     if (used.length === 0) continue;
     const load = used.reduce((sum, s) => sum + s.pixelWidth * s.pixelHeight, 0);
-    if (load > proc.maxPixels) {
+    if (senderReady(proc) && load > proc.maxPixels) {
       issues.push({
         id: `${proc.id}-overload`,
         level: "error",

@@ -1,5 +1,6 @@
 import { cabinetCalc } from "./calc";
 import type { LedScreen, Project } from "./types";
+import { isLvp615, senderReady, lvp615Issues } from "./vdwall";
 
 /* ------------------------------------------------------------ canvas layout */
 
@@ -179,6 +180,7 @@ function chunkPath(path: Array<[number, number]>, per: number) {
 export function screenChains(project: Project, screen: LedScreen): CabinetChain[] {
   const c = cabinetCalc(screen);
   const { proc, max } = portCapacity(project, screen);
+  if (isLvp615(proc) && !senderReady(proc)) return [];
   const pxPerCab = (screen.pixelWidth / c.cols) * (screen.pixelHeight / c.rows);
   const per = cabinetsPerPortFor(project, screen);
   let firstPort = 1;
@@ -218,7 +220,8 @@ export function processorLayout(project: Project, processorId: string) {
   const totalPixels = screens.reduce((n, s) => n + s.pixelWidth * s.pixelHeight, 0);
   const issues: string[] = [];
   if (!proc) issues.push("No processor assigned.");
-  if (proc && totalPixels > proc.maxPixels) issues.push(`LED load ${totalPixels} px exceeds ${proc.maxPixels} px.`);
+  if (proc) issues.push(...lvp615Issues(project, proc));
+  if (proc && senderReady(proc) && totalPixels > proc.maxPixels) issues.push(`LED load ${totalPixels} px exceeds ${proc.maxPixels} px.`);
   if (proc && (sourceWidth > (proc.maxInputWidth ?? 1920) || sourceHeight > (proc.maxInputHeight ?? 1080) || sourceWidth < (proc.minInputWidth ?? 1) || sourceHeight < (proc.minInputHeight ?? 1))) issues.push("Source resolution is outside the processor input range.");
   for (const p of placements) {
     if (p.chains.some((c) => c.overflow || c.loadPct > 100)) issues.push(`${p.name}: data ports exceed capacity.`);
@@ -357,9 +360,13 @@ export function billOfMaterials(project: Project): BomRow[] {
     const c = cabinetCalc(s);
     rows.push({ item: "LED cabinet", model: `P${s.pixelPitch} ${c.cabinetWidth * 1000}×${c.cabinetHeight * 1000} mm`, qty: c.total, location: s.name, spec: `${Math.round(s.pixelWidth / c.cols)}×${Math.round(s.pixelHeight / c.rows)} px per cabinet`, notes: "" });
     const chains = screenChains(project, s);
+    const processor = project.processors.find((p) => p.id === s.processorId);
+    const dataKnown = !isLvp615(processor) || senderReady(processor);
     const run = powerSettings(project).dataHomeRunM;
-    rows.push({ item: "Data cable (CAT6) — processor to first cabinet", model: "CAT6", qty: chains.length, location: s.name, spec: run ? `${run} m each (estimate)` : "Length to be measured on site", notes: chains.some((ch) => ch.overflow) ? "Needs more processor ports than available" : "" });
-    rows.push({ item: "Data jumper (CAT6) — cabinet to cabinet", model: "CAT6", qty: Math.max(0, c.total - chains.length), location: s.name, spec: "Short jumper", notes: "" });
+    if (dataKnown) {
+      rows.push({ item: isLvp615(processor) ? "Data cable (CAT6) — sending card to first cabinet" : "Data cable (CAT6) — processor to first cabinet", model: "CAT6", qty: chains.length, location: s.name, spec: run ? `${run} m each (estimate)` : "Length to be measured on site", notes: chains.some((ch) => ch.overflow) ? "Needs more sender ports than available" : "" });
+      rows.push({ item: "Data jumper (CAT6) — cabinet to cabinet", model: "CAT6", qty: Math.max(0, c.total - chains.length), location: s.name, spec: "Short jumper", notes: "" });
+    }
     const p = screenPower(s, powerSettings(project));
     if (p.status === "ok") {
       const ps = powerSettings(project);
@@ -368,8 +375,10 @@ export function billOfMaterials(project: Project): BomRow[] {
     }
   }
   const used = new Set(project.screens.map((s) => s.processorId));
-  for (const proc of project.processors.filter((p) => used.has(p.id)))
-    rows.push({ item: "LED processor", model: `${proc.brand} ${proc.label}`, qty: 1, location: proc.name ?? proc.label, spec: `${proc.outputs} outputs`, notes: "" });
+  for (const proc of project.processors.filter((p) => used.has(p.id))) {
+    rows.push({ item: "LED processor", model: `${proc.brand} ${proc.label}`, qty: 1, location: proc.name ?? proc.label, spec: isLvp615(proc) ? "2 mirrored DVI video outputs" : `${proc.outputs} outputs`, notes: isLvp615(proc) && !senderReady(proc) ? "Sender / CAT6 quantities unconfirmed; omitted, not zero" : "" });
+    if (isLvp615(proc) && senderReady(proc)) rows.push({ item: "LED sending-card system", model: proc.senderModel ?? "", qty: 1, location: proc.name ?? proc.label, spec: `${proc.outputs} total LED RJ45 ports`, notes: "Operator-entered sender specification; verify installed hardware" });
+  }
   for (const e of project.equipment ?? [])
     rows.push({ item: (e as { name?: string }).name ?? "Equipment", model: (e as { type?: string }).type ?? "", qty: 1, location: "Stage", spec: "", notes: "" });
   return rows;

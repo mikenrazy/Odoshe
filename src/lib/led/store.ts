@@ -754,10 +754,10 @@ export const useEditor = create<EditorState>((set, get) => {
             if (!proc) return screen;
             return {
               ...screen,
-              rj45Port: Math.min(Math.max(1, Math.round(screen.rj45Port)), proc.outputs),
+              rj45Port: Math.min(Math.max(1, Math.round(screen.rj45Port)), Math.max(1, proc.outputs)),
               processorOutput: Math.min(
                 Math.max(1, Math.round(screen.processorOutput)),
-                proc.outputs,
+                Math.max(1, proc.outputs),
               ),
             };
           };
