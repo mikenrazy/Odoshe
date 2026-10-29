@@ -30,6 +30,7 @@ import { createEquipment, EQUIPMENT_LIBRARY } from "./equipment";
 import { withDerivedResolution, derivedResolution, CABINET_CATALOG, fitCabinets } from "./resolution";
 import { createRiser, STAGE_PRESETS } from "./stage-shapes";
 import { planPortDistribution } from "./ports";
+import { configureScreenSet } from "./screen-set";
 
 import { defaultScreen, screenFromPreset, SCREEN_PRESETS } from "./presets";
 import { buildLayout, type LayoutKind } from "./layouts";
@@ -277,6 +278,7 @@ export function ensureSeed(): Project[] {
  * its slice, so the whole group reads as a single combined resolution.
  */
 function splitGroupInProject(p: Project, groupId: string): Project {
+  if (p.groups?.some((g) => g.id === groupId && g.mappingMode === "shared-input")) return configureScreenSet(p, groupId);
   const members = p.screens
     .filter((s) => s.groupId === groupId)
     .sort((a, b) => a.position.x - b.position.x);
@@ -749,17 +751,17 @@ export const useEditor = create<EditorState>((set, get) => {
             };
           };
 
-          return {
+          const shared = p.groups?.some((g) => g.id === groupId && g.mappingMode === "shared-input");
+          const nextProject: Project = {
             ...p,
             screens: p.screens.map((s) => {
               if (s.id !== id) {
-                // Grouped sections are one logical screen: they always share the
-                // processor and the physical port of the section being edited.
+                // Shared input does not imply a shared physical data port.
                 if (routingPatch && groupId && s.groupId === groupId) {
                   return clamp({
                     ...s,
                     processorId: patch.processorId ?? s.processorId,
-                    rj45Port: patch.rj45Port ?? s.rj45Port,
+                    rj45Port: shared ? s.rj45Port : patch.rj45Port ?? s.rj45Port,
                     processorOutput: patch.processorOutput ?? s.processorOutput,
                   });
                 }
@@ -791,6 +793,8 @@ export const useEditor = create<EditorState>((set, get) => {
               return clamp(next);
             }),
           };
+          return shared && groupId && (routingPatch || patch.pixelWidth !== undefined || patch.pixelHeight !== undefined || patch.panelConfiguration !== undefined || patch.pixelPitch !== undefined || patch.cabinetKey !== undefined)
+            ? configureScreenSet(nextProject, groupId) : nextProject;
         },
         options?.history !== false,
       ),
@@ -914,14 +918,13 @@ export const useEditor = create<EditorState>((set, get) => {
         const lead = p.screens.find((s) => ids.includes(s.id));
         const next: Project = {
           ...p,
-          groups: [...(p.groups ?? []), { id, name: name || `LED Group ${(p.groups?.length ?? 0) + 1}`, continuous: true }],
+          groups: [...(p.groups ?? []), { id, name: name || `LED Group ${(p.groups?.length ?? 0) + 1}`, continuous: true, mappingMode: "shared-input" }],
           screens: p.screens.map((s) =>
             ids.includes(s.id)
               ? {
                   ...s,
                   groupId: id,
                   processorId: lead?.processorId ?? s.processorId,
-                  rj45Port: lead?.rj45Port ?? s.rj45Port,
                   processorOutput: lead?.processorOutput ?? s.processorOutput,
                 }
               : s,
@@ -960,7 +963,7 @@ export const useEditor = create<EditorState>((set, get) => {
                   ...s,
                   groupId: groupId ?? undefined,
                   processorId: peer?.processorId ?? s.processorId,
-                  rj45Port: peer?.rj45Port ?? s.rj45Port,
+                  rj45Port: p.groups?.some((g) => g.id === groupId && g.mappingMode === "shared-input") ? s.rj45Port : peer?.rj45Port ?? s.rj45Port,
                   processorOutput: peer?.processorOutput ?? s.processorOutput,
                 }
               : s,
@@ -974,8 +977,8 @@ export const useEditor = create<EditorState>((set, get) => {
 
 
     splitGroupResolution: (groupId) => {
-      mutate((p) => splitGroupInProject(p, groupId));
-      set({ status: "Group resolution split evenly" });
+      mutate((p) => configureScreenSet(p, groupId));
+      set({ status: "Shared input mapped; separate data ports assigned" });
     },
 
     autoDistributePorts: (processorId) => {

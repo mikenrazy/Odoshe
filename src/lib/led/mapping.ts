@@ -3,6 +3,7 @@ import { derivedResolution, projectChains } from "./resolution";
 import { computeGridNumbers } from "./grid-numbering";
 import { processorPortMap } from "./ports";
 import type { LedScreen, Project, ProcessorModel } from "./types";
+import { processorLayout, screenChains } from "./engineering";
 
 /**
  * The mapping chain is deliberately explicit:
@@ -85,10 +86,12 @@ export function validateMapping(project: Project): MappingIssue[] {
       continue;
     }
 
-    const key = `${proc.id}:${screen.rj45Port}`;
+    const shared = project.groups?.some((g) => g.mappingMode === "shared-input" && project.screens.some((s) => s.processorId === proc.id && s.groupId === g.id));
+    const startPort = shared ? screenChains(project, screen)[0]?.port ?? screen.rj45Port : screen.rj45Port;
+    const key = `${proc.id}:${startPort}`;
     const clash = seenPorts.get(key);
     // Sections in the same group are one logical screen and legitimately share a port.
-    const sameGroup = clash && screen.groupId && clash.groupId === screen.groupId;
+    const sameGroup = clash && screen.groupId && clash.groupId === screen.groupId && !shared;
     if (clash && !sameGroup) {
       issues.push({
         id: `${screen.id}-dupport`,
@@ -211,6 +214,10 @@ export function validateMapping(project: Project): MappingIssue[] {
   for (const group of project.groups ?? []) {
     const members = project.screens.filter((s) => s.groupId === group.id);
     if (members.length < 2) continue;
+    if (group.mappingMode === "shared-input" && members[0]) {
+      const layout = processorLayout(project, members[0].processorId);
+      for (const [i, detail] of layout.issues.entries()) issues.push({ id: `${group.id}-capacity-${i}`, level: "error", title: `${group.name}: shared-input configuration`, detail });
+    }
     const procIds = new Set(members.map((m) => m.processorId));
     if (procIds.size > 1) {
       issues.push({
