@@ -46,6 +46,9 @@ export function SetupPanel() {
 
       <DocumentCoverSection />
 
+      <ReportLogoSection />
+
+
       <Section title="Notes">
         <TextAreaField
           label="Production notes"
