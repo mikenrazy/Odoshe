@@ -4,6 +4,7 @@ import { useEditor } from "@/lib/led/store";
 import { billOfMaterials, bomCsv, globalLayout, graphicsSpec, graphicsSpecCsv, powerSettings } from "@/lib/led/engineering";
 import { downloadTechnicalReport } from "@/lib/led/export-technical-report";
 import { Button } from "@/components/ui/button";
+import { ProcessorGuideSection } from "./ProcessorGuideSection";
 import { NumberField, Readout, Section } from "./Field";
 
 export function EngineeringSection() {
@@ -49,6 +50,7 @@ export function EngineeringSection() {
           ))}
         </div>
       </Section>
+      <ProcessorGuideSection />
       <Section title="Reports">
         <div className="flex flex-col gap-2">
           <Button size="sm" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await downloadTechnicalReport(project); } catch { setError("Could not create the report. Please try again."); } finally { setBusy(false); } }}>
