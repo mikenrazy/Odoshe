@@ -5,6 +5,7 @@ import { computeGridNumbers } from "./grid-numbering";
 import { validateMapping } from "./mapping";
 import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower } from "./engineering";
 import { getAsset } from "./asset-store";
+import { processorGuide } from "./processor-guide";
 
 const W = 297, H = 210, M = 12;
 const BG: [number, number, number] = [14, 17, 23];
@@ -226,6 +227,26 @@ export async function buildTechnicalReport(project: Project) {
       details(doc, 200, end + 8, [["Max load", `${(pw.totalMaxW / 1000).toFixed(2)} kW`], ["Typical", pw.totalTypW ? `${(pw.totalTypW / 1000).toFixed(2)} kW` : "not entered"], ["Total current", `${pw.totalAmps.toFixed(1)} A`], ["Cab / circuit", `${pw.cabinetsPerCircuit}`]], 30);
       doc.setFontSize(6.5); doc.setTextColor(...MUTED); doc.text(doc.splitTextToSize(`Based on ${ps.cabinetMaxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 85), 200, end + 36);
     }
+  }
+
+  /* processor setup worksheets */
+  for (const proc of project.processors.filter((p) => screens.some((s) => s.processorId === p.id))) {
+    const g = processorGuide(project, proc);
+    if (!g.supported) continue;
+    page(doc, `${proc.name ?? proc.label} · Setup Guide`, "Front-panel Quick Configuration worksheet (from NovaStar user manual) — a plan, not a programmed device", project);
+    let y = 32;
+    doc.setFontSize(8);
+    g.steps.forEach((s, i) => { doc.setTextColor(...ACCENT); doc.text(`${i + 1}.`, M, y); doc.setTextColor(...TEXT); doc.text(s, M + 5, y); y += 5.5; });
+    y += 2;
+    for (const sc of g.screens) {
+      y = table(doc, M, y, [{ h: `${sc.screenName.toUpperCase()} · ROWS ${sc.rows} · COLUMNS ${sc.cols}`, w: 70 }, ...sc.ports.slice(0, 13).map((p) => ({ h: `P${p.port}`, w: 15.5 }))],
+        [["Cabinets", ...sc.ports.slice(0, 13).map((p) => String(p.cabinets))], ["Pixels (k)", ...sc.ports.slice(0, 13).map((p) => String(Math.round(p.pixels / 1000)))]]) + 2;
+      doc.setFontSize(6.5); doc.setTextColor(248, 113, 113);
+      for (const pr of sc.problems.slice(0, 3)) { doc.text(pr, M, y + 2); y += 4; }
+      y += 3;
+    }
+    doc.setFontSize(6.8); doc.setTextColor(...MUTED);
+    for (const n of g.notes) { const lines = doc.splitTextToSize(`• ${n}`, W - 2 * M); doc.text(lines, M, y + 2); y += lines.length * 3.6; }
   }
 
   /* validation & equipment */
