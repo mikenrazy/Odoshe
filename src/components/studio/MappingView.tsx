@@ -9,6 +9,18 @@ import { PixelMapBoard } from "./PixelMapBoard";
 export function MappingView() {
   const project = useEditor((s) => s.project);
   const select = useEditor((s) => s.select);
+  const updateScreen = useEditor((s) => s.updateScreen);
+  const fixOutside = (id: string) => {
+    if (!project) return;
+    const sc = project.screens.find((x) => x.id === id);
+    if (!sc) return;
+    const c = sc.content;
+    const width = Math.min(c.width, project.canvas.width);
+    const height = Math.min(c.height, project.canvas.height);
+    const x = Math.max(0, Math.min(c.x, project.canvas.width - width));
+    const y = Math.max(0, Math.min(c.y, project.canvas.height - height));
+    updateScreen(id, { content: { ...c, x, y, width, height } });
+  };
   const selectedId = useEditor((s) => s.selectedId);
 
   if (!project) return null;
@@ -216,6 +228,19 @@ export function MappingView() {
               </span>
               <span className="ml-2 text-foreground/90">{issue.title}</span>
               <p className="mt-1 text-muted-foreground">{issue.detail}</p>
+              {issue.id.endsWith("-outside") && issue.screenId && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fixOutside(issue.screenId!);
+                  }}
+                  className="mt-2 inline-block rounded bg-primary px-2 py-1 text-primary-foreground"
+                >
+                  Fix — move inside canvas
+                </span>
+              )}
             </button>
           ))}
         </div>
