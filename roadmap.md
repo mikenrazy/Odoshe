@@ -21,4 +21,5 @@
 - [x] Add explicit native P2 cabinet matrix entry without guessing dimensions.
 - [x] Include VDWall-specific configuration in the guide and technical report; verify tests and downloads.
 - [x] Add confirmed 0.56 × 0.56 m P2 cabinet-size option and two-port sender default.
+- [x] Add one-click measured P2 cabinet setup in LED settings, recalculate pixels and sender mapping, and verify through the UI and tests.
 - [ ] Finalize the user's actual P2/VDWall configuration — awaiting native cabinet matrix and fitted sending-card model/pixel capacities; dimensions and two ports are confirmed.
