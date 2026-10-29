@@ -1,5 +1,5 @@
 import { cabinetCalc } from "./calc";
-import type { LedScreen, Project } from "./types";
+import type { LedScreen, ProcessorModel, Project } from "./types";
 import { isLvp615, senderReady, lvp615Issues } from "./vdwall";
 
 /* ------------------------------------------------------------ canvas layout */
@@ -195,6 +195,26 @@ export function screenChains(project: Project, screen: LedScreen): CabinetChain[
     const port = firstPort + i;
     const colsUsed = path.map((p) => p[0]);
     return { port, colStart: Math.min(...colsUsed), colEnd: Math.max(...colsUsed), cabinets, pixels, loadPct: (pixels / max) * 100, path, overflow: proc ? port > proc.outputs : false };
+  });
+}
+
+/** Per-screen sender checks use the same physical chains as the technical report. */
+export function senderScreenCapacity(project: Project, processor: ProcessorModel) {
+  const screens = processorScreens(project, processor.id);
+  const totalPixels = screens.reduce((sum, s) => sum + s.pixelWidth * s.pixelHeight, 0);
+  return screens.map((screen) => {
+    const pixels = screen.pixelWidth * screen.pixelHeight;
+    const chains = screenChains(project, screen);
+    const issues: string[] = [];
+    if (processor.maxPixels > 0 && pixels > processor.maxPixels)
+      issues.push(`Screen exceeds sending-card capacity by ${(pixels - processor.maxPixels).toLocaleString()} px.`);
+    else if (processor.maxPixels > 0 && totalPixels > processor.maxPixels)
+      issues.push(`Combined assigned screens exceed sending-card capacity by ${(totalPixels - processor.maxPixels).toLocaleString()} px.`);
+    const oversized = chains.filter((chain) => chain.pixels > (processor.portMaxPixels ?? 0));
+    if (oversized.length) issues.push(`Port pixel limit exceeded: ${oversized.map((chain) => `P${chain.port} (${chain.pixels.toLocaleString()} px)`).join(", ")}.`);
+    const unavailable = chains.filter((chain) => chain.overflow);
+    if (unavailable.length) issues.push(`Requires unavailable sender ports ${unavailable.map((chain) => `P${chain.port}`).join(", ")}; only ${processor.outputs} fitted.`);
+    return { screenId: screen.id, name: screen.name, pixels, chains, issues, verified: senderReady(processor) };
   });
 }
 

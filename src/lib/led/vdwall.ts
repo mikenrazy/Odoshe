@@ -21,6 +21,13 @@ export function lvp615Issues(project: Project, p: ProcessorModel): string[] {
   const screens = project.screens.filter((s) => s.processorId === p.id && s.visible !== false);
   if (screens.length) {
     if (senderReady(p)) {
+      const totalPixels = screens.reduce((n, s) => n + s.pixelWidth * s.pixelHeight, 0);
+      if (totalPixels > p.maxPixels) issues.push(`INVALID SENDER LOAD: ${totalPixels.toLocaleString()} LED pixels exceed the sending-card limit of ${p.maxPixels.toLocaleString()} pixels.`);
+      for (const s of screens) {
+        const count = Math.max(1, s.panelConfiguration.cols * s.panelConfiguration.rows);
+        const cabinetPixels = s.pixelWidth * s.pixelHeight / count;
+        if (cabinetPixels > (p.portMaxPixels ?? 0)) issues.push(`${s.name}: one cabinet requires ${cabinetPixels.toLocaleString()} pixels, exceeding the sender's ${(p.portMaxPixels ?? 0).toLocaleString()} pixels per port. A cabinet cannot be split between ports.`);
+      }
       const required = screens.reduce((n, s) => { const count = Math.max(1, s.panelConfiguration.cols * s.panelConfiguration.rows); const px = s.pixelWidth * s.pixelHeight / count; const per = Math.max(1, Math.floor((p.portMaxPixels ?? 0) / Math.max(1, px))); return n + Math.ceil(count / per); }, 0);
       if (required > p.outputs) issues.push(`INVALID DATA PLAN: ${required} LED RJ45 ports required, but the sending card has only ${p.outputs}. Ports above P${p.outputs} do not exist; do not use this cable plan.`);
     }

@@ -12,8 +12,8 @@ import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { NumberField, Readout, Section, SelectField, TextField } from "../Field";
 import { PortMap } from "../PortMap";
 import { ScreenSetsSection } from "../ScreenSetsSection";
-import { screenChains } from "@/lib/led/engineering";
-import { isLvp615, LVP615_TIMINGS } from "@/lib/led/vdwall";
+import { screenChains, senderScreenCapacity } from "@/lib/led/engineering";
+import { isLvp615, LVP615_TIMINGS, senderReady } from "@/lib/led/vdwall";
 
 function sourceOptions(proc: ProcessorModel) {
   const catalog = PROCESSOR_CATALOG.find((c) => c.key === (proc.modelKey ?? proc.id));
@@ -39,7 +39,7 @@ export function ProcessorPanel() {
   const applySource = useEditor((s) => s.applyProcessorSourceToCanvas);
   const select = useEditor((s) => s.select);
 
-  const [model, setModel] = useState(PROCESSOR_CATALOG[0]!.key);
+  const [model, setModel] = useState(PROCESSOR_CATALOG[0]?.key ?? "vx1000");
 
   if (!project) return null;
   const groups = project.groups ?? [];
@@ -168,6 +168,25 @@ export function ProcessorPanel() {
                 <SelectField label="Input socket" value={proc.inputConnector ?? "HDMI"} options={["HDMI", "DVI", "DP", "VGA"].map((value) => ({ value, label: value }))} onChange={(v) => updateProcessor(proc.id, { inputConnector: v as ProcessorModel["inputConnector"], maxInputWidth: v === "DVI" ? 2304 : v === "VGA" ? 2048 : 1920, maxInputHeight: v === "DVI" || v === "VGA" ? 1152 : 1080 })} />
                 <SelectField label="DVI output (60 Hz)" value={`${proc.videoOutputWidth ?? 1920}x${proc.videoOutputHeight ?? 1080}`} options={LVP615_TIMINGS.map(([w, h]) => ({ value: `${w}x${h}`, label: `${w} × ${h}` }))} onChange={(v) => { const [w, h] = v.split("x").map(Number); updateProcessor(proc.id, { videoOutputWidth: w, videoOutputHeight: h }); }} />
                 <Readout rows={[["VIDEO OUT", "2 mirrored DVI outputs"], ["LED DATA", proc.senderModel || "Sender unconfirmed"], ["CONTROL", "LAN / USB / RS232"]]} />
+                <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                  The LVP615 manual specifies DVI video timings, not sending-card or RJ45 pixel limits. Enter limits from the fitted sending card’s specifications; DVI resolution is not LED port capacity.
+                </p>
+                <div className="mt-2 space-y-2" aria-label={`${processorName(proc)} screen capacity`}>
+                  {senderScreenCapacity(project, proc).map((capacity) => (
+                    <div key={capacity.screenId} className="border-l-2 border-border pl-2 text-[11px] leading-relaxed">
+                      <div className="break-words font-semibold text-foreground">{capacity.name}</div>
+                      <div className="text-muted-foreground">
+                        {capacity.pixels.toLocaleString()} px / {proc.maxPixels > 0 ? `${proc.maxPixels.toLocaleString()} px per sending card` : "card limit unconfirmed"}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {proc.portMaxPixels ? `${proc.portMaxPixels.toLocaleString()} px / RJ45 port` : "RJ45 pixel limit unconfirmed"}
+                      </div>
+                      {capacity.issues.map((issue) => <div key={issue} role="alert" className="break-words text-destructive">{issue}</div>)}
+                      {!capacity.verified && <div className="text-muted-foreground">Not verified — sender specifications required.</div>}
+                      {capacity.verified && !capacity.issues.length && <div className="text-primary">Within sender pixel and port limits.</div>}
+                    </div>
+                  ))}
+                </div>
               </>}
               <Readout
                 rows={[
@@ -182,7 +201,7 @@ export function ProcessorPanel() {
                   ["LED LOAD", `${load.toLocaleString()} px`],
                   [
                     "UTILISATION",
-                    `${pct.toFixed(1)}%`,
+                    isLvp615(proc) && !senderReady(proc) ? "Unconfirmed" : `${pct.toFixed(1)}%`,
                     pct > 100 ? "text-destructive" : undefined,
                   ],
                   [
@@ -301,7 +320,7 @@ export function ProcessorPanel() {
                       <span>→</span>
                       <span className="truncate text-foreground/90">
                         {groups.find((g) => g.id === s.groupId)?.name
-                          ? `${groups.find((g) => g.id === s.groupId)!.name} · ${s.name}`
+                          ? `${groups.find((g) => g.id === s.groupId)?.name} · ${s.name}`
                           : s.name}
                       </span>
                     </div>
