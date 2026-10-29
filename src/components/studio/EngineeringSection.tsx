@@ -67,8 +67,11 @@ export function EngineeringSection() {
       <ProcessorGuideSection />
       <Section title="Reports">
         <div className="flex flex-col gap-2">
-          <Button size="sm" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await downloadTechnicalReport(project); } catch { setError("Could not create the report. Please try again."); } finally { setBusy(false); } }}>
-            <FileText /> {busy ? "Generating…" : "Technical report (PDF)"}
+          <Button size="sm" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await downloadTechnicalReport(project, "light"); } catch { setError("Could not create the report. Please try again."); } finally { setBusy(false); } }}>
+            <FileText /> {busy ? "Generating…" : "Technical report — light (print)"}
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await downloadTechnicalReport(project, "dark"); } catch { setError("Could not create the report. Please try again."); } finally { setBusy(false); } }}>
+            <FileText /> Technical report — dark
           </Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(bomCsv(billOfMaterials(project)), "equipment-list")}><Sheet /> Equipment list (CSV)</Button>
           <Button size="sm" variant="outline" onClick={() => downloadCsv(graphicsSpecCsv(graphicsSpec(project)), "graphics-spec")}><Sheet /> Graphics spec for designer (CSV)</Button>
