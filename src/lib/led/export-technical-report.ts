@@ -1,7 +1,7 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
-import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging } from "./engineering";
+import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts } from "./engineering";
 import { getAsset } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
@@ -486,6 +486,12 @@ function masterSheet(doc: JsPDF, project: Project, screens: LedScreen[], ps: Ret
     const t = doc.splitTextToSize("Power not calculated — enter cabinet max watts and circuit rating (Summary tab › Power Planning) from manufacturer and venue data.", 84);
     doc.text(t, 195, y); y += t.length * 3 + 2;
   }
+  {
+    const rgs = screens.map((s) => screenRigging(s, ps));
+    if (rgs.length && rgs.every((r) => r.weightKg !== undefined)) {
+      kv("Total Suspended LED Load:", `${rgs.reduce((n, r) => n + r.weightKg!, 0).toFixed(1)} kg${rgs.every((r) => r.hoists) ? ` (${rgs.reduce((n, r) => n + r.hoists!, 0)} hoist points)` : ""}`);
+    }
+  }
   y += 4;
   head("3. DATA / PROCESSORS");
   for (const proc of project.processors.filter((p) => screens.some((s) => s.processorId === p.id))) {
@@ -598,6 +604,7 @@ export async function buildTechnicalReport(project: Project) {
       ["Total Resolution:", `${s.pixelWidth} x ${s.pixelHeight} px`],
       ["Footprint / Span:", `${+c.actualWidth.toFixed(2)}m W x ${+c.actualHeight.toFixed(2)}m H`],
       ["Processor:", proc ? `${proc.brand} ${proc.label}` : "not assigned"],
+      ["Total Rigging Weight:", (() => { const rg = screenRigging(s, ps); return rg.weightKg !== undefined ? `${rg.weightKg} kg${rg.hoists ? ` (${rg.hoists} hoists)` : ""}` : "enter kg/m²"; })()],
     ], ["PORT", "ROUTE (IN-OUT)", "CABS", "PIXELS", "LOAD"],
       chains.map((ch2, i) => {
         const a = ch2.path[0]!, b = ch2.path[ch2.path.length - 1]!;
@@ -624,7 +631,7 @@ export async function buildTechnicalReport(project: Project) {
       ], ["CIRC.", "FEED-P / ROUTE", "CABS", "POWER", "AMP"],
         pw.circuits.map((cir, i) => ({ colour: PALETTE[i % PALETTE.length]!, pct: cir.loadPct, cells: [cir.id, `${cir.phase} C${cir.path[0]![0] + 1}·R${cir.path[0]![1] + 1}–C${cir.colEnd + 1}`, `${cir.cabinets}c`, `${cir.maxW}W`, `${cir.amps.toFixed(1)}A`] })));
       doc.setFontSize(5); doc.setTextColor(...MUTED);
-      doc.text(doc.splitTextToSize(`Based on ${ps.cabinetMaxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
+      doc.text(doc.splitTextToSize(`Based on ${cabinetWatts(s, ps).maxW} W max per cabinet and ${ps.circuitAmps} A circuits loaded to ${ps.loadLimitPct}%. Final electrical design must be verified by a qualified electrician.`, 62), 220, Math.min(pEnd + 4, 178));
     }
   }
 
