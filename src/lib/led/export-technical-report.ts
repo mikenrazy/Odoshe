@@ -1,6 +1,6 @@
 import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
-import { billOfMaterials, cabinetCalc } from "./calc";
+import { cabinetCalc } from "./calc";
 import { chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
 import { getAsset } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
