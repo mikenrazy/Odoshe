@@ -42,6 +42,19 @@ describe("Power planning", () => {
   });
 });
 
+describe("Equipment list", () => {
+  it("one power jumper per cabinet minus one per circuit (78 cabinets, 6 circuits → 72)", async () => {
+    const { billOfMaterials } = await import("./engineering");
+    const proj = { ...project, processors: [] } as unknown as Project;
+    const rows = billOfMaterials({ ...proj, extensions: { power: { cabinetMaxW: 200, circuitAmps: 16 } } } as unknown as Project);
+    const jumpers = rows.find((r) => r.item === "Power jumper — cabinet to cabinet" && r.location === "CENTER")!;
+    expect(jumpers.qty).toBe(72);
+    const feeds = rows.find((r) => r.item === "Power circuit / feed" && r.location === "CENTER")!;
+    expect(feeds.qty).toBe(6);
+    expect(rows.find((r) => r.item === "Power jumper — cabinet to cabinet" && r.location === "LEFT-1")).toBeUndefined();
+  });
+});
+
 describe("Per-m² figures and rigging", () => {
   it("600 W/m² gives 300 W per 0.5×1 m cabinet (as in the sample)", async () => {
     const { cabinetWatts } = await import("./engineering");
