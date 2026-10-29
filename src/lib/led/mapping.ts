@@ -121,17 +121,6 @@ export function validateMapping(project: Project): MappingIssue[] {
       });
     }
 
-    const portPixels = screen.pixelWidth * screen.pixelHeight;
-    if (portPixels > proc.outputWidth * proc.outputHeight) {
-      issues.push({
-        id: `${screen.id}-portload`,
-        level: "warning",
-        title: `${screen.name}: exceeds single-port capacity`,
-        detail: `${screen.pixelWidth} × ${screen.pixelHeight} px needs more than one RJ45 port (port max ${proc.outputWidth} × ${proc.outputHeight}).`,
-        screenId: screen.id,
-      });
-    }
-
     const c = screen.content;
     if (c.width !== screen.pixelWidth || c.height !== screen.pixelHeight) {
       issues.push({
