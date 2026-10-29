@@ -17,7 +17,7 @@ function screen(id: string, x: number, w: number, h: number, cols: number, rows:
 const left = { ...screen("LEFT-1", -8.5, 4, 2.5, 8, 5, 0.5, 0.5, 1536), pixelHeight: 960, content: { x: 0, y: 0, width: 1536, height: 960 } };
 const centre = { ...screen("CENTER", 0, 13, 3, 26, 3, 0.5, 1, 4992), pixelHeight: 1152, content: { x: 1536, y: 0, width: 4992, height: 1152 } };
 const right = { ...screen("RIGHT-1", 8.5, 4, 2.5, 8, 5, 0.5, 0.5, 1536), pixelHeight: 960, content: { x: 6528, y: 0, width: 1536, height: 960 } };
-const project = { screens: [left, centre, right], processors: [], extensions: {} } as unknown as Project;
+const project = { screens: [left, centre, right], processors: [], extensions: { power: { portLoadPct: 100 } } } as unknown as Project;
 
 describe("CIO100 acceptance figures", () => {
   const g = globalLayout(project);
@@ -39,6 +39,19 @@ describe("Power planning", () => {
     expect(p.circuits.map((c) => c.phase).slice(0, 4)).toEqual(["T1·L1", "T1·L2", "T1·L3", "T2·L1"]);
     expect(Math.max(...p.circuits.map((c) => c.maxW))).toBeLessThanOrEqual(2944);
     expect(p.totalMaxW).toBe(15600);
+  });
+});
+
+describe("Max port load %", () => {
+  const panel = (cols: number) => ({ ...screen("S", 0, cols * 0.5, 2.5, cols, 5, 0.5, 0.5, cols * 192), pixelHeight: 960 });
+  const mk = (pct: number) => ({ screens: [panel(16)], processors: [{ id: "p", outputs: 10, portMaxPixels: 650_000 }], extensions: { power: { portLoadPct: pct } } }) as unknown as Project;
+  it("80 small panels at 85% use 6 ports of max 14", async () => {
+    const { screenChains } = await import("./engineering");
+    const p = mk(85); expect(screenChains(p, p.screens[0]!).map((c) => c.cabinets)).toEqual([14, 14, 14, 14, 14, 10]);
+  });
+  it("80 small panels at 100% use 5 ports", async () => {
+    const { screenChains } = await import("./engineering");
+    const p = mk(100); expect(screenChains(p, p.screens[0]!)).toHaveLength(5);
   });
 });
 
