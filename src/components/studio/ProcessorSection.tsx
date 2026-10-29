@@ -4,6 +4,7 @@ import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { processorName } from "@/lib/led/types";
 import {
   processorChain,
+  recommendedSource,
   STATUS_ICON,
   STATUS_LABEL,
   STATUS_TONE,
@@ -20,6 +21,7 @@ export function ProcessorSection({ screen }: Props) {
   const project = useEditor((s) => s.project);
   const updateScreen = useEditor((s) => s.updateScreen);
   const renumberGrids = useEditor((s) => s.renumberGrids);
+  const updateProcessor = useEditor((s) => s.updateProcessor);
 
   if (!project) return null;
   const processors = project.processors;
@@ -140,6 +142,20 @@ export function ProcessorSection({ screen }: Props) {
             ],
           ]}
         />
+        {(() => {
+          const rec = recommendedSource(active, chain.ledWidth, chain.ledHeight);
+          if (chain.ledWidth === 0 || (rec.width === chain.sourceWidth && rec.height === chain.sourceHeight))
+            return <p className="mt-2 text-[10px] text-[#4ade80]">Source resolution is the best match for this processor.</p>;
+          return (
+            <button
+              type="button"
+              onClick={() => updateProcessor(active.id, { inputWidth: rec.width, inputHeight: rec.height })}
+              className="mt-2 w-full border border-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              Use compatible source {rec.width} × {rec.height}{rec.exact ? " (1:1)" : ""}
+            </button>
+          );
+        })()}
         {chain.notes.length > 0 && (
           <ul className="mt-2 space-y-1 text-[10px] leading-relaxed text-muted-foreground">
             {chain.notes.map((n) => (

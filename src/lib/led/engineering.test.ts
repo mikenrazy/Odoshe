@@ -67,3 +67,20 @@ describe("VX1000 quick configuration guide", () => {
     expect(g.screens[0]!.ports.every((p) => p.pixels <= 650_000 && p.cabinets % 3 === 0)).toBe(true);
   });
 });
+
+describe("Processor-dependent resolution", () => {
+  it("VX1000 picks the exact 3840×1080 canvas as source (1:1)", async () => {
+    const { recommendedSource } = await import("./resolution");
+    expect(recommendedSource({ label: "VX1000", brand: "NovaStar", maxInputWidth: 3840, maxInputHeight: 1080, minInputWidth: 1920, minInputHeight: 1080 } as never, 3840, 1080)).toEqual({ width: 3840, height: 1080, exact: true });
+  });
+  it("VX600 picks the closest supported input for a wide canvas", async () => {
+    const { recommendedSource } = await import("./resolution");
+    const r = recommendedSource({ label: "VX600", modelKey: "vx600", brand: "NovaStar", maxInputWidth: 1920, maxInputHeight: 1200 } as never, 8064, 1152);
+    expect(r.exact).toBe(false);
+    expect(r.width).toBeLessThanOrEqual(1920);
+  });
+  it("a 4992 px wide screen is within the VX1000 load limit of 10,240 px", async () => {
+    const { loadLimits } = await import("./resolution");
+    expect(loadLimits({ brand: "NovaStar", label: "VX1000", outputWidth: 4096, outputHeight: 1080 } as never).width).toBe(10240);
+  });
+});
