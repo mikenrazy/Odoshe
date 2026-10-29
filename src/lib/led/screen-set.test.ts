@@ -24,6 +24,15 @@ function rig() {
 }
 
 describe("Shared-input LEFT + RIGHT", () => {
+  it("does not overlap or move the independent centre screen's content", () => {
+    const { p } = rig();
+    const center = { ...defaultScreen(2), id: "CENTER", processorId: "vx1000", content: { x: 1000, y: 0, width: 5200, height: 1200 } };
+    p.screens.push(center);
+    const next = configureScreenSet(p, "side-set");
+    expect(next.screens.find((s) => s.id === "CENTER")?.content).toEqual(center.content);
+    expect(next.screens.find((s) => s.id === "LEFT")?.content.x).toBe(6200);
+    expect(next.screens.find((s) => s.id === "RIGHT")?.content.x).toBe(7800);
+  });
   it("keeps both 1600 x 1000 native resolutions and physical positions", () => {
     const { p } = rig();
     const next = configureScreenSet(p, "side-set");

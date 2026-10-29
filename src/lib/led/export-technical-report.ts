@@ -627,6 +627,10 @@ export async function buildTechnicalReport(project: Project) {
       doc.text(`Input crop reference: X=${r.x}, Y=${r.y}, W=${r.width}, H=${r.height}. ${setLayout.exact ? "1:1 source." : "Scale full input to combined output; do not change cabinet pixels."}`, 14, 60);
       doc.setTextColor(...GREEN); doc.setFontSize(5);
       doc.text(`ONE INPUT -> ${proc?.name ?? proc?.label ?? "Processor"} -> P${chains[0]?.port ?? "?"}-P${chains.at(-1)?.port ?? "?"} -> ${s.name} (separate CAT6 home-runs)`, 14, 180);
+      if (setLayout.issues.length) {
+        doc.setTextColor(...RED); doc.setFontSize(5);
+        doc.text(doc.splitTextToSize(`CONFIGURATION WARNING: ${setLayout.issues.join(" ")}`, 192)[0] ?? "", 14, 175);
+      }
     }
     const yEnd = summaryCard(doc, `DATA SIGNAL SUMMARY — ${s.name.toUpperCase()}`, `${chains.length} RJ45 PORTS (CAT6)`, GREEN, [
       ["Total RJ45 Lines:", `${chains.length} Cat6 lines`],
