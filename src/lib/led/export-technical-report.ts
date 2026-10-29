@@ -173,7 +173,7 @@ function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number
 
 /* ---------- engineering sheet (data / power) ---------- */
 
-function sheetFrame(doc: JsPDF, s: LedScreen, kind: "data" | "power", subtitle: string, project: Project) {
+function sheetFrame(doc: JsPDF, s: LedScreen, kind: "data" | "power", subtitle: string, project: Project, powerV = 230) {
   doc.addPage("a4", "landscape");
   doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
   const c = cabinetCalc(s);
@@ -185,7 +185,7 @@ function sheetFrame(doc: JsPDF, s: LedScreen, kind: "data" | "power", subtitle: 
   doc.text("TARGET LED DISPLAY // SCREEN ID", 15, 15.5);
   doc.setFontSize(20); doc.setTextColor(255, 255, 255); doc.text(s.name.toUpperCase(), 15, 25);
   const nw = doc.getTextWidth(s.name.toUpperCase());
-  const tl = kind === "data" ? "DATA / CAT6 RJ45" : "POWER / 220V AC";
+  const tl = kind === "data" ? "DATA / CAT6 RJ45" : `POWER / ${powerV}V AC`;
   doc.setFontSize(6.5); const tw = doc.getTextWidth(tl) + 5;
   doc.setFillColor(...tag); doc.roundedRect(18 + nw, 19.3, tw, 6, 0.8, 0.8, "F");
   doc.setTextColor(10, 10, 10); doc.text(tl, 20.5 + nw, 23.4);
@@ -224,7 +224,7 @@ function wiringDrawing(doc: JsPDF, s: LedScreen, runs: Run[], prefix: string) {
   doc.setFont("courier", "bold"); doc.setFontSize(5);
   for (const r of [...runs].reverse().slice(0, 8)) {
     const tw = doc.getTextWidth(r.tag) + 5; lx -= tw + 1.5;
-    if (lx < 110) break;
+    if (lx < 70) break;
     doc.setDrawColor(...r.colour); doc.setFillColor(...CARD); doc.roundedRect(lx, 41.5, tw, 5, 0.6, 0.6, "FD");
     doc.setFillColor(...r.colour); doc.rect(lx + 1, 43, 1.6, 2, "F");
     doc.setTextColor(...TEXT); doc.text(r.tag, lx + 3.6, 45.1);
@@ -429,17 +429,17 @@ export async function buildTechnicalReport(project: Project) {
       ["Total Resolution:", `${s.pixelWidth} x ${s.pixelHeight} px`],
       ["Footprint / Span:", `${+c.actualWidth.toFixed(2)}m W x ${+c.actualHeight.toFixed(2)}m H`],
       ["Processor:", proc ? `${proc.brand} ${proc.label}` : "not assigned"],
-    ], ["PORT", "ROUTE (IN→OUT)", "CABS", "PIXELS", "LOAD"],
+    ], ["PORT", "ROUTE (IN-OUT)", "CABS", "PIXELS", "LOAD"],
       chains.map((ch2, i) => {
         const a = ch2.path[0]!, b = ch2.path[ch2.path.length - 1]!;
-        return { colour: PALETTE[i % PALETTE.length]!, pct: ch2.loadPct, cells: [`P${ch2.port}${ch2.overflow ? "*" : ""}`, `C${a[0] + 1}-R${a[1] + 1}→C${b[0] + 1}`, `${ch2.cabinets}c`, `${Math.round(ch2.pixels / 1000)}k px`, `${ch2.loadPct.toFixed(0)}%`] };
+        return { colour: PALETTE[i % PALETTE.length]!, pct: ch2.loadPct, cells: [`P${ch2.port}${ch2.overflow ? "*" : ""}`, `C${a[0] + 1}-R${a[1] + 1}-C${b[0] + 1}`, `${ch2.cabinets}c`, `${Math.round(ch2.pixels / 1000)}k px`, `${ch2.loadPct.toFixed(0)}%`] };
       }));
     doc.setFontSize(5); doc.setTextColor(...MUTED);
     const jm = chains.reduce((n, ch2) => n + chainCableM(s, ch2, 0).jumpersM, 0);
     doc.text(doc.splitTextToSize(`Panel-to-panel jumpers: ${jm.toFixed(1)} m total.${ps.dataHomeRunM ? ` Home run: ${ps.dataHomeRunM} m per port (estimate).` : " Home-run lengths: measure on site."}${chains.some((x) => x.overflow) ? ` * Port exceeds the ${proc?.outputs} outputs of this processor — add a second processor.` : ""}`, 62), 220, Math.min(yEnd + 4, 178));
 
     const pw = screenPower(s, ps);
-    sheetFrame(doc, s, "power", `POWER DISTRIBUTION DIAGRAM (${ps.voltage}V · POWERCON)`, project);
+    sheetFrame(doc, s, "power", `POWER DISTRIBUTION DIAGRAM (${ps.voltage}V · POWERCON)`, project, ps.voltage);
     const pRuns: Run[] = pw.circuits.map((cir, i) => ({ label: cir.id, colour: PALETTE[i % PALETTE.length]!, path: serpentine(cir.colStart, cir.colEnd, c.rows), tag: `${cir.id}: ${cir.cabinets} cabs (C${cir.colStart + 1}-C${cir.colEnd + 1})` }));
     wiringDrawing(doc, s, pRuns, "C");
     if (pw.status === "missing") {
