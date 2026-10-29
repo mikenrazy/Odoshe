@@ -2,7 +2,7 @@ import type { jsPDF as JsPDF } from "jspdf";
 import type { LedScreen, Project } from "./types";
 import { cabinetCalc } from "./calc";
 import { billOfMaterials, chainCableM, globalLayout, powerSettings, screenChains, screenPower, screenRigging, cabinetWatts, processorLayout } from "./engineering";
-import { getAsset } from "./asset-store";
+import { getAsset, getAssets } from "./asset-store";
 import { screenPaint, vividColour } from "./pixel-map-export";
 let PAINT = new Map<string, [number, number, number]>();
 
@@ -558,8 +558,13 @@ export async function buildTechnicalReport(project: Project, theme: ReportTheme 
   const screens = project.screens.filter((s) => s.visible !== false);
   const today = new Date().toLocaleDateString();
 
-  /* 1 — cover (logo, title, subtitle, date) */
-  const reportLogo = project.meta.reportLogo ?? (project.meta.reportLogoAssetId ? await getAsset(project.meta.reportLogoAssetId) : null);
+  /* 1 — cover (logo, title, subtitle, date). Light pages use the dedicated light logo, falling back to the dark one. */
+  const missingIds = [
+    ...(project.meta.reportLogo || project.meta.reportLogoAssetId ? [] : [project.meta.reportLogoAssetId]),
+    ...(project.meta.reportLogoLight || project.meta.reportLogoLightAssetId ? [] : [project.meta.reportLogoLightAssetId]),
+  ].filter(Boolean) as string[];
+  const assets = missingIds.length > 0 ? await getAssets(missingIds) : {};
+  const reportLogo = resolveReportLogo(project, theme, assets);
   LOGO = reportLogo;
   doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F");
   if (reportLogo) logo(doc, 50, 30, W - 100, 75, reportLogo);
