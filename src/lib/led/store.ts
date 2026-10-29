@@ -120,7 +120,11 @@ function stripHeavyMedia(projects: Project[]): Project[] {
 function forStorage(projects: Project[]): Project[] {
   return projects.map((p) => ({
     ...p,
-    meta: p.meta.coverAssetId ? { ...p.meta, coverImage: undefined } : p.meta,
+    meta: {
+      ...p.meta,
+      ...(p.meta.coverAssetId ? { coverImage: undefined } : {}),
+      ...(p.meta.reportLogoAssetId ? { reportLogo: undefined } : {}),
+    },
     screens: p.screens.map((s) => (s.contentAssetId ? { ...s, contentImage: undefined } : s)),
     media: (p.media ?? []).map((m) => (m.assetId ? { ...m, src: undefined } : m)),
   })) as Project[];
@@ -130,6 +134,7 @@ function forStorage(projects: Project[]): Project[] {
 export async function rehydrateAssets(project: Project): Promise<Project> {
   const ids = [
     ...(project.meta.coverAssetId && !project.meta.coverImage ? [project.meta.coverAssetId] : []),
+    ...(project.meta.reportLogoAssetId && !project.meta.reportLogo ? [project.meta.reportLogoAssetId] : []),
     ...(project.media ?? []).filter((m) => m.assetId && !m.src).map((m) => m.assetId!),
     ...project.screens.filter((s) => s.contentAssetId && !s.contentImage).map((s) => s.contentAssetId!),
   ];
@@ -137,10 +142,15 @@ export async function rehydrateAssets(project: Project): Promise<Project> {
   const assets = await getAssets([...new Set(ids)]);
   return {
     ...project,
-    meta:
-      project.meta.coverAssetId && !project.meta.coverImage && assets[project.meta.coverAssetId]
-        ? { ...project.meta, coverImage: assets[project.meta.coverAssetId] }
-        : project.meta,
+    meta: {
+      ...project.meta,
+      ...(project.meta.coverAssetId && !project.meta.coverImage && assets[project.meta.coverAssetId]
+        ? { coverImage: assets[project.meta.coverAssetId] }
+        : {}),
+      ...(project.meta.reportLogoAssetId && !project.meta.reportLogo && assets[project.meta.reportLogoAssetId]
+        ? { reportLogo: assets[project.meta.reportLogoAssetId] }
+        : {}),
+    },
     media: (project.media ?? []).map((m) =>
       m.assetId && !m.src && assets[m.assetId] ? { ...m, src: assets[m.assetId] } : m,
     ),
