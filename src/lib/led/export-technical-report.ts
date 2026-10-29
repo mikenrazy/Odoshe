@@ -90,7 +90,7 @@ function pixelMap(doc: JsPDF, screen: LedScreen, x: number, y: number, w: number
 
 export async function downloadTechnicalReport(project: Project) {
   const doc = await buildTechnicalReport(project);
-  return doc;
+  doc.save(`${project.name.replace(/[^\w\- ]+/g, "").trim() || "project"}-technical-report.pdf`);
 }
 
 /** Builds the multipage report from saved project data. */
@@ -139,7 +139,7 @@ export async function buildTechnicalReport(project: Project) {
       ["Physical area", `${c.area.toFixed(2)} m²`], ["Resolution", `${s.pixelWidth} × ${s.pixelHeight} px (${(s.pixelWidth * s.pixelHeight).toLocaleString()})`],
       ["Canvas offset", `X ${s.content.x} · Y ${s.content.y} px`], ["Position", `X ${s.position.x.toFixed(2)} · Y ${s.position.y.toFixed(2)} · Z ${s.position.z.toFixed(2)} m`],
       ["Rotation", `${s.rotation.y.toFixed(0)}° yaw · ${s.rotation.x.toFixed(0)}° tilt`], ["Grid numbers", `${grids.get(s.id)?.start ?? 1}–${(grids.get(s.id)?.start ?? 1) + c.total - 1}`],
-    ], 66);
+    ], 45);
   }
 
   /* full canvas layout */
@@ -159,7 +159,7 @@ export async function buildTechnicalReport(project: Project) {
     ["Total canvas", `${layout.canvasWidth} × ${layout.canvasHeight} px`], ["Active panels", `${layout.totalCabinets} un.`],
     ["Unused canvas", `${layout.unusedPixels.toLocaleString()} px`], ["Active area", `${layout.activeAreaM2.toFixed(2)} m²`],
     ["Footprint width", `${layout.footprintWidthM.toFixed(2)} m`], ["Footprint height", `${layout.footprintHeightM.toFixed(2)} m`],
-    ["Occupied pixels", layout.occupiedPixels.toLocaleString()], ["Note", "Logical canvas ≠ processor output"],
+    ["Occupied pixels", layout.occupiedPixels.toLocaleString()], ["Note", "Logical canvas, not a processor output"],
   ], 66);
   table(doc, M, 168, [{ h: "SCREEN", w: 60 }, { h: "X", w: 30 }, { h: "Y", w: 30 }, { h: "WIDTH", w: 35 }, { h: "HEIGHT", w: 35 }, { h: "PANELS", w: 30 }, { h: "AREA", w: 30 }],
     layout.placements.slice(0, 5).map((p) => [p.name, `${p.x}`, `${p.y}`, `${p.width} px`, `${p.height} px`, `${p.cols}×${p.rows}`, `${p.areaM2.toFixed(2)} m²`]));
