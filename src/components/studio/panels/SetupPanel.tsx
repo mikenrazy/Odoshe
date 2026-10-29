@@ -1,5 +1,6 @@
 import { useEditor } from "@/lib/led/store";
 import { DateField, Readout, Section, SelectField, TextAreaField, TextField } from "../Field";
+import { DocumentCoverSection } from "../DocumentCoverSection";
 import { ReportLogoSection } from "../ReportLogoSection";
 
 export function SetupPanel() {
