@@ -70,9 +70,7 @@ export function PixelMapBoard() {
     const r = { ...regionOf(d.id), x: d.ox + (e.clientX - d.sx) / scale, y: d.oy + (e.clientY - d.sy) / scale };
     const others = project.screens.filter((s) => s.id !== d.id && s.visible !== false).map((s) => regionOf(s.id));
     const res = snapRegion(r, "move", others, { width: L.canvasWidth, height: L.canvasHeight }, grid, snap, 24 / scale);
-    const out = "region" in (res as object) ? (res as unknown as { region: typeof r; guides: typeof guides }) : null;
-    const nr = out ? out.region : (res as unknown as typeof r);
-    setGuides(out?.guides ?? []);
+    const nr = res.region; setGuides(res.guides);
     d.moved = true; moveTo(d.id, nr.x, nr.y, false);
   };
   const onUp = () => {
@@ -83,7 +81,7 @@ export function PixelMapBoard() {
     if (!selected) return;
     const step = e.shiftKey ? 10 : 1;
     const k: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-    if (k[e.key]) { e.preventDefault(); moveTo(selected.id, selected.content.x + k[e.key][0], selected.content.y + k[e.key][1], true); }
+    const mv = k[e.key]; if (mv) { e.preventDefault(); moveTo(selected.id, selected.content.x + mv[0], selected.content.y + mv[1], true); }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); ed.deleteScreen(selected.id); }
   };
   const align = (mode: "left" | "top" | "bottom" | "center") => {
@@ -182,7 +180,7 @@ export function PixelMapBoard() {
       </div>
 
       <div className="px-4 pb-4"><CanvasScreenInspector /></div>
-      <div className="absolute bottom-4 right-3 flex flex-col items-center gap-1.5 rounded-full border border-border bg-card/90 p-1.5">
+      <div className="absolute right-3 top-44 flex flex-col items-center gap-1.5 rounded-full border border-border bg-card/90 p-1.5">
         {([[ZoomIn, "Zoom in", () => setZoom((z) => Math.min(4, z * 1.25))], [Maximize, "Fit", () => setZoom(1)], [ZoomOut, "Zoom out", () => setZoom((z) => Math.max(0.25, z / 1.25))]] as const).map(([Icon, t, fn]) => (
           <button key={t} title={t} onClick={fn} className="grid h-8 w-8 place-items-center rounded-full border border-border text-muted-foreground hover:text-primary">
             <Icon className="h-4 w-4" />
