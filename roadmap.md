@@ -15,7 +15,7 @@
 - [x] Verify screen-set setup, saved settings, and report download.
 
 # VDWall LVP615
-- [ ] Show balanced two-port P2 cabinet counts and cable paths in the Processor panel, with unconfirmed capacities kept provisional.
+- [x] Show balanced two-port P2 cabinet counts and cable paths in the Processor panel, with unconfirmed capacities kept provisional; tested cable order and saved-project reopening.
 - [x] Verify manual sender pixel limits: the supplied manual lists video timings only, not card/port LED pixel ratings.
 - [x] Display per-screen sender pixel overloads, combined-load overloads and unavailable ports in the Processor panel; verify tests and reopening.
 - [x] Add manual-based LVP615 settings and sender-aware validation.
