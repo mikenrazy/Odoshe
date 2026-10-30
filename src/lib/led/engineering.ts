@@ -182,7 +182,10 @@ export function screenChains(project: Project, screen: LedScreen): CabinetChain[
   const { proc, max } = portCapacity(project, screen);
   if (isLvp615(proc) && !senderReady(proc)) return [];
   const pxPerCab = (screen.pixelWidth / c.cols) * (screen.pixelHeight / c.rows);
-  const per = cabinetsPerPortFor(project, screen);
+  const capacityPer = cabinetsPerPortFor(project, screen);
+  const singleTwoPortSender = isLvp615(proc) && proc?.outputs === 2 && processorScreens(project, screen.processorId).length === 1;
+  const balancedPer = Math.ceil(c.total / 2);
+  const per = singleTwoPortSender && balancedPer <= capacityPer ? Math.max(1, balancedPer) : capacityPer;
   let firstPort = 1;
   for (const other of processorScreens(project, screen.processorId)) {
     if (other.id === screen.id) break;
@@ -195,6 +198,30 @@ export function screenChains(project: Project, screen: LedScreen): CabinetChain[
     const port = firstPort + i;
     const colsUsed = path.map((p) => p[0]);
     return { port, colStart: Math.min(...colsUsed), colEnd: Math.max(...colsUsed), cabinets, pixels, loadPct: (pixels / max) * 100, path, overflow: proc ? port > proc.outputs : false };
+  });
+}
+
+/** Unverified physical planning only: never used to assert compatibility or export data chains. */
+export function senderPortPreview(project: Project, processor: ProcessorModel) {
+  const screens = processorScreens(project, processor.id);
+  if (!isLvp615(processor) || processor.outputs !== 2) return [];
+  if (senderReady(processor)) return screens.map((screen) => ({ screen, provisional: false, chains: screenChains(project, screen), issue: undefined as string | undefined }));
+  if (screens.length > processor.outputs) return screens.map((screen) => ({ screen, provisional: true, chains: [] as CabinetChain[], issue: "More separate screens than fitted ports. Confirm sender specifications before assigning cable paths." }));
+  return screens.map((screen, index) => {
+    const c = cabinetCalc(screen);
+    const path = screenSerpentine(c.cols, c.rows);
+    const per = screens.length === 1 ? Math.ceil(c.total / 2) : c.total;
+    const chains = chunkPath(path, Math.max(1, per)).map((run, i): CabinetChain => ({
+      port: screens.length === 1 ? i + 1 : index + 1,
+      colStart: Math.min(...run.map(([col]) => col)),
+      colEnd: Math.max(...run.map(([col]) => col)),
+      cabinets: run.length,
+      pixels: Math.round(run.length * screen.pixelWidth * screen.pixelHeight / c.total),
+      loadPct: 0,
+      path: run,
+      overflow: false,
+    }));
+    return { screen, provisional: true, chains, issue: undefined as string | undefined };
   });
 }
 

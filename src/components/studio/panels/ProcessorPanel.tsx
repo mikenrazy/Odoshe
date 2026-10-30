@@ -12,6 +12,7 @@ import { computeGridNumbers } from "@/lib/led/grid-numbering";
 import { NumberField, Readout, Section, SelectField, TextField } from "../Field";
 import { PortMap } from "../PortMap";
 import { ScreenSetsSection } from "../ScreenSetsSection";
+import { SenderCablePaths } from "../SenderCablePaths";
 import { screenChains, senderScreenCapacity } from "@/lib/led/engineering";
 import { isLvp615, LVP615_TIMINGS, senderReady } from "@/lib/led/vdwall";
 
@@ -211,6 +212,7 @@ export function ProcessorPanel() {
                   ],
                 ]}
               />
+              {isLvp615(proc) && <SenderCablePaths project={project} processor={proc} />}
               <PortMap project={project} processor={proc} />
             </div>
           );
