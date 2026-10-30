@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createProject, normalizeProject, PROCESSOR_CATALOG, processorFromCatalog, PANEL_SIZE_PRESETS } from "./types";
 import { defaultScreen } from "./presets";
 import { derivedResolution, withDerivedResolution } from "./resolution";
-import { screenChains, senderScreenCapacity } from "./engineering";
+import { screenChains, senderScreenCapacity, senderPortPreview } from "./engineering";
 import { processorPortMap, planPortDistribution } from "./ports";
 import { lvp615Issues, senderReady } from "./vdwall";
 
@@ -13,6 +13,24 @@ const base = { ...defaultScreen(0), processorId: "vd", pixelPitch: 2, cabinetKey
 const screen = withDerivedResolution(base);
 const project = { ...createProject("VDWall checks"), processors: [proc], screens: [screen] };
 describe("LVP615 mapping", () => {
+  it("previews all eight P2 0.56m cabinets across the two fitted ports without claiming capacity", () => {
+    const result = senderPortPreview(project, proc)[0];
+    expect(result?.provisional).toBe(true);
+    expect(result?.chains.map((c) => [c.port, c.cabinets, c.pixels])).toEqual([[1, 4, 313600], [2, 4, 313600]]);
+    expect(result?.chains.map((c) => c.path)).toEqual([[[0, 1], [0, 0], [1, 0], [1, 1]], [[2, 1], [2, 0], [3, 0], [3, 1]]]);
+    expect(screenChains(project, screen)).toEqual([]);
+  });
+  it("keeps an odd cabinet count whole and balanced across two ports", () => {
+    const odd = withDerivedResolution({ ...base, physicalWidth: 2.8, physicalHeight: 0.56, panelConfiguration: { ...base.panelConfiguration, cols: 5, rows: 1 } });
+    expect(senderPortPreview({ ...project, screens: [odd] }, proc)[0]?.chains.map((c) => c.cabinets)).toEqual([3, 2]);
+  });
+  it("balances confirmed two-port chains and keeps preview identical to authoritative mapping", () => {
+    const sender = { ...proc, senderModel: "Test sender", portMaxPixels: 650000, maxPixels: 1300000 };
+    const confirmed = { ...project, processors: [sender] };
+    expect(screenChains(confirmed, screen).map((c) => c.cabinets)).toEqual([4, 4]);
+    expect(senderPortPreview(confirmed, sender)[0]?.chains).toEqual(screenChains(confirmed, screen));
+    expect(senderPortPreview(confirmed, sender)[0]?.provisional).toBe(false);
+  });
   it("flags the screen when its 627200 pixels exceed an entered 600000-pixel card limit", () => {
     const sender = { ...proc, senderModel: "Test sender", portMaxPixels: 400000, maxPixels: 600000 };
     const result = senderScreenCapacity({ ...project, processors: [sender] }, sender)[0];
