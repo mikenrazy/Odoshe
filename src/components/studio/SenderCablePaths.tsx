@@ -36,7 +36,7 @@ export function SenderCablePaths({ project, processor }: { project: Project; pro
               const end = chain?.path.at(-1);
               return <div key={port} className="border-l-2 border-border pl-2">
                 <div className={port === 1 ? "font-semibold text-primary" : "font-semibold text-accent"}>Port {port} · {chain?.cabinets ?? 0} cabinets · {chain?.pixels.toLocaleString() ?? 0} px</div>
-                {start && end ? <>
+                {chain && start && end ? <>
                   <div className="break-words text-muted-foreground">Sender P{port} → C{start[0] + 1}/R{start[1] + 1} → {chain.cabinets - 1} cabinet jumpers → C{end[0] + 1}/R{end[1] + 1}</div>
                   <details className="text-muted-foreground"><summary className="cursor-pointer">Full cable order · columns left to right, rows top to bottom</summary><p className="mt-1 break-words">{chain.path.map(([col, row]) => `C${col + 1}/R${row + 1}`).join(" → ")}</p></details>
                 </> : <div className="text-muted-foreground">No cable assigned on this screen.</div>}
